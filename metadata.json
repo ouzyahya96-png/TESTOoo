@@ -1,0 +1,6 @@
+{
+  "name": "Alpha Man Design System",
+  "description": "Premium design system and component laboratory for ALPHA MAN - World-Class Men's Wellness app. Complete with live playgrounds, CSS parameters, and React Native / React templates.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

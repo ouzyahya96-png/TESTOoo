@@ -1,0 +1,594 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+// ============================================================================
+// ENUMS DEFINITIONS
+// ============================================================================
+
+enum Gender {
+  MALE
+  FEMALE
+  OTHER
+  PREFER_NOT_TO_SAY
+}
+
+enum SubscriptionTier {
+  FREE
+  PREMIUM
+  ELITE
+  ELITE_PREMIUM
+  ALPHA_ULTIMATE
+}
+
+enum GoalType {
+  BRAIN_REWIRE
+  PERFORMANCE
+  CONFIDENCE
+  ALL
+}
+
+enum StruggleDuration {
+  LESS_THAN_1_YEAR
+  ONE_TO_THREE
+  THREE_TO_FIVE
+  FIVE_PLUS
+}
+
+enum TriggerType {
+  EVENING_ALONE
+  MORNING_WAKE
+  STRESS
+  BOREDOM
+  SOCIAL_MEDIA
+  WEEKEND
+  OTHER
+}
+
+enum MoodState {
+  EXHAUSTED
+  ANXIOUS
+  MOTIVATED
+  HOPELESS
+  DETERMINED
+}
+
+enum SleepQuality {
+  POOR
+  FAIR
+  GOOD
+  EXCELLENT
+}
+
+enum PatternType {
+  STRESS
+  BOREDOM
+  LONELINESS
+  EVENING
+  MORNING
+  SOCIAL_MEDIA
+  WEEKEND
+  OTHER
+}
+
+enum InterventionType {
+  BREATHING
+  COLD_SHOWER
+  EXERCISE
+  CALL_BUDDY
+  JOURNAL
+  OTHER
+}
+
+enum BreathType {
+  BOX_BREATHING
+  WIM_HOF
+  FOUR_SEVEN_EIGHT
+  ALPHA_BREATH
+  OTHER
+}
+
+enum SupplementType {
+  ZINC
+  MAGNESIUM
+  VITAMIN_D
+  OMEGA3
+  MACA
+  ASHWAGANDHA
+  OTHER
+}
+
+enum VitalityTransactionType {
+  KEGEL_COMPLETE
+  BREATHING_COMPLETE
+  SUN_COMPLETE
+  SLEEP_COMPLETE
+  COLD_COMPLETE
+  NUTRITION_LOGGED
+  JOURNAL_COMPLETE
+  PATTERN_RESISTED
+  STREAK_BONUS_7
+  STREAK_BONUS_30
+  HELP_BUDDY
+  AD_WATCHED
+  LEVEL_UP
+  CHALLENGE_COMPLETE
+  REFERRAL
+  PURCHASE
+  REDEEM
+}
+
+enum ClanRole {
+  MEMBER
+  ELDER
+  LEADER
+}
+
+enum ChallengeType {
+  INDIVIDUAL
+  CLAN
+}
+
+enum EducationCategory {
+  NEUROSCIENCE
+  KEGEL
+  NUTRITION
+  SLEEP
+  BREATHING
+  CONFIDENCE
+  COMMUNICATION
+}
+
+enum NotificationType {
+  PATTERN_ALERT
+  KEGEL_REMINDER
+  BREATHING_REMINDER
+  SUN_REMINDER
+  SLEEP_REMINDER
+  STREAK_WARNING
+  LEVEL_UP
+  CHALLENGE_UPDATE
+  COMMUNITY_MESSAGE
+  SYSTEM
+}
+
+enum AdProvider {
+  ADMOB
+  UNITY
+  IRONSOURCE
+}
+
+enum AdType {
+  VIDEO
+  INTERSTITIAL
+  REWARDED
+}
+
+enum AdRewardTier {
+  PREMIUM_DAY
+  ELITE_DAY
+  FEATURE_UNLOCK
+}
+
+enum Currency {
+  MAD
+  USD
+}
+
+enum PaymentMethod {
+  CREDIT_CARD
+  PAYPAL
+  CMI
+  INWI
+  ORANGE
+  CIH
+}
+
+enum TransactionStatus {
+  PENDING
+  SUCCESS
+  FAILED
+  REFUNDED
+}
+
+enum ExpertSpecialty {
+  UROLOGY
+  PHYSIOTHERAPY
+  SEXOLOGY
+  FITNESS
+  BIOHACKING
+  YOGA
+  ANDROLOGY
+  PHYSIOTHERAPY_GENERAL
+  RESEARCH
+  ENDOCRINOLOGY
+  SLEEP
+  NEUROSCIENCE
+  PSYCHIATRY
+  NEUROFEEDBACK
+  NEUROPHARMACOLOGY
+  SNA
+  NEUROPSYCHOLOGY
+  NEUROPLASTICITY
+  COACH
+}
+
+enum ExpertContentTier {
+  KEGEL
+  NEUROSCIENCE
+  BOTH
+}
+
+enum ExpertContentType {
+  ARTICLE
+  VIDEO
+  PODCAST
+  LIVE_QA
+}
+
+enum AppLanguage {
+  FR
+  AR
+  EN
+}
+
+// ============================================================================
+// MODELS DEFINITIONS
+// ============================================================================
+
+model User {
+  id                    String                    @id @default(uuid()) @db.Uuid
+  email                 String                    @unique
+  passwordHash          String
+  phoneNumber           String?                   @unique
+  displayName           String                    @db.VarChar(30)
+  avatarUrl             String?
+  dateOfBirth           DateTime?
+  gender                Gender
+  country               String                    @default("MA")
+  language              String                    @default("fr")
+  timezone              String                    @default("Africa/Casablanca")
+  subscriptionTier      SubscriptionTier          @default(FREE)
+  subscriptionExpiresAt DateTime?
+  vitalityPoints        Int                       @default(0)
+  currentLevel          Int                       @default(1)
+  currentStreak         Int                       @default(0)
+  longestStreak         Int                       @default(0)
+  lastActiveAt          DateTime                  @default(now())
+  createdAt             DateTime                  @default(now())
+  updatedAt             DateTime                  @updatedAt
+  isActive              Boolean                   @default(true)
+  isVerified            Boolean                   @default(false)
+  referralCode          String                    @unique
+  
+  // Self-Referral relations
+  referredById          String?                   @db.Uuid
+  referredBy            User?                     @relation("UserReferralRelation", fields: [referredById], references: [id], onDelete: SetNull)
+  referrals             User[]                    @relation("UserReferralRelation")
+
+  // Relations
+  profile               UserProfile?
+  settings              Settings?
+  patternTrackers       PatternTracker[]
+  kegelSessions         KegelSession[]
+  vitalityLogs          VitalityLog[]
+  vitalityTransactions  VitalityTransaction[]
+  clanMemberships       ClanMembership[]
+  challengeParticipations ChallengeParticipation[]
+  educationProgresses   UserEducationProgress[]
+  journalEntries        JournalEntry[]
+  notifications         Notification[]
+  adRewards             AdReward[]
+  subscriptionTransactions SubscriptionTransaction[]
+
+  @@index([email])
+  @@index([subscriptionTier])
+  @@index([vitalityPoints])
+  @@index([createdAt])
+}
+
+model UserProfile {
+  id                     String           @id @default(uuid()) @db.Uuid
+  userId                 String           @unique @db.Uuid
+  user                   User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  goal                   GoalType
+  struggleDuration       StruggleDuration
+  primaryTriggers        TriggerType[]
+  currentMood            MoodState
+  sleepQuality           SleepQuality
+  stressLevel            Int              // 1-10
+  currentKegelLevel      Int              @default(1)
+  kegelForceScore        Int              @default(0)
+  kegelEnduranceSeconds  Int              @default(0)
+  vitalityScore          Int              @default(0)
+  patternRiskScore       Int              @default(50) // 0-100
+  onboardingCompleted    Boolean          @default(false)
+  onboardingStep         Int              @default(1)
+}
+
+model PatternTracker {
+  id                 String           @id @default(uuid()) @db.Uuid
+  userId             String           @db.Uuid
+  user               User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  patternType        PatternType
+  triggerDetectedAt  DateTime
+  riskScore          Int              // 0-100
+  contextData        Json             // location, time, app usage, sleep quality, stress level
+  interventionSent   Boolean          @default(false)
+  interventionType   InterventionType
+  userResponded      Boolean          @default(false)
+  relapseOccurred    Boolean          @default(false)
+  createdAt          DateTime         @default(now())
+
+  @@index([userId, createdAt])
+  @@index([userId, patternType])
+}
+
+model KegelSession {
+  id                  String    @id @default(uuid()) @db.Uuid
+  userId              String    @db.Uuid
+  user                User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  level               Int       // 1-10
+  durationSeconds     Int
+  contractionsCount   Int
+  averageHoldSeconds  Int
+  maxHoldSeconds      Int
+  forceScore          Int       // 0-100
+  completed           Boolean
+  skipped             Boolean   @default(false)
+  notes               String?   @db.Text
+  scheduledAt         DateTime
+  completedAt         DateTime?
+  createdAt           DateTime  @default(now())
+
+  @@index([userId, completedAt])
+  @@index([userId, level])
+}
+
+model VitalityLog {
+  id                  String           @id @default(uuid()) @db.Uuid
+  userId              String           @db.Uuid
+  user                User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  date                DateTime         @db.Date
+  sleepScore          Int              // 0-100
+  sleepHours          Float
+  sleepBedTime        String?          // HH:MM format or ISO Time string
+  sleepWakeTime       String?          // HH:MM format or ISO Time string
+  sunScore            Int              // 0-100
+  sunMinutes          Int
+  sunTimestamp        DateTime?
+  nutritionScore      Int              // 0-100
+  nutritionLogged     Boolean
+  supplementsTaken    SupplementType[]
+  coldScore           Int              // 0-100
+  coldDurationSeconds Int
+  coldTemperature     Float?
+  breathScore         Int              // 0-100
+  breathMinutes       Int
+  breathType          BreathType
+  overallScore        Int              // 0-100
+  createdAt           DateTime         @default(now())
+  updatedAt           DateTime         @updatedAt
+
+  @@unique([userId, date])
+}
+
+model VitalityTransaction {
+  id                 String                  @id @default(uuid()) @db.Uuid
+  userId             String                  @db.Uuid
+  user               User                    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  amount             Int                     // Can be positive or negative
+  type               VitalityTransactionType
+  description        String
+  relatedEntityType  String?                 // e.g. "KEGEL_SESSION", "PATTERN_TRACKER"
+  relatedEntityId    String?                 @db.Uuid
+  createdAt          DateTime                @default(now())
+
+  @@index([userId, createdAt])
+  @@index([userId, type])
+}
+
+model Level {
+  id          Int      @id
+  name        String   @unique
+  minPoints   Int
+  maxPoints   Int
+  badgeUrl    String
+  unlocks     Json     // Array of strings representing unlocked features
+  description String
+}
+
+model Clan {
+  id                      String           @id @default(uuid()) @db.Uuid
+  name                    String           @unique
+  description             String
+  badgeUrl                String
+  memberCount             Int              @default(0)
+  totalVitalityPoints     BigInt           @default(0)
+  weeklyChallengeProgress Int              @default(0)
+  weeklyChallengeGoal     Int              @default(0)
+  createdAt               DateTime         @default(now())
+
+  members                 ClanMembership[]
+}
+
+model ClanMembership {
+  id                 String    @id @default(uuid()) @db.Uuid
+  userId             String    @db.Uuid
+  user               User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  clanId             String    @db.Uuid
+  clan               Clan      @relation(fields: [clanId], references: [clanId], onDelete: Cascade)
+  role               ClanRole  @default(MEMBER)
+  joinedAt           DateTime  @default(now())
+  contributionPoints Int       @default(0)
+
+  @@unique([userId, clanId])
+}
+
+model Challenge {
+  id            String                  @id @default(uuid()) @db.Uuid
+  name          String
+  description   String
+  type          ChallengeType
+  startDate     DateTime
+  endDate       DateTime
+  goal          Json                    // { "type": "kegel", "target": 500, "unit": "reps" }
+  rewardPoints  Int
+  rewardBadge   String?
+  createdAt     DateTime                @default(now())
+
+  participations ChallengeParticipation[]
+}
+
+model ChallengeParticipation {
+  id          String    @id @default(uuid()) @db.Uuid
+  userId      String    @db.Uuid
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  challengeId String    @db.Uuid
+  challenge   Challenge @relation(fields: [challengeId], references: [id], onDelete: Cascade)
+  progress    Int       @default(0)
+  completed   Boolean   @default(false)
+  completedAt DateTime?
+  rank        Int?
+
+  @@unique([userId, challengeId])
+}
+
+model JournalEntry {
+  id          String   @id @default(uuid()) @db.Uuid
+  userId      String   @db.Uuid
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  mood        Int      // 1-10
+  energyLevel Int      // 1-10
+  urgeLevel   Int      // 0-10
+  notes       String?  @db.Text
+  tags        String[]
+  createdAt   DateTime @default(now())
+
+  @@index([userId, createdAt])
+}
+
+model EducationModule {
+  id               String            @id @default(uuid()) @db.Uuid
+  title            String
+  description      String            @db.Text
+  content          Json              // Array of { "type": "video"|"text"|"quiz", "data": ... }
+  category         EducationCategory
+  level            Int               // 1-5
+  requiredTier     SubscriptionTier  @default(FREE)
+  order            Int
+  estimatedMinutes Int
+  createdAt        DateTime          @default(now())
+
+  progresses       UserEducationProgress[]
+}
+
+model UserEducationProgress {
+  id              String          @id @default(uuid()) @db.Uuid
+  userId          String          @db.Uuid
+  user            User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  moduleId        String          @db.Uuid
+  module          EducationModule @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  progressPercent Int             @default(0)
+  completed       Boolean         @default(false)
+  completedAt     DateTime?
+  quizScore       Int?
+
+  @@unique([userId, moduleId])
+}
+
+model Notification {
+  id           String           @id @default(uuid()) @db.Uuid
+  userId       String           @db.Uuid
+  user         User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type         NotificationType
+  title        String
+  body         String
+  data         Json?
+  read         Boolean          @default(false)
+  actionTaken  Boolean          @default(false)
+  scheduledAt  DateTime?
+  sentAt       DateTime?
+  createdAt    DateTime         @default(now())
+
+  @@index([userId, read, createdAt])
+}
+
+model AdReward {
+  id           String        @id @default(uuid()) @db.Uuid
+  userId       String        @db.Uuid
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  adProvider   AdProvider
+  adType       AdType
+  watchedAt    DateTime      @default(now())
+  rewardPoints Int
+  rewardTier   AdRewardTier?
+  createdAt    DateTime      @default(now())
+}
+
+model SubscriptionTransaction {
+  id                     String            @id @default(uuid()) @db.Uuid
+  userId                 String            @db.Uuid
+  user                   User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tier                   SubscriptionTier
+  amount                 Int               // Cents amount
+  currency               Currency          @default(MAD)
+  paymentMethod          PaymentMethod
+  status                 TransactionStatus
+  transactionId          String            @unique
+  providerTransactionId  String?
+  startedAt              DateTime
+  expiresAt              DateTime
+  createdAt              DateTime          @default(now())
+}
+
+model Expert {
+  id          String            @id @default(uuid()) @db.Uuid
+  name        String
+  title       String
+  specialty   ExpertSpecialty
+  bio         String            @db.Text
+  avatarUrl   String
+  credentials Json              // Credentials array
+  tier        ExpertContentTier
+  isActive    Boolean           @default(true)
+  createdAt   DateTime          @default(now())
+
+  contents    ExpertContent[]
+}
+
+model ExpertContent {
+  id              String            @id @default(uuid()) @db.Uuid
+  expertId        String            @db.Uuid
+  expert          Expert            @relation(fields: [expertId], references: [id], onDelete: Cascade)
+  title           String
+  type            ExpertContentType
+  content         Json
+  requiredTier    SubscriptionTier  @default(ELITE)
+  durationMinutes Int?
+  createdAt       DateTime          @default(now())
+}
+
+model Settings {
+  id                     String      @id @default(uuid()) @db.Uuid
+  userId                 String      @unique @db.Uuid
+  user                   User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  notificationsEnabled   Boolean     @default(true)
+  kegelReminders         Json        // { "enabled": true, "times": ["08:00", "20:00"] }
+  breathingReminders     Json        // { "enabled": true, "times": ["14:00"] }
+  sunReminders           Json        // { "enabled": true, "time": "10:00" }
+  sleepReminders         Json        // { "enabled": true, "time": "22:00" }
+  coldReminders          Json        // { "enabled": true, "times": ["07:00"] }
+  patternAlertsEnabled   Boolean     @default(true)
+  communityNotifications Boolean     @default(true)
+  challengeNotifications Boolean     @default(true)
+  darkMode               Boolean     @default(true)
+  language               AppLanguage @default(FR)
+  createdAt              DateTime    @default(now())
+  updatedAt              DateTime    @updatedAt
+}

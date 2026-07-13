@@ -1,0 +1,113 @@
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@700;800&family=Inter:wght@400;500;600&family=Roboto+Mono:wght@400;500;700&family=Noto+Sans+Arabic:wght@400;700&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --color-primary: #1A1A2E;
+  --color-secondary: #E94560;
+  --color-accent: #FFD700;
+  --color-background: #0F0F1A;
+  --color-surface: #16213E;
+  --color-success: #00D9A5;
+  --color-warning: #FF9500;
+  --color-error: #FF2D55;
+  
+  --color-text-primary: #FFFFFF;
+  --color-text-secondary: #8E8E93;
+  --color-text-tertiary: #5A5A5A;
+
+  --font-headline: "Montserrat", sans-serif;
+  --font-body: "Inter", sans-serif;
+  --font-mono: "Roboto Mono", monospace;
+  --font-arabic: "Noto Sans Arabic", sans-serif;
+
+  --radius-cards: 16px;
+  --radius-buttons-primary: 12px;
+  --radius-buttons-secondary: 8px;
+  --radius-inputs: 12px;
+
+  --shadow-level1: 0 2px 8px rgba(0, 0, 0, 0.3);
+  --shadow-level2: 0 4px 16px rgba(0, 0, 0, 0.4);
+  --shadow-level3: 0 8px 32px rgba(0, 0, 0, 0.5);
+  --shadow-glow-success: 0 0 20px rgba(0, 217, 165, 0.3);
+  --shadow-glow-alert: 0 0 20px rgba(255, 149, 0, 0.3);
+
+  --animate-streak-fire: pulse-fire 2s infinite;
+}
+
+@keyframes pulse-fire {
+  0%, 100% {
+    transform: scale(1);
+    filter: drop-shadow(0 0 4px rgba(233, 69, 96, 0.6));
+  }
+  50% {
+    transform: scale(1.08);
+    filter: drop-shadow(0 0 16px rgba(233, 69, 96, 0.9));
+  }
+}
+
+/* Custom transitions and scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #0F0F1A;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #16213E;
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #E94560;
+}
+
+body {
+  background-color: #0F0F1A;
+  color: #FFFFFF;
+  font-family: "Inter", sans-serif;
+  margin: 0;
+  padding: 0;
+  overflow-x: hidden;
+}
+
+/* Base custom interactive states */
+.btn-active-state {
+  transform: scale(0.97);
+  transition: transform 150ms ease;
+}
+
+/* Card Flipping Utility Classes */
+.perspective-1000 {
+  perspective: 1000px;
+}
+
+.backface-hidden {
+  backface-visibility: hidden;
+}
+
+.transform-style-3d {
+  transform-style: preserve-3d;
+}
+
+.rotate-y-180 {
+  transform: rotateY(180deg);
+}
+
+.card-hover-state:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+  transition: transform 200ms ease, box-shadow 200ms ease;
+}
+
+.shake-animation {
+  animation: shake-glow 500ms ease-in-out;
+}
+
+@keyframes shake-glow {
+  0%, 100% { transform: translateX(0); box-shadow: 0 0 0 rgba(255, 45, 85, 0); }
+  20%, 60% { transform: translateX(-6px); box-shadow: 0 0 20px rgba(255, 45, 85, 0.5); }
+  40%, 80% { transform: translateX(6px); box-shadow: 0 0 20px rgba(255, 45, 85, 0.5); }
+}
