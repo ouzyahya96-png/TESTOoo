@@ -20,17 +20,17 @@ import {
   Smartphone,
   Eye,
   Lock,
-  ArrowRight
+  ArrowRight,
+  ArrowLeft,
+  Bell,
+  X,
+  Plus,
+  Moon,
+  Compass,
+  CornerDownRight
 } from 'lucide-react';
 
-import {
-  physicalService,
-  COMPLEMENTARY_EXERCISES,
-  HIP_STRETCHES,
-  CORRELATIONS,
-  PhysicalState,
-  PhysicalExercise
-} from '../pattern_killer/physicalService';
+import { physicalService, PhysicalExercise } from '../pattern_killer/physicalService';
 import { kegelService } from '../pattern_killer/kegelService';
 import { AlphaCard } from './AlphaCard';
 import { AlphaButton } from './AlphaButton';
@@ -39,30 +39,145 @@ import { AlphaBadge } from './AlphaBadge';
 interface AlphaKegelPhysicalProps {
   addToast: (type: 'success' | 'warning' | 'error' | 'info', message: string) => void;
   onPointsUpdate?: (newPoints: number) => void;
+  onBack?: () => void;
 }
 
-export const AlphaKegelPhysical: React.FC<AlphaKegelPhysicalProps> = ({ addToast, onPointsUpdate }) => {
-  const [state, setState] = useState<PhysicalState>(() => physicalService.getState());
+// Exactly the 6 complementary exercises requested by the spec
+const EXERCISES_LIST = [
+  {
+    id: "ex_squats",
+    name: "Squats",
+    videoUrl: "assets/videos/squats.mp4",
+    difficulty: "MOYEN",
+    difficultyColor: "#FF9500",
+    duration: "5 min",
+    description: "Renforce hanches + plancher pelvien",
+    kegelBenefit: "Renforce les fessiers et les rotateurs externes des hanches pour stabiliser le bassin et soutenir la base d'ancrage pelvienne.",
+    instructions: [
+      "Tenez-vous debout, pieds légèrement plus larges que les épaules.",
+      "Descendez en poussant vos fessiers vers l'arrière.",
+      "Gardez les genoux alignés avec vos orteils et le dos droit.",
+      "Poussez sur vos talons pour remonter tout en contractant le plancher pelvien."
+    ],
+    animationStyle: "animate-[pulse_1.8s_infinite]"
+  },
+  {
+    id: "ex_bridges",
+    name: "Ponts (Glute Bridges)",
+    videoUrl: "assets/videos/glute_bridges.mp4",
+    difficulty: "FACILE",
+    difficultyColor: "#00D9A5",
+    duration: "4 min",
+    description: "Activation synergique",
+    kegelBenefit: "Permet une activation synergique maximale du muscle PC en déchargeant l'effet de la gravité sur le bassin.",
+    instructions: [
+      "Allongez-vous sur le dos, genoux pliés, pieds au sol.",
+      "Soulevez les hanches en serrant les fessiers.",
+      "Maintenez la position haute pendant 2 secondes en contractant le Kegel.",
+      "Redescendez lentement sans toucher complètement le sol."
+    ],
+    animationStyle: "animate-[bounce_2s_infinite]"
+  },
+  {
+    id: "ex_plank",
+    name: "Planche",
+    videoUrl: "assets/videos/plank.mp4",
+    difficulty: "MOYEN",
+    difficultyColor: "#FF9500",
+    duration: "3 min",
+    description: "Core stability + plancher pelvien",
+    kegelBenefit: "Travaille la synergie du caisson abdominal profond (transverse) avec le plancher pelvien.",
+    instructions: [
+      "Placez-vous en appui sur les avant-bras et les orteils.",
+      "Maintenez le corps aligné droit de la tête aux talons.",
+      "Aspirez le nombril tout en expirant lentement et en serrant le plancher pelvien."
+    ],
+    animationStyle: "animate-[pulse_3s_infinite]"
+  },
+  {
+    id: "ex_superman",
+    name: "Superman",
+    videoUrl: "assets/videos/superman.mp4",
+    difficulty: "FACILE",
+    difficultyColor: "#00D9A5",
+    duration: "3 min",
+    description: "Dos + plancher pelvien",
+    kegelBenefit: "Sollicite la chaîne postérieure et la cambrure contrôlée pour décharger la pression de la vessie.",
+    instructions: [
+      "Allongez-vous sur le ventre, bras tendus devant.",
+      "Soulevez simultanément les bras, le buste et les jambes.",
+      "Serrer le plancher pelvien au sommet de l'effort.",
+      "Redescendez doucement et relâchez le plancher pelvien."
+    ],
+    animationStyle: "animate-[bounce_1.5s_infinite]"
+  },
+  {
+    id: "ex_bird_dog",
+    name: "Bird-Dog",
+    videoUrl: "assets/videos/bird_dog.mp4",
+    difficulty: "MOYEN",
+    difficultyColor: "#FF9500",
+    duration: "4 min",
+    description: "Équilibre + coordination",
+    kegelBenefit: "Améliore l'équilibre lombo-pelvien et la coordination neuro-musculaire bilatérale.",
+    instructions: [
+      "À quatre pattes, mains sous les épaules, genoux sous les hanches.",
+      "Tendez le bras droit devant et la jambe gauche derrière.",
+      "Gardez le dos stable. Contractez le plancher pelvien en extension.",
+      "Revenez et changez de côté."
+    ],
+    animationStyle: "animate-[pulse_2.2s_infinite]"
+  },
+  {
+    id: "ex_deep_squats",
+    name: "Deep Squats",
+    videoUrl: "assets/videos/deep_squats.mp4",
+    difficulty: "DIFFICILE",
+    difficultyColor: "#FF2D55",
+    duration: "6 min",
+    description: "Mobilité hanche + plancher pelvien",
+    kegelBenefit: "Étire et détend activement le plancher pelvien. Essentiel pour soulager l'hypertonicité (Reverse Kegel).",
+    instructions: [
+      "Descendez dans un squat complet très profond, fesses proches du sol.",
+      "Pressez vos coudes à l'intérieur des genoux pour ouvrir le bassin.",
+      "Respirez profondément en imaginant le plancher pelvien s'ouvrir et se détendre."
+    ],
+    animationStyle: "animate-[bounce_2.5s_infinite]"
+  }
+];
+
+// Exactly the 5 hip mobility stretches requested
+const MOBILITY_STRETCHES = [
+  { name: "Pigeon Stretch (Gauche)", description: "Étire le piriforme gauche et libère le nerf pudendal.", durationSec: 30 },
+  { name: "Pigeon Stretch (Droit)", description: "Étire le piriforme droit et libère le nerf pudendal.", durationSec: 30 },
+  { name: "Papillon au sol", description: "Ouvre les adducteurs et soulage l'hyperpression pubienne.", durationSec: 30 },
+  { name: "Flexion avant grand écart", description: "Basculez le bassin vers l'avant pour étirer les ischio-jambiers internes.", durationSec: 30 },
+  { name: "Pose de l'Enfant", description: "Détend la colonne lombaire et ouvre tout l'arrière du plancher pelvien.", durationSec: 30 }
+];
+
+export const AlphaKegelPhysical: React.FC<AlphaKegelPhysicalProps> = ({ addToast, onPointsUpdate, onBack }) => {
+  const [state, setState] = useState(() => physicalService.getState());
   const [kegelState, setKegelState] = useState(() => kegelService.getState());
-  const [activeTab, setActiveTab] = useState<'exercises' | 'posture' | 'hip_mobility' | 'respiration' | 'correlation'>('exercises');
 
-  // Exercise selection for modal instruction display
-  const [selectedExercise, setSelectedExercise] = useState<PhysicalExercise | null>(COMPLEMENTARY_EXERCISES[0]);
+  // Interactive Modals and Overlay state
+  const [selectedExercise, setSelectedExercise] = useState<typeof EXERCISES_LIST[0] | null>(null);
+  const [showPostureExercises, setShowPostureExercises] = useState<boolean>(false);
+  const [showCorrelationDetails, setShowCorrelationDetails] = useState<boolean>(false);
+  
+  // Mobility Timer State
+  const [mobilityActive, setMobilityActive] = useState<boolean>(false);
+  const [mobilityStretchIndex, setMobilityStretchIndex] = useState<number>(0);
+  const [mobilityTimeRemaining, setMobilityTimeRemaining] = useState<number>(30);
+  const mobilityIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Hip Stretch Timer States
-  const [stretchTimer, setStretchTimer] = useState<number>(30);
-  const [stretchRunning, setStretchRunning] = useState<boolean>(false);
-  const [currentStretchIdx, setCurrentStretchIdx] = useState<number>(0);
-  const stretchIntervalRef = useRef<NodeJS.Timeout | null>(null);
-
-  // Guided Breathing States
-  const [breathingPhase, setBreathingPhase] = useState<'inhale' | 'exhale'>('inhale');
-  const [breathingTimer, setBreathingTimer] = useState<number>(4); // 4s inhale, 4s exhale
-  const [breathingCycleCount, setBreathingCycleCount] = useState<number>(0);
-  const [breathingRunning, setBreathingRunning] = useState<boolean>(false);
+  // Breathing & Kegel states (4-phase: Inspire 4s, Retient 4s, Expire 4s, Relâche 4s)
+  const [breathingActive, setBreathingActive] = useState<boolean>(false);
+  const [breathingPhase, setBreathingPhase] = useState<'inspire' | 'retient' | 'expire' | 'relâche'>('inspire');
+  const [breathingSecondsLeft, setBreathingSecondsLeft] = useState<number>(4);
+  const [breathingTotalTime, setBreathingTotalTime] = useState<number>(180); // 3:00 total
   const breathingIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Sync state on updates
+  // Sync state on local storage updates
   useEffect(() => {
     const handleUpdate = () => {
       setState(physicalService.getState());
@@ -76,704 +191,795 @@ export const AlphaKegelPhysical: React.FC<AlphaKegelPhysicalProps> = ({ addToast
     };
   }, []);
 
-  // Exercise Loop Completion Toggle
-  const handleToggleExercise = (id: string) => {
-    physicalService.toggleCompleteExercise(id);
-    const updatedState = physicalService.getState();
-    const isCompleted = updatedState.completedTodayIds.includes(id);
-
-    if (isCompleted) {
-      addToast('success', "Exercice synergique complété ! +15 points de force accumulés.");
-      if (onPointsUpdate) {
-        onPointsUpdate(kegelState.totalXP + 15);
-      }
-    } else {
-      addToast('info', "Exercice retiré de vos complétions du jour.");
-    }
-  };
-
-  // Toggle Posture notification reminders
+  // Posture Toggle Handler
   const handleTogglePosture = () => {
     physicalService.togglePostureReminders();
-    const current = physicalService.getState().postureRemindersEnabled;
-    if (current) {
-      addToast('success', "Rappel de posture activé (toutes les 2h). Restez droit, renforcez le PC !");
+    const updated = physicalService.getState().postureRemindersEnabled;
+    setState(prev => ({ ...prev, postureRemindersEnabled: updated }));
+    if (updated) {
+      addToast('success', "Rappel de posture activé (toutes les 2h). Redressez-vous !");
     } else {
       addToast('info', "Rappels de posture suspendus.");
     }
   };
 
-  // ---------------- HIP MOBILITY TIMER LOGIC ----------------
+  // Completion logic for Exercises
+  const handleToggleCompletion = (exId: string) => {
+    physicalService.toggleCompleteExercise(exId);
+    setState(physicalService.getState());
+    const isNowDone = physicalService.getState().completedTodayIds.includes(exId);
+    if (isNowDone) {
+      addToast('success', "Exercice synergique enregistré ! +15 points accumulés.");
+      if (onPointsUpdate) {
+        onPointsUpdate(kegelState.totalXP + 15);
+      }
+    } else {
+      addToast('info', "Exercice retiré de vos activités.");
+    }
+  };
+
+  // Mobility Session timer logic
   useEffect(() => {
-    if (stretchRunning) {
-      stretchIntervalRef.current = setInterval(() => {
-        setStretchTimer((prev) => {
+    if (mobilityActive) {
+      mobilityIntervalRef.current = setInterval(() => {
+        setMobilityTimeRemaining((prev) => {
           if (prev <= 1) {
-            // Next stretch
-            const nextIdx = (currentStretchIdx + 1) % HIP_STRETCHES.length;
-            if (nextIdx === 0) {
-              setStretchRunning(false);
-              addToast('success', "Cycle de mobilité des hanches complété ! Votre bassin est libéré.");
-              if (onPointsUpdate) onPointsUpdate(kegelState.totalXP + 30);
+            const nextIndex = mobilityStretchIndex + 1;
+            if (nextIndex < MOBILITY_STRETCHES.length) {
+              setMobilityStretchIndex(nextIndex);
+              addToast('info', `Passage à : ${MOBILITY_STRETCHES[nextIndex].name}`);
+              return 30;
+            } else {
+              setMobilityActive(false);
+              addToast('success', "Séance de mobilité des hanches complétée ! Votre bassin est libéré. (+25 XP)");
+              if (onPointsUpdate) {
+                onPointsUpdate(kegelState.totalXP + 25);
+              }
               return 30;
             }
-            setCurrentStretchIdx(nextIdx);
-            addToast('info', `Passage à l'étirement : ${HIP_STRETCHES[nextIdx].name}`);
-            return 30;
           }
           return prev - 1;
         });
       }, 1000);
     } else {
-      if (stretchIntervalRef.current) clearInterval(stretchIntervalRef.current);
+      if (mobilityIntervalRef.current) clearInterval(mobilityIntervalRef.current);
     }
-
     return () => {
-      if (stretchIntervalRef.current) clearInterval(stretchIntervalRef.current);
+      if (mobilityIntervalRef.current) clearInterval(mobilityIntervalRef.current);
     };
-  }, [stretchRunning, currentStretchIdx]);
+  }, [mobilityActive, mobilityStretchIndex]);
 
-  const handleToggleStretchTimer = () => {
-    setStretchRunning(!stretchRunning);
+  const startMobilitySession = () => {
+    setMobilityStretchIndex(0);
+    setMobilityTimeRemaining(30);
+    setMobilityActive(true);
+    addToast('success', `Démarrage de l'étirement : ${MOBILITY_STRETCHES[0].name}`);
   };
 
-  const handleResetStretchTimer = () => {
-    setStretchRunning(false);
-    setCurrentStretchIdx(0);
-    setStretchTimer(30);
-  };
-
-  // ---------------- GUIDED BREATHING LOGIC ----------------
+  // Breathing loop logic (16s cycle total: 4s x 4 phases)
   useEffect(() => {
-    if (breathingRunning) {
+    if (breathingActive) {
       breathingIntervalRef.current = setInterval(() => {
-        setBreathingTimer((prev) => {
-          if (prev <= 1) {
-            // Switch phase
-            setBreathingPhase((phase) => {
-              const nextPhase = phase === 'inhale' ? 'exhale' : 'inhale';
-              if (nextPhase === 'inhale') {
-                setBreathingCycleCount((count) => count + 1);
-              }
-              return nextPhase;
-            });
-            return 4; // Reset to 4 seconds
+        // Decrease total timer
+        setBreathingTotalTime((prevTotal) => {
+          if (prevTotal <= 1) {
+            setBreathingActive(false);
+            addToast('success', "Routine de respiration synchronisée terminée ! Force PC optimisée de +40%. (+30 XP)");
+            if (onPointsUpdate) {
+              onPointsUpdate(kegelState.totalXP + 30);
+            }
+            return 180;
           }
-          return prev - 1;
+          return prevTotal - 1;
+        });
+
+        // Decrease active phase timer
+        setBreathingSecondsLeft((prevPhase) => {
+          if (prevPhase <= 1) {
+            setBreathingPhase((currentPhase) => {
+              if (currentPhase === 'inspire') return 'retient';
+              if (currentPhase === 'retient') return 'expire';
+              if (currentPhase === 'expire') return 'relâche';
+              return 'inspire';
+            });
+            return 4;
+          }
+          return prevPhase - 1;
         });
       }, 1000);
     } else {
       if (breathingIntervalRef.current) clearInterval(breathingIntervalRef.current);
     }
-
     return () => {
       if (breathingIntervalRef.current) clearInterval(breathingIntervalRef.current);
     };
-  }, [breathingRunning]);
+  }, [breathingActive, breathingPhase]);
 
-  // Finish breathing routine manually
-  const finishBreathingRoutine = () => {
-    setBreathingRunning(false);
-    setBreathingCycleCount(0);
-    setBreathingTimer(4);
-    setBreathingPhase('inhale');
-    addToast('success', "Respiration synchronisée complétée ! Votre Kegel gagne +40% d'amplitude.");
-    if (onPointsUpdate) onPointsUpdate(kegelState.totalXP + 25);
+  const toggleBreathing = () => {
+    setBreathingActive(!breathingActive);
+    if (!breathingActive) {
+      addToast('info', "Routine de respiration lancée. Coordonnez votre souffle.");
+    }
   };
+
+  const resetBreathing = () => {
+    setBreathingActive(false);
+    setBreathingPhase('inspire');
+    setBreathingSecondsLeft(4);
+    setBreathingTotalTime(180);
+  };
+
+  // Format countdown mm:ss
+  const formatTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
+  };
+
+  // Calculate checkmarks done in posture exercises
+  const strengthCompletedCount = EXERCISES_LIST.filter(ex => state.completedTodayIds.includes(ex.id)).length;
 
   return (
-    <div id="alpha-physical-integration-container" className="flex flex-col gap-6 w-full text-white animate-[fade-in_0.3s_ease-out]">
+    <div id="alpha-physical-integration-screen" className="flex flex-col w-full bg-[#05050C] text-white min-h-screen pb-12 font-sans animate-[fade-in_0.4s_ease-out]">
       
-      {/* ======================= HEADER BANNER ======================= */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-[#0A0A14] border border-[#1A1A30] p-5 rounded-3xl shadow-lg relative overflow-hidden">
-        <div className="absolute top-0 left-0 w-48 h-48 bg-[#00E676]/5 rounded-full blur-3xl pointer-events-none" />
-        <div className="flex items-center gap-4">
-          <div className="w-14 h-14 bg-gradient-to-br from-[#00E676] to-[#00B0FF] rounded-2xl flex items-center justify-center text-white shadow-lg shadow-[#00E676]/10 shrink-0">
-            <Activity className="w-8 h-8 text-white animate-pulse" />
-          </div>
-          <div>
-            <span className="text-[10px] font-headline font-bold text-[#00E676] uppercase tracking-[0.2em] block">
-              SYNERGIE NEURO-MUSCULAIRE & FITNESS
-            </span>
-            <h2 className="text-xl md:text-2xl font-headline font-black tracking-tight">
-              Intégration Physique Globale
-            </h2>
-            <p className="text-xs text-gray-400 mt-1">
-              Synchronisez votre plancher pelvien avec votre posture, vos étirements de hanches et votre bio-respiration.
-            </p>
-          </div>
-        </div>
-
-        {/* Total Points Indicator */}
-        <div className="flex items-center gap-3 bg-black/40 border border-[#1C1C35] p-2 px-4 rounded-2xl shrink-0">
-          <Zap className="w-4 h-4 text-[#FFD700]" />
-          <div>
-            <span className="text-[9px] text-gray-500 font-mono block">VITALITÉ ALPHA</span>
-            <span className="text-xs font-mono font-bold text-[#FFD700]">{kegelState.totalXP} XP</span>
-          </div>
+      {/* ======================= HEADER ======================= */}
+      <div className="relative h-20 w-full flex items-center px-4 pt-6 bg-gradient-to-b from-black/50 to-transparent border-b border-[#16213E]/40">
+        <button
+          onClick={onBack}
+          aria-label="Retour au tableau de bord"
+          className="absolute left-4 top-[24px] p-2 hover:bg-[#16213E]/50 rounded-xl transition-all cursor-pointer active:scale-95"
+        >
+          <ArrowLeft className="w-6 h-6 text-white" />
+        </button>
+        <div className="pl-12">
+          <h1 className="text-xl md:text-2xl font-headline font-black text-white leading-tight tracking-tight uppercase">
+            Intégration Physique
+          </h1>
+          <p className="text-xs text-[#8E8E93] font-sans mt-0.5">
+            Ton corps est une machine. Optimise-le.
+          </p>
         </div>
       </div>
 
-      {/* ======================= SUB-TABS SELECTOR ======================= */}
-      <div className="flex bg-[#0F0F1A] border border-[#1A1A2E] p-1.5 rounded-2xl w-full overflow-x-auto custom-scrollbar">
-        <button
-          onClick={() => setActiveTab('exercises')}
-          className={`flex-1 flex items-center justify-center gap-2 py-2 px-4 rounded-xl text-xs font-headline font-extrabold uppercase tracking-wider transition-all cursor-pointer whitespace-nowrap
-            ${activeTab === 'exercises' ? 'bg-[#00E676] text-black shadow-md' : 'text-gray-400 hover:text-white hover:bg-[#16213E]/30'}
-          `}
-        >
-          <Zap className="w-3.5 h-3.5" />
-          1. Exercices Synergiques
-        </button>
-
-        <button
-          onClick={() => setActiveTab('posture')}
-          className={`flex-1 flex items-center justify-center gap-2 py-2 px-4 rounded-xl text-xs font-headline font-extrabold uppercase tracking-wider transition-all cursor-pointer whitespace-nowrap
-            ${activeTab === 'posture' ? 'bg-[#00E676] text-black shadow-md' : 'text-gray-400 hover:text-white hover:bg-[#16213E]/30'}
-          `}
-        >
-          <Sliders className="w-3.5 h-3.5" />
-          2. Posture & Rappels
-        </button>
-
-        <button
-          onClick={() => setActiveTab('hip_mobility')}
-          className={`flex-1 flex items-center justify-center gap-2 py-2 px-4 rounded-xl text-xs font-headline font-extrabold uppercase tracking-wider transition-all cursor-pointer whitespace-nowrap
-            ${activeTab === 'hip_mobility' ? 'bg-[#00E676] text-black shadow-md' : 'text-gray-400 hover:text-white hover:bg-[#16213E]/30'}
-          `}
-        >
-          <Clock className="w-3.5 h-3.5" />
-          3. Mobilité Hanche (Timer)
-        </button>
-
-        <button
-          onClick={() => setActiveTab('respiration')}
-          className={`flex-1 flex items-center justify-center gap-2 py-2 px-4 rounded-xl text-xs font-headline font-extrabold uppercase tracking-wider transition-all cursor-pointer whitespace-nowrap
-            ${activeTab === 'respiration' ? 'bg-[#00E676] text-black shadow-md' : 'text-gray-400 hover:text-white hover:bg-[#16213E]/30'}
-          `}
-        >
-          <Heart className="w-3.5 h-3.5" />
-          4. Respiration Synchronisée
-        </button>
-
-        <button
-          onClick={() => setActiveTab('correlation')}
-          className={`flex-1 flex items-center justify-center gap-2 py-2 px-4 rounded-xl text-xs font-headline font-extrabold uppercase tracking-wider transition-all cursor-pointer whitespace-nowrap
-            ${activeTab === 'correlation' ? 'bg-[#00E676] text-black shadow-md' : 'text-gray-400 hover:text-white hover:bg-[#16213E]/30'}
-          `}
-        >
-          <Trophy className="w-3.5 h-3.5" />
-          5. Corrélations & Données
-        </button>
-      </div>
-
-      {/* ==================================== SECTION 1: COMPLEMENTARY EXERCISES ==================================== */}
-      {activeTab === 'exercises' && (
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-          
-          {/* Exercises Selection List (Left) */}
-          <div className="lg:col-span-4 flex flex-col gap-3">
-            <span className="text-[10px] font-headline font-bold text-gray-500 uppercase tracking-widest px-1">Choix des exercices de fitness</span>
-            {COMPLEMENTARY_EXERCISES.map((ex) => {
-              const isCompleted = state.completedTodayIds.includes(ex.id);
-              return (
-                <button
-                  key={ex.id}
-                  onClick={() => setSelectedExercise(ex)}
-                  className={`p-4 rounded-2xl border text-left cursor-pointer transition-all flex items-center gap-3 duration-150 active:scale-95
-                    ${selectedExercise?.id === ex.id
-                      ? 'bg-[#111124] border-[#00E676]'
-                      : 'bg-[#0A0A14] border-[#1C1C3E] hover:border-[#1E2E5D]'
-                    }
-                  `}
-                >
-                  <div className={`w-3 h-3 rounded-full bg-gradient-to-br ${ex.animationColor} shrink-0`} />
-                  <div className="flex-1 min-w-0">
-                    <span className="text-xs font-headline font-black text-white block truncate">{ex.name}</span>
-                    <span className="text-[9px] text-gray-400 block truncate">{ex.reps} • {ex.durationText}</span>
-                  </div>
-                  {isCompleted ? (
-                    <CheckCircle2 className="w-5 h-5 text-[#00E676] shrink-0" />
-                  ) : (
-                    <ChevronRight className="w-4 h-4 text-gray-600 shrink-0" />
-                  )}
-                </button>
-              );
-            })}
-          </div>
-
-          {/* Exercise Details with Simulated Loop Video Representation (Right) */}
-          {selectedExercise && (
-            <div className="lg:col-span-8 flex flex-col gap-6">
-              <AlphaCard variant="elevated" className="p-6 flex flex-col gap-5 border border-[#1A1A3A] relative overflow-hidden">
-                
-                {/* Visual Header */}
-                <div className="flex justify-between items-start pb-3 border-b border-[#1C1C35]">
-                  <div>
-                    <h3 className="text-sm font-headline font-black text-white uppercase">{selectedExercise.name}</h3>
-                    <p className="text-[10px] text-gray-400 mt-1">Série d'activation pelvienne synergique • {selectedExercise.reps}</p>
-                  </div>
-                  <AlphaBadge variant={selectedExercise.difficulty === 'Advanced' ? 'alert' : selectedExercise.difficulty === 'Intermediate' ? 'info' : 'default'}>
-                    {selectedExercise.difficulty}
-                  </AlphaBadge>
-                </div>
-
-                {/* Simulated Auto-Playing Demonstration Video Loop Component */}
-                <div className="bg-[#05050C] border border-[#1C1C3A] rounded-2xl h-52 flex flex-col items-center justify-center relative overflow-hidden">
-                  <div className="absolute top-2 left-2 flex items-center gap-1.5 bg-black/60 px-2 py-1 rounded font-mono text-[8px] text-gray-400">
-                    <span className="w-1.5 h-1.5 bg-[#00E676] rounded-full animate-ping" />
-                    <span>MUTÉ • LOOP AUTO-PLAY (5s)</span>
-                  </div>
-
-                  {/* Geometric Loop Video representation */}
-                  <div className="flex flex-col items-center gap-3">
-                    <div className="relative w-24 h-24 flex items-center justify-center">
-                      <div className={`absolute inset-0 bg-gradient-to-tr ${selectedExercise.animationColor} rounded-full opacity-10 animate-ping duration-1000`} />
-                      <div className={`w-16 h-16 bg-gradient-to-tr ${selectedExercise.animationColor} rounded-2xl shadow-lg flex items-center justify-center transform hover:rotate-12 transition-transform`}>
-                        <Activity className="w-8 h-8 text-white animate-bounce" />
-                      </div>
-                    </div>
-                    <span className="text-[10px] font-mono text-gray-400 uppercase tracking-widest animate-pulse">Simulation Mouvement Pelvien</span>
-                  </div>
-                </div>
-
-                {/* How it helps Kegel */}
-                <div className="bg-[#111124] p-3.5 rounded-xl border border-[#00E676]/20">
-                  <span className="text-[10px] font-headline font-black text-[#00E676] uppercase block">COMMENT ÇA AIDE VOTRE KEGEL :</span>
-                  <p className="text-xs text-gray-300 mt-1 leading-relaxed font-sans">{selectedExercise.kegelBenefit}</p>
-                </div>
-
-                {/* Instructions */}
-                <div className="flex flex-col gap-2">
-                  <span className="text-[10px] font-headline font-bold text-gray-500 uppercase tracking-widest px-1">Instructions d'exécution :</span>
-                  <div className="flex flex-col gap-2">
-                    {selectedExercise.instructions.map((step, idx) => (
-                      <div key={idx} className="flex gap-2.5 items-start bg-black/20 p-2.5 rounded-xl border border-[#1A1A35] text-xs">
-                        <span className="font-mono text-[10px] text-[#00E676] bg-black/40 w-5 h-5 rounded-full flex items-center justify-center shrink-0 mt-0.5">{idx + 1}</span>
-                        <p className="text-gray-300 leading-relaxed font-sans">{step}</p>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Confirm complete action */}
-                <div className="flex justify-between items-center border-t border-[#1C1C3F] pt-4 mt-2">
-                  <span className="text-[10px] text-gray-400 font-mono">Gain immédiat : +15 XP</span>
-                  <AlphaButton
-                    variant={state.completedTodayIds.includes(selectedExercise.id) ? 'secondary' : 'primary'}
-                    onClick={() => handleToggleExercise(selectedExercise.id)}
-                    className="px-6 py-2.5 text-xs font-headline font-black uppercase flex items-center justify-center gap-2 cursor-pointer"
-                  >
-                    <CheckCircle2 className="w-4 h-4" />
-                    {state.completedTodayIds.includes(selectedExercise.id) ? "Terminé (cliquez pour annuler)" : "Marquer comme fait (+15 XP)"}
-                  </AlphaButton>
-                </div>
-
-              </AlphaCard>
-            </div>
-          )}
+      {/* ==================================== SECTION 1 : EXERCICES COMPLÉMENTAIRES ==================================== */}
+      <div className="w-full mt-6">
+        <div className="px-4 pb-2">
+          <h2 className="text-base font-headline font-extrabold uppercase text-[#FFD700] tracking-wider">
+            Exercices Complémentaires
+          </h2>
+          <p className="text-[11px] text-gray-400">Renforcez les muscles stabilisateurs du bassin et soutenez votre force pelvienne.</p>
         </div>
-      )}
 
-      {/* ==================================== SECTION 2: POSTURE & ALIGNEMENT ==================================== */}
-      {activeTab === 'posture' && (
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-          
-          <div className="lg:col-span-8 flex flex-col gap-6">
-            <AlphaCard variant="default" className="p-6 flex flex-col gap-5">
-              <div>
-                <h3 className="text-sm font-headline font-black text-white uppercase">La posture affecte directement votre plancher pelvien</h3>
-                <p className="text-xs text-gray-400 mt-1">Une inclinaison pelvienne incorrecte (hyperlordose) détend passivement vos muscles.</p>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-1">
-                
-                <div className="bg-[#0A0A14] p-4 rounded-xl border border-[#1A1A3E] flex flex-col gap-2">
-                  <span className="text-xs font-headline font-black text-[#E94560] uppercase">⚠️ Position Assise Affalée (Nocif)</span>
-                  <p className="text-[11px] text-gray-400 leading-relaxed">
-                    Comprime la vessie, affaisse le diaphragme et empêche le plancher pelvien de s'étirer naturellement. Diminue l'activation contractile maximale de 30%.
-                  </p>
-                </div>
-
-                <div className="bg-[#0A0A14] p-4 rounded-xl border border-[#1A1A3E] flex flex-col gap-2">
-                  <span className="text-xs font-headline font-black text-[#00E676] uppercase">✅ Alignement Neutre (Optimal)</span>
-                  <p className="text-[11px] text-gray-400 leading-relaxed">
-                    Colonne étirée, épaules basses, inclinaison du bassin neutre. Le plancher pelvien est sous tension optimale naturelle de pré-étirement.
-                  </p>
-                </div>
-
-              </div>
-
-              {/* Quick Posture Routine (5 min) */}
-              <div className="bg-[#111124] p-4 rounded-2xl border border-[#1C1C3E] mt-2 flex flex-col gap-3">
-                <span className="text-xs font-headline font-black text-[#FFD700] uppercase tracking-wider">MICRO-ENTRAÎNEMENT POSTURE (5 min/jour) :</span>
-                <p className="text-xs text-gray-300 leading-relaxed">
-                  "Asseyez-vous sur vos ischions (les os pointus du bassin). Étirez le sommet du crâne vers le haut, baissez le menton de 1 cm. Prenez 5 inspirations lentes en maintenant une micro-activation de votre Kegel à 20%."
-                </p>
-                <div className="flex justify-between items-center text-[10px] text-gray-500 font-mono pt-2 border-t border-[#1C1C45]">
-                  <span>Durée idéale : 5 minutes</span>
-                  <span className="text-[#FFD700] font-bold">Inclus par défaut dans vos habitudes</span>
-                </div>
-              </div>
-            </AlphaCard>
-          </div>
-
-          {/* Posture Reminder settings */}
-          <div className="lg:col-span-4 flex flex-col gap-6">
-            <AlphaCard variant="elevated" className="p-5 flex flex-col gap-4 border border-[#00B0FF]/10">
-              <div className="flex items-center gap-2 pb-2 border-b border-[#1C1C35]">
-                <Smartphone className="w-4.5 h-4.5 text-[#00B0FF]" />
-                <h3 className="text-xs font-headline font-extrabold text-[#00B0FF] uppercase tracking-wider">
-                  Rappel intelligent Posture
-                </h3>
-              </div>
-
-              <p className="text-xs text-gray-300 leading-relaxed">
-                Configurez des notifications toutes les 2 heures pour réajuster votre colonne et maintenir votre force PC de base.
-              </p>
-
-              <div className="bg-[#05050C] p-3 rounded-xl border border-[#1C1C3A] flex justify-between items-center my-1">
-                <div>
-                  <span className="text-xs font-headline font-black text-white block">Rappel toutes les 2h</span>
-                  <span className="text-[9px] text-[#00E676] font-mono block">"Redresse-toi. Ton plancher pelvien te remercie."</span>
-                </div>
-                <label className="relative inline-flex items-center cursor-pointer">
-                  <input 
-                    type="checkbox" 
-                    checked={state.postureRemindersEnabled} 
-                    onChange={handleTogglePosture} 
-                    className="sr-only peer" 
-                  />
-                  <div className="w-9 h-5 bg-[#1C1C35] rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[#00E676]" />
-                </label>
-              </div>
-
-              <div className="bg-[#111124] p-3 rounded-xl border border-[#1C1C35] text-[10px] text-gray-400 leading-relaxed">
-                Ces notifications s'affichent de manière discrète sur votre terminal mobile apparié ou l'iframe de simulation.
-              </div>
-            </AlphaCard>
-          </div>
-
-        </div>
-      )}
-
-      {/* ==================================== SECTION 3: HIP MOBILITY TIMER ==================================== */}
-      {activeTab === 'hip_mobility' && (
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-          
-          {/* Active stretch execution timer (Left) */}
-          <div className="lg:col-span-8 flex flex-col gap-6">
-            <AlphaCard variant="elevated" className="p-6 flex flex-col gap-5 border border-[#1C1C3C] relative overflow-hidden">
-              <div className="absolute top-0 right-0 w-32 h-32 bg-[#FFD700]/5 rounded-full blur-3xl pointer-events-none" />
-              
-              <div className="flex justify-between items-center pb-2 border-b border-[#1C1C35]">
-                <h3 className="text-xs font-headline font-extrabold uppercase tracking-wider text-[#FFD700] flex items-center gap-2">
-                  <Clock className="w-4 h-4 text-[#FFD700]" />
-                  Étirement hanche interactif : {HIP_STRETCHES[currentStretchIdx].name}
-                </h3>
-                <span className="text-xs text-gray-400 font-mono">
-                  {currentStretchIdx + 1} / {HIP_STRETCHES.length}
-                </span>
-              </div>
-
-              {/* Timer big circular visual */}
-              <div className="flex flex-col items-center justify-center p-8 bg-black/30 border border-[#1A1A35] rounded-2xl">
-                <div className="relative w-40 h-40 rounded-full border-4 border-[#1C1C3E] flex items-center justify-center">
-                  
-                  {/* Dynamic border track representation */}
-                  <div className="absolute inset-0 rounded-full border-4 border-[#FFD700] border-t-transparent animate-spin duration-1000" style={{ animationPlayState: stretchRunning ? 'running' : 'paused' }} />
-                  
-                  <div className="text-center">
-                    <span className="text-4xl font-mono font-black text-white">{stretchTimer}</span>
-                    <span className="text-[10px] text-gray-400 block uppercase font-mono mt-1">secondes</span>
-                  </div>
-                </div>
-
-                <span className="text-sm font-headline font-black text-white text-center mt-5 uppercase">
-                  {HIP_STRETCHES[currentStretchIdx].name}
-                </span>
-                <p className="text-xs text-gray-400 text-center mt-1 leading-relaxed max-w-md">
-                  {HIP_STRETCHES[currentStretchIdx].description}
-                </p>
-
-                {/* Control buttons */}
-                <div className="flex gap-4 mt-6">
-                  <AlphaButton
-                    variant="primary"
-                    onClick={handleToggleStretchTimer}
-                    className="px-6 py-2 text-xs font-headline font-bold uppercase flex items-center gap-2 cursor-pointer"
-                  >
-                    {stretchRunning ? (
-                      <>
-                        <Pause className="w-4 h-4" /> Pause
-                      </>
-                    ) : (
-                      <>
-                        <Play className="w-4 h-4" /> Démarrer
-                      </>
-                    )}
-                  </AlphaButton>
-
-                  <AlphaButton
-                    variant="secondary"
-                    onClick={handleResetStretchTimer}
-                    className="p-2 border border-[#1C1C3E] rounded-xl cursor-pointer hover:bg-white/5"
-                  >
-                    <RotateCcw className="w-4 h-4 text-gray-400" />
-                  </AlphaButton>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-2.5 p-3.5 bg-black/40 rounded-xl border border-[#1A1A35]">
-                <Info className="w-4.5 h-4.5 text-[#FFD700] shrink-0" />
-                <span className="text-[10px] text-gray-400 leading-relaxed">
-                  "Hanches serrées = plancher pelvien faible." Une capsule de 5 étirements légers de 30 secondes élimine l'hyperpression externe sur la ceinture pelvienne.
-                </span>
-              </div>
-            </AlphaCard>
-          </div>
-
-          {/* Right Panel: Foam Rolling Guide */}
-          <div className="lg:col-span-4 flex flex-col gap-6">
-            <AlphaCard variant="default" className="p-5 flex flex-col gap-4">
-              <div className="pb-2 border-b border-[#1C1C35]">
-                <h3 className="text-xs font-headline font-extrabold uppercase tracking-wider text-[#FF4B2B]">
-                  Guide Foam Rolling (Auto-massage)
-                </h3>
-              </div>
-
-              <p className="text-xs text-gray-300 leading-relaxed">
-                Le foam rolling de la bandelette ilio-tibiale et des adducteurs libère les fascias qui étranglent la base du bassin.
-              </p>
-
-              <div className="flex flex-col gap-3.5">
-                {[
-                  { name: "Massage Adducteurs", duration: "1 min / côté", benefit: "Détend les muscles internes de la cuisse qui tirent sur la branche pubienne." },
-                  { name: "Massage Grands Fessiers", duration: "1 min / côté", benefit: "Active la circulation et libère le piriforme pour éviter les sciatiques pelviennes." }
-                ].map((item, idx) => (
-                  <div key={idx} className="bg-black/20 p-3 rounded-xl border border-[#1A1A35] flex flex-col gap-1 text-xs">
-                    <span className="font-headline font-black text-white">{item.name}</span>
-                    <span className="text-[10px] text-[#00E676] font-mono">{item.duration}</span>
-                    <p className="text-[10px] text-gray-400 leading-relaxed mt-0.5">{item.benefit}</p>
-                  </div>
-                ))}
-              </div>
-            </AlphaCard>
-          </div>
-
-        </div>
-      )}
-
-      {/* ==================================== SECTION 4: RESPIRATION + KEGEL ==================================== */}
-      {activeTab === 'respiration' && (
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-          
-          {/* Main Breathing visual engine */}
-          <div className="lg:col-span-8 flex flex-col gap-6">
-            <AlphaCard variant="elevated" className="p-6 flex flex-col gap-5 border border-[#1A1A3C] relative overflow-hidden">
-              <div className="absolute top-0 left-0 w-32 h-32 bg-[#00E676]/5 rounded-full blur-3xl pointer-events-none" />
-              
-              <div className="flex justify-between items-center pb-2 border-b border-[#1C1C35]">
-                <h3 className="text-xs font-headline font-extrabold uppercase tracking-wider text-[#00E676] flex items-center gap-2">
-                  <Heart className="w-4 h-4 text-[#00E676]" />
-                  Respiration Rythmée & Amplitude Kegel (+40%)
-                </h3>
-                <span className="text-xs text-gray-400 font-mono">Cycles effectués : {breathingCycleCount}</span>
-              </div>
-
-              {/* Circle visual animation representation */}
-              <div className="flex flex-col items-center justify-center p-10 bg-black/40 border border-[#1A1A35] rounded-2xl relative overflow-hidden">
-                
-                {/* Dynamic resizing circle */}
-                <div 
-                  className={`relative w-48 h-48 rounded-full flex items-center justify-center border-4 transition-all duration-1000 ease-in-out
-                    ${breathingPhase === 'inhale' 
-                      ? 'border-[#00E676]/30 bg-[#00E676]/5 scale-110' 
-                      : 'border-[#00B0FF]/30 bg-[#00B0FF]/5 scale-90'
-                    }
-                  `}
-                >
-                  <div className="text-center z-10">
-                    <span className="text-3xl font-mono font-black text-white">{breathingTimer}s</span>
-                    <span className="text-[10px] text-gray-300 block uppercase font-mono mt-1 font-bold">
-                      {breathingPhase === 'inhale' ? "INSPIREZ" : "EXPIREZ"}
+        {/* Scrollable Horizontal Row mimicking FlatList */}
+        <div className="flex overflow-x-auto gap-4 pb-4 pt-2 px-4 snap-x snap-mandatory custom-scrollbar">
+          {EXERCISES_LIST.map((ex) => {
+            const isCompleted = state.completedTodayIds.includes(ex.id);
+            return (
+              <div
+                key={ex.id}
+                className="w-[160px] h-[225px] flex-shrink-0 bg-[#16213E] rounded-2xl shadow-md snap-start flex flex-col justify-between relative overflow-hidden transition-transform duration-150 hover:scale-[1.02] border border-[#1A1A2E]"
+              >
+                {/* Simulated autoplay looping video presentation */}
+                <div className="relative w-full h-[100px] bg-[#0A0A1F] overflow-hidden">
+                  <div className="absolute top-1.5 right-1.5 z-10">
+                    <span
+                      style={{ backgroundColor: ex.difficultyColor }}
+                      className="px-1.5 py-0.5 rounded text-[8px] font-sans font-bold text-white uppercase tracking-wider"
+                    >
+                      {ex.difficulty}
                     </span>
                   </div>
+
+                  {/* Geometric loop motion representation representing actual pelvic activation */}
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <div className="relative w-12 h-12 flex items-center justify-center">
+                      <div className={`absolute inset-0 rounded-full bg-white/5 border border-dashed border-[#00D9A5]/40 animate-spin duration-[4000ms]`} />
+                      <div className={`absolute inset-2 rounded-xl bg-gradient-to-br from-[#E94560] to-[#FF9500] opacity-80 ${ex.animationStyle} flex items-center justify-center`}>
+                        <Activity className="w-5 h-5 text-white" />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Dark gradient bottom overlay */}
+                  <div className="absolute inset-0 bg-gradient-to-t from-[#16213E] via-[#16213E]/20 to-transparent" />
                   
-                  {/* Subtle inner animated ring */}
-                  <div className={`absolute inset-4 rounded-full border border-dashed animate-spin duration-[6000s]
-                    ${breathingPhase === 'inhale' ? 'border-[#00E676]' : 'border-[#00B0FF]'}
-                  `} />
+                  {/* Under the hood actual video node for standard local files support */}
+                  <video 
+                    src={ex.videoUrl} 
+                    autoPlay 
+                    loop 
+                    muted 
+                    playsInline 
+                    className="absolute inset-0 w-full h-full object-cover opacity-10 pointer-events-none" 
+                  />
                 </div>
 
-                <div className="text-center mt-6">
-                  <span className="text-xs font-headline font-extrabold text-white uppercase">
-                    {breathingPhase === 'inhale' 
-                      ? "💧 RELÂCHEZ COMPLÈTEMENT (REVERSE KEGEL)" 
-                      : "🔥 CONTRACTEZ LE PLANCHER (KEGEL)"
-                    }
-                  </span>
-                  <p className="text-[11px] text-gray-400 mt-1 max-w-md">
-                    {breathingPhase === 'inhale' 
-                      ? "L'inspiration abaisse le diaphragme et ouvre la ceinture pelvienne. Laissez les muscles s'étirer." 
-                      : "L'expiration remonte le diaphragme. Accompagnez le mouvement en serrant à 60% de force."
-                    }
-                  </p>
-                </div>
+                {/* Content info & titles */}
+                <div className="px-3 flex-1 flex flex-col justify-between pb-3">
+                  <div>
+                    <h3 className="text-[12px] font-headline font-extrabold text-white leading-tight line-clamp-2 mt-1">
+                      {ex.name}
+                    </h3>
+                    <div className="flex items-center gap-1 mt-1 text-[#8E8E93]">
+                      <Clock className="w-3 h-3 text-[#8E8E93]" />
+                      <span className="text-[10px] font-sans font-medium">{ex.duration}</span>
+                    </div>
+                  </div>
 
-                {/* Control elements */}
-                <div className="flex gap-4 mt-6">
-                  <AlphaButton
-                    variant="primary"
-                    onClick={() => setBreathingRunning(!breathingRunning)}
-                    className="px-6 py-2.5 text-xs font-headline font-bold uppercase flex items-center gap-2 cursor-pointer"
+                  {/* Action button */}
+                  <button
+                    onClick={() => {
+                      setSelectedExercise(ex);
+                    }}
+                    aria-label={`Bouton démarrer l'exercice ${ex.name}, ${ex.duration}, difficulté ${ex.difficulty}`}
+                    className="w-full h-8 bg-[#E94560] active:scale-95 transition-transform duration-150 rounded-lg text-white font-headline font-bold text-[10px] uppercase tracking-wider flex items-center justify-center cursor-pointer mt-2"
                   >
-                    {breathingRunning ? (
-                      <>
-                        <Pause className="w-4 h-4" /> Arrêter la respiration
-                      </>
-                    ) : (
-                      <>
-                        <Play className="w-4 h-4" /> Démarrer la respiration (3 min)
-                      </>
-                    )}
-                  </AlphaButton>
-
-                  {breathingCycleCount > 0 && (
-                    <AlphaButton
-                      variant="secondary"
-                      onClick={finishBreathingRoutine}
-                      className="px-5 py-2 text-xs font-headline font-bold uppercase cursor-pointer"
-                    >
-                      Terminer & Enregistrer (+25 XP)
-                    </AlphaButton>
-                  )}
-                </div>
-
-              </div>
-            </AlphaCard>
-          </div>
-
-          {/* Right Panel: Coordinated explanation */}
-          <div className="lg:col-span-4 flex flex-col gap-6">
-            <AlphaCard variant="default" className="p-5 flex flex-col gap-4">
-              <div className="pb-2 border-b border-[#1C1C35]">
-                <h3 className="text-xs font-headline font-extrabold uppercase tracking-wider text-[#FFD700]">
-                  Amplification neuro-diaphragmatique
-                </h3>
-              </div>
-
-              <div className="flex flex-col gap-3.5 text-xs">
-                <p className="text-gray-300 leading-relaxed">
-                  Le plancher pelvien et le diaphragme respiratoire se déplacent parallèlement comme un double piston hydraulique :
-                </p>
-
-                <div className="bg-[#0A0A14] p-3 rounded-xl border border-[#1A1A35] leading-relaxed">
-                  <strong>Inspiration :</strong> Les côtes s'écartent, le ventre se gonfle, le diaphragme descend et repousse le plancher pelvien vers le bas. C'est l'étirement (Reverse Kegel).
-                </div>
-
-                <div className="bg-[#0A0A14] p-3 rounded-xl border border-[#1A1A35] leading-relaxed">
-                  <strong>Expiration :</strong> L'air sort, les muscles abdominaux se resserrent, le diaphragme remonte et aspire le plancher pelvien vers le haut. C'est la contraction (Kegel standard).
+                    DÉMARRER
+                  </button>
                 </div>
               </div>
-            </AlphaCard>
-          </div>
-
+            );
+          })}
         </div>
-      )}
+      </div>
 
-      {/* ==================================== SECTION 5: DATA CORRELATION DASHBOARD ==================================== */}
-      {activeTab === 'correlation' && (
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-          
-          {/* Left panel: Impact Factors and positive/negative multipliers */}
-          <div className="lg:col-span-8 flex flex-col gap-6">
-            <AlphaCard variant="default" className="p-6 flex flex-col gap-5">
-              <div>
-                <h3 className="text-sm font-headline font-black text-white uppercase">Tableau des Modificateurs de Performance Pelvienne</h3>
-                <p className="text-xs text-gray-400 mt-1">Comment vos activités quotidiennes influent directement sur votre force de contraction mesurée.</p>
+      {/* ==================================== SECTION 2 : POSTURE & ALIGNEMENT ==================================== */}
+      <div className="px-4 mt-6">
+        <h2 className="text-base font-headline font-extrabold uppercase text-[#FFD700] tracking-wider mb-3">
+          Posture & Alignement
+        </h2>
+
+        <div className="w-full bg-[#16213E] rounded-3xl p-4 shadow-lg flex flex-col gap-4 border border-[#1C1C3F]">
+          <div className="flex items-center gap-4">
+            
+            {/* Elegant Posture Male vector SVG Illustration */}
+            <svg width="80" height="120" viewBox="0 0 80 120" className="bg-[#1A1A2E] rounded-xl border border-[#1C1C35] shrink-0 p-1">
+              {/* Grid backdrop */}
+              <line x1="20" y1="0" x2="20" y2="120" stroke="#00D9A5" strokeOpacity="0.05" />
+              <line x1="40" y1="0" x2="40" y2="120" stroke="#00D9A5" strokeOpacity="0.05" />
+              <line x1="60" y1="0" x2="60" y2="120" stroke="#00D9A5" strokeOpacity="0.05" />
+              {/* Spine Line */}
+              <path d="M 40 15 Q 43 45 38 75 T 41 110" fill="none" stroke="#00D9A5" strokeWidth="2.5" strokeLinecap="round" />
+              {/* Head */}
+              <circle cx="40" cy="18" r="8" fill="#16213E" stroke="#00D9A5" strokeWidth="2" />
+              {/* Pelvis region indicator */}
+              <ellipse cx="40" cy="80" rx="12" ry="6" fill="#00D9A5" fillOpacity="0.15" stroke="#00D9A5" strokeWidth="1.5" strokeDasharray="3,3" />
+              {/* Ground */}
+              <line x1="15" y1="115" x2="65" y2="115" stroke="#1C1C35" strokeWidth="2" strokeLinecap="round" />
+            </svg>
+
+            {/* Right Side Info */}
+            <div className="flex-1">
+              <h3 className="text-base font-headline font-black text-white leading-tight">
+                Redresse-toi
+              </h3>
+              <p className="text-xs text-[#8E8E93] mt-0.5 font-sans">
+                Ton plancher pelvien te remercie.
+              </p>
+              
+              <div className="flex items-center gap-1.5 mt-3 text-[#00D9A5] font-sans font-semibold text-xs">
+                <CheckCircle2 className="w-4 h-4 text-[#00D9A5]" />
+                <span>{strengthCompletedCount}/6 exercices faits aujourd'hui</span>
               </div>
+            </div>
+          </div>
 
-              <div className="flex flex-col gap-3">
-                {CORRELATIONS.map((item, idx) => (
-                  <div key={idx} className="bg-black/20 p-4 rounded-2xl border border-[#1A1A35] flex items-center justify-between gap-4">
-                    <div className="flex-1">
-                      <span className="text-xs font-headline font-black text-white block">{item.factor}</span>
-                      <p className="text-[10px] text-gray-400 leading-relaxed mt-1 max-w-xl">{item.description}</p>
-                    </div>
-                    <div className="shrink-0 text-right">
-                      <span className={`text-lg font-mono font-black block
-                        ${item.impactTrend === 'up' ? 'text-[#00E676]' : 'text-[#E94560]'}
-                      `}>
-                        {item.impactTrend === 'up' ? '+' : '-'}{item.impactPercent}%
-                      </span>
-                      <span className="text-[9px] text-gray-500 font-mono uppercase block mt-0.5">force PC</span>
-                    </div>
+          {/* Action trigger button */}
+          <button
+            onClick={() => setShowPostureExercises(true)}
+            className="w-full h-11 bg-transparent hover:bg-white/5 transition-all border border-[#E94560] rounded-lg text-[#E94560] font-headline font-bold text-xs uppercase tracking-widest flex items-center justify-center cursor-pointer active:scale-98"
+          >
+            VOIR EXERCICES
+          </button>
+        </div>
+
+        {/* Posture Reminder Section */}
+        <div className="flex items-center justify-between p-3.5 bg-[#16213E]/40 border border-[#1C1C3A] rounded-xl mt-3">
+          <div className="flex items-center gap-2.5">
+            <Bell className="w-4.5 h-4.5 text-[#FF9500] animate-bounce" />
+            <span className="text-xs font-sans font-medium text-[#FF9500]">
+              Rappel toutes les 2h activé
+            </span>
+          </div>
+
+          {/* Fully Interactive Custom Styled Toggle Switch */}
+          <button
+            onClick={handleTogglePosture}
+            aria-label="Interrupteur rappel posture"
+            className={`w-[44px] h-[24px] rounded-full p-[2px] transition-colors duration-200 focus:outline-none cursor-pointer
+              ${state.postureRemindersEnabled ? 'bg-[#00D9A5]' : 'bg-[#5A5A5A]'}
+            `}
+          >
+            <div
+              className={`w-[20px] h-[20px] bg-white rounded-full shadow-md transform transition-transform duration-200
+                ${state.postureRemindersEnabled ? 'translate-x-[20px]' : 'translate-x-0'}
+              `}
+            />
+          </button>
+        </div>
+      </div>
+
+      {/* ==================================== SECTION 3 : MOBILITÉ HANCHE ==================================== */}
+      <div className="px-4 mt-6">
+        <h2 className="text-base font-headline font-extrabold uppercase text-[#FFD700] tracking-wider mb-3">
+          Mobilité Hanche
+        </h2>
+
+        <div className="w-full bg-[#16213E] rounded-3xl p-4 shadow-lg border border-[#1C1C3F] flex flex-col gap-4">
+          
+          {/* Card Header */}
+          <div className="flex justify-between items-center pb-2 border-b border-[#1A1A35]">
+            <div className="flex items-center gap-2.5">
+              <Compass className="w-5 h-5 text-[#E94560]" />
+              <h3 className="text-xs font-headline font-bold text-white uppercase tracking-wider">
+                5 Exercices de Mobilité
+              </h3>
+            </div>
+            <div className="flex items-center gap-1 text-[#8E8E93]">
+              <Clock className="w-3.5 h-3.5" />
+              <span className="text-xs font-sans font-semibold">15 min</span>
+            </div>
+          </div>
+
+          {/* Stretches list */}
+          <div className="flex flex-col">
+            {MOBILITY_STRETCHES.map((st, idx) => (
+              <div
+                key={idx}
+                onClick={() => {
+                  setMobilityStretchIndex(idx);
+                  setMobilityTimeRemaining(30);
+                  setMobilityActive(true);
+                  addToast('info', `Démarrage ciblé : ${st.name}`);
+                }}
+                className={`h-14 flex items-center justify-between border-b border-[#1A1A30] last:border-0 hover:bg-white/5 transition-colors px-1 rounded-xl cursor-pointer`}
+              >
+                <div className="flex items-center gap-3">
+                  <span className="font-mono text-sm font-bold text-[#8E8E93]">
+                    0{idx + 1}
+                  </span>
+                  <div>
+                    <span className="text-xs font-sans font-medium text-white block">
+                      {st.name}
+                    </span>
+                    <span className="text-[10px] text-[#8E8E93] block truncate max-w-[200px]">
+                      {st.description}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-3 shrink-0">
+                  <span className="text-[11px] text-[#8E8E93] font-mono">30 sec</span>
+                  <div className="w-7 h-7 bg-[#E94560]/10 rounded-lg flex items-center justify-center hover:bg-[#E94560]/30 transition-colors">
+                    <Play className="w-3.5 h-3.5 text-[#E94560]" />
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Start entire sequence button */}
+          <button
+            onClick={startMobilitySession}
+            className="w-full h-11 bg-transparent hover:bg-white/5 transition-all border border-[#E94560] rounded-lg text-[#E94560] font-headline font-bold text-xs uppercase tracking-widest flex items-center justify-center cursor-pointer active:scale-98"
+          >
+            DÉMARRER SÉANCE
+          </button>
+        </div>
+      </div>
+
+      {/* ==================================== SECTION 4 : RESPIRATION + KEGEL ==================================== */}
+      <div className="px-4 mt-6">
+        <h2 className="text-base font-headline font-extrabold uppercase text-[#FFD700] tracking-wider mb-3">
+          Respiration + Kegel
+        </h2>
+
+        <div className="w-full bg-[#16213E] rounded-3xl p-5 shadow-lg border border-[#1C1C3F] flex flex-col items-center gap-5">
+          
+          {/* Animated diaphragmatic breathing circle visualizer */}
+          <div className="relative w-36 h-36 flex items-center justify-center mt-2">
+            
+            {/* Dynamic pulsating glow backdrop ring */}
+            <div
+              className={`absolute inset-0 rounded-full border-2 transition-all duration-[4000ms] ease-in-out
+                ${!breathingActive ? 'border-gray-700 opacity-20' : ''}
+                ${breathingActive && breathingPhase === 'inspire' ? 'border-[#00D9A5] scale-125 opacity-70 shadow-[0_0_15px_rgba(0,217,165,0.3)]' : ''}
+                ${breathingActive && breathingPhase === 'retient' ? 'border-[#FF9500] scale-125 opacity-100 shadow-[0_0_20px_rgba(255,149,0,0.4)]' : ''}
+                ${breathingActive && breathingPhase === 'expire' ? 'border-[#00B0FF] scale-95 opacity-50' : ''}
+                ${breathingActive && breathingPhase === 'relâche' ? 'border-dashed border-gray-600 scale-90 opacity-30' : ''}
+              `}
+            />
+
+            {/* Core inner circular text node */}
+            <div className="w-28 h-28 rounded-full bg-[#0F0F1A] border-4 border-[#00D9A5] flex flex-col items-center justify-center text-center p-2 shadow-inner">
+              <span className="text-xs font-headline font-black text-white uppercase tracking-wider leading-none">
+                {!breathingActive ? "PRÊT" : breathingPhase.toUpperCase()}
+              </span>
+              <span className="text-2xl font-mono font-black text-white mt-1 leading-none">
+                {breathingActive ? `${breathingSecondsLeft}s` : "4s"}
+              </span>
+            </div>
+          </div>
+
+          {/* Interactive instruction message changing according to selected phase */}
+          <div className="text-center min-h-[44px] flex items-center justify-center px-4">
+            <p className="text-xs text-[#8E8E93] leading-relaxed max-w-sm font-sans font-medium transition-all duration-300">
+              {!breathingActive && "Appuyez sur Démarrer pour lancer l'exercice guidé de 3 minutes."}
+              {breathingActive && breathingPhase === 'inspire' && "💧 INSPIRE par le nez → Relâche complètement ton plancher pelvien (Reverse Kegel)"}
+              {breathingActive && breathingPhase === 'retient' && "🔒 RETIENS le souffle → Maintiens le relâchement et la détente du bassin"}
+              {breathingActive && breathingPhase === 'expire' && "🔥 EXPIRE par la bouche → Contracte ton plancher pelvien (Kegel classique)"}
+              {breathingActive && breathingPhase === 'relâche' && "🌬️ RELÂCHE TOUT → Repose tes muscles et ré-oxygène ton système"}
+            </p>
+          </div>
+
+          {/* Stopwatch countdown */}
+          <div className="text-center">
+            <span className="font-mono text-xl font-bold text-[#FFD700] tracking-widest">
+              {formatTime(breathingTotalTime)}
+            </span>
+          </div>
+
+          {/* Action trigger button */}
+          <div className="flex gap-3 w-full justify-center">
+            <button
+              onClick={toggleBreathing}
+              aria-label="Bouton démarrer la respiration guidée, 3 minutes"
+              className={`w-[160px] h-12 rounded-xl text-white font-headline font-extrabold text-xs uppercase tracking-wider flex items-center justify-center gap-2 cursor-pointer transition-transform duration-150 active:scale-95 shadow-md
+                ${breathingActive ? 'bg-[#FF9500] shadow-[#FF9500]/10' : 'bg-[#E94560] shadow-[#E94560]/10'}
+              `}
+            >
+              {breathingActive ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
+              {breathingActive ? "PAUSE" : "DÉMARRER"}
+            </button>
+
+            {breathingActive && (
+              <button
+                onClick={resetBreathing}
+                className="w-12 h-12 rounded-xl bg-white/5 hover:bg-white/10 text-white flex items-center justify-center cursor-pointer transition-colors border border-white/10"
+              >
+                <RotateCcw className="w-4 h-4" />
+              </button>
+            )}
+          </div>
+
+          {/* Coordinated stat badge at bottom */}
+          <div className="flex items-center gap-2 pt-3 border-t border-[#1C1C45] w-full justify-center text-[#8E8E93]">
+            <Info className="w-3.5 h-3.5 text-[#8E8E93]" />
+            <span className="text-[11px] font-sans font-medium text-gray-400">
+              La respiration amplifie ton Kegel de 40%
+            </span>
+          </div>
+        </div>
+      </div>
+
+      {/* ==================================== SECTION 5 : CORRÉLATION DONNÉES ==================================== */}
+      <div className="px-4 mt-6">
+        <h2 className="text-base font-headline font-extrabold uppercase text-[#FFD700] tracking-wider mb-3">
+          Tes Corrélations
+        </h2>
+
+        <div className="w-full bg-[#16213E] rounded-3xl p-5 shadow-lg border border-[#1C1C3F] flex flex-col gap-4">
+          
+          {/* Custom SVG Radar Chart representation */}
+          <div className="bg-[#0D1426] rounded-2xl border border-white/5 p-4 flex flex-col items-center justify-center relative">
+            <span className="absolute top-2 left-3 font-mono text-[9px] text-[#8E8E93] uppercase">Modèle de force croisé</span>
+            
+            <svg width="220" height="200" viewBox="0 0 200 200" className="mx-auto mt-2">
+              {/* Pentagonal grid lines */}
+              {/* Outer pentagon (radius 65) */}
+              <polygon points="100,35 162,80 138,153 62,153 38,80" fill="none" stroke="#1A2E50" strokeWidth="1" />
+              {/* Middle pentagon (radius 45) */}
+              <polygon points="100,55 143,86 126,137 74,137 57,86" fill="none" stroke="#1A2E50" strokeWidth="1" />
+              {/* Inner pentagon (radius 25) */}
+              <polygon points="100,75 124,92 115,120 85,120 76,92" fill="none" stroke="#1A2E50" strokeWidth="1" />
+
+              {/* Axis connector lines */}
+              <line x1="100" y1="100" x2="100" y2="35" stroke="#1A2E50" strokeWidth="1" strokeDasharray="2,2" />
+              <line x1="100" y1="100" x2="162" y2="80" stroke="#1A2E50" strokeWidth="1" strokeDasharray="2,2" />
+              <line x1="100" y1="100" x2="138" y2="153" stroke="#1A2E50" strokeWidth="1" strokeDasharray="2,2" />
+              <line x1="100" y1="100" x2="62" y2="153" stroke="#1A2E50" strokeWidth="1" strokeDasharray="2,2" />
+              <line x1="100" y1="100" x2="38" y2="80" stroke="#1A2E50" strokeWidth="1" strokeDasharray="2,2" />
+
+              {/* Data Series 1: Semaine Dernière (Grey/Blue dash, e.g. moderate values) */}
+              <polygon points="100,60 142,92 118,135 80,128 58,95" fill="#4A90D9" fillOpacity="0.15" stroke="#4A90D9" strokeWidth="1.5" strokeDasharray="3,3" />
+
+              {/* Data Series 2: Cette Semaine (Solid magenta/pink, optimized values) */}
+              <polygon points="100,42 155,83 125,145 70,138 48,85" fill="#E94560" fillOpacity="0.25" stroke="#E94560" strokeWidth="2.5" />
+
+              {/* Outer label positions */}
+              <text x="100" y="28" fill="#E94560" fontSize="8" fontWeight="bold" textAnchor="middle" fontFamily="sans-serif">FORCE KEGEL</text>
+              <text x="168" y="82" fill="#00D9A5" fontSize="8" fontWeight="bold" textAnchor="start" fontFamily="sans-serif">SOMMEIL</text>
+              <text x="144" y="164" fill="#FF9500" fontSize="8" fontWeight="bold" textAnchor="start" fontFamily="sans-serif">STRESS</text>
+              <text x="56" y="164" fill="#FFD700" fontSize="8" fontWeight="bold" textAnchor="end" fontFamily="sans-serif">NUTRITION</text>
+              <text x="32" y="82" fill="#4A90D9" fontSize="8" fontWeight="bold" textAnchor="end" fontFamily="sans-serif">EXERCICE</text>
+            </svg>
+
+            {/* Legends Bottom Bar */}
+            <div className="flex gap-4 mt-3 text-[10px] font-sans">
+              <div className="flex items-center gap-1.5">
+                <span className="w-2.5 h-2.5 bg-[#E94560] rounded-sm" />
+                <span className="text-gray-300 font-semibold">Cette semaine</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <span className="w-2.5 h-2.5 bg-[#4A90D9] rounded-sm border border-dashed border-white/20" />
+                <span className="text-gray-400">Semaine dernière</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Scrollable Insight Cards under graph */}
+          <div className="flex flex-col gap-2.5 max-h-[180px] overflow-y-auto custom-scrollbar pr-1">
+            
+            <div className="flex gap-3 bg-black/10 border border-[#1A1A35] p-3 rounded-xl items-start">
+              <span className="text-[#00D9A5] bg-[#00D9A5]/10 w-6 h-6 rounded-lg flex items-center justify-center shrink-0 text-sm font-bold">↑</span>
+              <p className="text-xs text-white leading-relaxed font-sans">
+                Quand tu fais <strong className="text-[#00D9A5]">squats + Kegel</strong> : <strong className="text-white">+25% de force maximale</strong> d'ancrage mesurée.
+              </p>
+            </div>
+
+            <div className="flex gap-3 bg-black/10 border border-[#1A1A35] p-3 rounded-xl items-start">
+              <span className="text-[#FF2D55] bg-[#FF2D55]/10 w-6 h-6 rounded-lg flex items-center justify-center shrink-0 text-sm font-bold">↓</span>
+              <p className="text-xs text-white leading-relaxed font-sans">
+                Quand tu <strong className="text-[#FF2D55]">dors mal (&lt; 6h)</strong> : <strong className="text-[#FF2D55]">-15% de tenue isométrique</strong> à cause de la fatigue nerveuse.
+              </p>
+            </div>
+
+            <div className="flex gap-3 bg-black/10 border border-[#1A1A35] p-3 rounded-xl items-start">
+              <span className="text-[#FF2D55] bg-[#FF2D55]/10 w-6 h-6 rounded-lg flex items-center justify-center shrink-0 text-sm font-bold">↓</span>
+              <p className="text-xs text-white leading-relaxed font-sans">
+                Quand tu <strong className="text-[#FF9500]">stresses (cortisol)</strong> : <strong className="text-[#FF2D55]">-20% d'endurance globale</strong> en raison de contractions parasites involontaires.
+              </p>
+            </div>
+
+            <div className="flex gap-3 bg-black/10 border border-[#1A1A35] p-3 rounded-xl items-start">
+              <span className="text-[#00D9A5] bg-[#00D9A5]/10 w-6 h-6 rounded-lg flex items-center justify-center shrink-0 text-sm font-bold">↑</span>
+              <p className="text-xs text-white leading-relaxed font-sans">
+                La douche froide du matin augmente ta vigueur de <strong className="text-[#00D9A5]">+18%</strong> en boostant la vascularisation locale.
+              </p>
+            </div>
+          </div>
+
+          {/* Action button details */}
+          <button
+            onClick={() => setShowCorrelationDetails(true)}
+            className="w-full h-11 bg-transparent hover:bg-white/5 transition-all border border-[#E94560] rounded-lg text-[#E94560] font-headline font-bold text-xs uppercase tracking-widest flex items-center justify-center cursor-pointer active:scale-98"
+          >
+            VOIR DÉTAILS
+          </button>
+        </div>
+      </div>
+
+      {/* ==================================== MODAL 1: EXERCISE DETAILS SCREEN ==================================== */}
+      {selectedExercise && (
+        <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-sm flex items-center justify-center p-4 animate-[fade-in_0.2s_ease-out]">
+          <div className="bg-[#0F0F1E] border border-[#1C1C3F] w-full max-w-lg rounded-3xl p-6 relative overflow-hidden flex flex-col gap-4 max-h-[90vh] overflow-y-auto">
+            
+            <button
+              onClick={() => setSelectedExercise(null)}
+              className="absolute top-4 right-4 p-1.5 hover:bg-white/5 rounded-full text-gray-400 hover:text-white cursor-pointer"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            <div className="border-b border-[#1C1C3F] pb-3">
+              <h3 className="text-lg font-headline font-black text-[#FFD700] uppercase">
+                {selectedExercise.name}
+              </h3>
+              <p className="text-xs text-[#8E8E93] mt-0.5">Renforcement complémentaire • {selectedExercise.duration}</p>
+            </div>
+
+            {/* Large simulated loop visual */}
+            <div className="bg-[#05050C] rounded-2xl h-44 flex flex-col items-center justify-center border border-white/5 relative overflow-hidden">
+              <div className="absolute top-2 left-2 flex items-center gap-1 bg-black/60 px-2 py-0.5 rounded text-[8px] font-mono text-[#00D9A5]">
+                <span className="w-1.5 h-1.5 bg-[#00D9A5] rounded-full animate-ping" />
+                <span>MUTED • LOOP DÉMONSTRATION</span>
+              </div>
+              <Activity className="w-12 h-12 text-[#E94560] animate-bounce" />
+              <span className="text-[10px] text-gray-500 uppercase tracking-wider font-mono mt-2">Démonstration active en cours</span>
+            </div>
+
+            {/* How it helps Kegel */}
+            <div className="bg-[#16213E] p-4 rounded-xl border border-[#00D9A5]/20">
+              <span className="text-xs font-headline font-black text-[#00D9A5] uppercase tracking-wide block">Bénéfice Plancher Pelvien :</span>
+              <p className="text-xs text-gray-300 mt-1 leading-relaxed font-sans">{selectedExercise.kegelBenefit}</p>
+            </div>
+
+            {/* Detailed Instructions list */}
+            <div className="flex flex-col gap-2">
+              <span className="text-[10px] font-headline font-black text-gray-500 uppercase tracking-widest">Guide pas à pas :</span>
+              <div className="flex flex-col gap-2">
+                {selectedExercise.instructions.map((step, idx) => (
+                  <div key={idx} className="flex gap-2.5 items-start bg-black/30 p-3 rounded-xl border border-[#1C1C3F] text-xs">
+                    <span className="font-mono text-xs text-[#00D9A5] bg-black/40 w-6 h-6 rounded-full flex items-center justify-center shrink-0 mt-0.5">{idx + 1}</span>
+                    <p className="text-gray-300 leading-relaxed font-sans">{step}</p>
                   </div>
                 ))}
               </div>
+            </div>
 
-              <div className="flex items-center gap-3 p-4 bg-gradient-to-r from-[#00E676]/5 to-transparent rounded-xl border border-[#00E676]/10 mt-1">
-                <Trophy className="w-5 h-5 text-[#00E676]" />
-                <span className="text-xs text-gray-300 leading-relaxed">
-                  Combiner vos squats réguliers avec le dodo réparateur augmente votre endurance isométrique cumulée de <strong>+35% en moyenne d'après nos modèles adaptatifs</strong>.
+            {/* Log completed toggle button */}
+            <div className="flex justify-between items-center border-t border-[#1C1C3F] pt-4 mt-2">
+              <span className="text-xs text-gray-400 font-mono">XP de vitalité : +15 XP</span>
+              <button
+                onClick={() => {
+                  handleToggleCompletion(selectedExercise.id);
+                  setSelectedExercise(null);
+                }}
+                className={`px-5 py-2.5 rounded-xl font-headline font-extrabold text-xs uppercase tracking-wider transition-all cursor-pointer flex items-center gap-2
+                  ${state.completedTodayIds.includes(selectedExercise.id)
+                    ? 'bg-gray-700 text-white'
+                    : 'bg-[#00D9A5] text-black shadow-lg shadow-[#00D9A5]/10'
+                  }
+                `}
+              >
+                <CheckCircle2 className="w-4 h-4" />
+                {state.completedTodayIds.includes(selectedExercise.id) ? "Terminé (cliquez pour annuler)" : "Marquer comme fait"}
+              </button>
+            </div>
+
+          </div>
+        </div>
+      )}
+
+      {/* ==================================== MODAL 2: POSTURE EXERCISES SCREEN ==================================== */}
+      {showPostureExercises && (
+        <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-sm flex items-center justify-center p-4 animate-[fade-in_0.2s_ease-out]">
+          <div className="bg-[#0F0F1E] border border-[#1C1C3F] w-full max-w-lg rounded-3xl p-6 relative overflow-hidden flex flex-col gap-4 max-h-[90vh] overflow-y-auto">
+            
+            <button
+              onClick={() => setShowPostureExercises(false)}
+              className="absolute top-4 right-4 p-1.5 hover:bg-white/5 rounded-full text-gray-400 hover:text-white cursor-pointer"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            <div className="border-b border-[#1C1C3F] pb-3">
+              <h3 className="text-lg font-headline font-black text-[#FFD700] uppercase">
+                Exercices de Posture (5 min)
+              </h3>
+              <p className="text-xs text-[#8E8E93] mt-0.5">Libérez la tension passive sur le sacrum.</p>
+            </div>
+
+            <div className="flex flex-col gap-4 text-xs font-sans">
+              {[
+                { name: "La Décompression Sacrée", desc: "Debout, rétroversez doucement le bassin tout en expirant. Sentez l'étirement du bas de la colonne lombo-pelvienne." },
+                { name: "La Posture des Ischions", desc: "Assis sur une chaise rigide, basculez légèrement le poids sur les ischions pour libérer l'hyperlordose et ouvrir le canal PC." },
+                { name: "L'Étirement Pelvito-diaphragmatique", desc: "Inspirez profondément en gonflant le bas du ventre pour repousser doucement le plancher vers le bas, puis soufflez lentement." }
+              ].map((pe, idx) => (
+                <div key={idx} className="bg-black/20 p-3.5 rounded-xl border border-[#1C1C3F] flex flex-col gap-1">
+                  <span className="font-headline font-extrabold text-[#00D9A5]">0{idx + 1}. {pe.name}</span>
+                  <p className="text-gray-300 leading-relaxed mt-1">{pe.desc}</p>
+                </div>
+              ))}
+            </div>
+
+            <button
+              onClick={() => {
+                setShowPostureExercises(false);
+                addToast('success', "Routine de posture complétée ! Alignement optimisé. (+15 XP)");
+                if (onPointsUpdate) {
+                  onPointsUpdate(kegelState.totalXP + 15);
+                }
+              }}
+              className="w-full h-11 bg-[#E94560] rounded-xl text-white font-headline font-bold text-xs uppercase tracking-wider flex items-center justify-center cursor-pointer mt-2 active:scale-98"
+            >
+              COMPLÉTER LA SÉANCE POSTURE
+            </button>
+
+          </div>
+        </div>
+      )}
+
+      {/* ==================================== MODAL 3: MOBILITY TIMER OVERLAY ==================================== */}
+      {mobilityActive && (
+        <div className="fixed inset-0 z-50 bg-black/95 flex flex-col items-center justify-center p-6 animate-[fade-in_0.3s_ease-out]">
+          <div className="w-full max-w-md bg-[#0F0F1E] border border-[#1C1C3F] rounded-3xl p-6 flex flex-col items-center text-center gap-5 relative">
+            
+            <button
+              onClick={() => setMobilityActive(false)}
+              className="absolute top-4 right-4 p-1.5 hover:bg-white/5 rounded-full text-gray-400 hover:text-white cursor-pointer"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            <div>
+              <span className="text-[10px] font-mono text-[#E94560] uppercase tracking-widest">MOBILITÉ HANCHE ACTIVE</span>
+              <h3 className="text-lg font-headline font-black text-white uppercase mt-1">
+                {MOBILITY_STRETCHES[mobilityStretchIndex].name}
+              </h3>
+              <p className="text-xs text-gray-400 mt-1 max-w-xs">
+                {MOBILITY_STRETCHES[mobilityStretchIndex].description}
+              </p>
+            </div>
+
+            {/* Big interactive circular countdown */}
+            <div className="relative w-40 h-40 rounded-full border-4 border-gray-800 flex items-center justify-center">
+              <div className="absolute inset-0 rounded-full border-4 border-[#E94560] border-t-transparent animate-spin duration-1000" />
+              <div className="text-center">
+                <span className="text-5xl font-mono font-black text-white">
+                  {mobilityTimeRemaining}
                 </span>
+                <span className="text-[10px] text-[#8E8E93] block uppercase font-mono">secondes</span>
               </div>
-            </AlphaCard>
+            </div>
+
+            <span className="text-xs text-gray-400 font-mono">
+              Exercice {mobilityStretchIndex + 1} sur {MOBILITY_STRETCHES.length}
+            </span>
+
+            {/* Control triggers */}
+            <div className="flex gap-4 w-full">
+              <button
+                onClick={() => setMobilityActive(false)}
+                className="flex-1 h-11 bg-gray-800 rounded-xl text-white font-headline font-bold text-xs uppercase cursor-pointer hover:bg-gray-700 transition-all"
+              >
+                Passer / Arrêter
+              </button>
+              
+              <button
+                onClick={() => {
+                  const next = (mobilityStretchIndex + 1) % MOBILITY_STRETCHES.length;
+                  if (next === 0) {
+                    setMobilityActive(false);
+                    addToast('success', "Séance complétée ! (+25 XP)");
+                  } else {
+                    setMobilityStretchIndex(next);
+                    setMobilityTimeRemaining(30);
+                  }
+                }}
+                className="flex-1 h-11 bg-[#E94560] rounded-xl text-white font-headline font-bold text-xs uppercase cursor-pointer active:scale-95 transition-all shadow-md shadow-[#E94560]/10"
+              >
+                Suivant →
+              </button>
+            </div>
+
           </div>
+        </div>
+      )}
 
-          {/* Right Panel: Daily Stats Comparison Chart / Indicator mockup */}
-          <div className="lg:col-span-4 flex flex-col gap-6">
-            <AlphaCard variant="elevated" className="p-5 flex flex-col gap-4 border border-[#FFD700]/15">
-              <div className="flex items-center gap-2 pb-2 border-b border-[#1C1C35]">
-                <Flame className="w-4 h-4 text-[#FFD700]" />
-                <h3 className="text-xs font-headline font-extrabold text-[#FFD700] uppercase tracking-wider">
-                  Vos Métriques ce jour
-                </h3>
+      {/* ==================================== MODAL 4: CORRELATIONS DETAILS SCREEN ==================================== */}
+      {showCorrelationDetails && (
+        <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-sm flex items-center justify-center p-4 animate-[fade-in_0.2s_ease-out]">
+          <div className="bg-[#0F0F1E] border border-[#1C1C3F] w-full max-w-md rounded-3xl p-6 relative overflow-hidden flex flex-col gap-4 max-h-[85vh] overflow-y-auto">
+            
+            <button
+              onClick={() => setShowCorrelationDetails(false)}
+              className="absolute top-4 right-4 p-1.5 hover:bg-white/5 rounded-full text-gray-400 hover:text-white cursor-pointer"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            <div className="border-b border-[#1C1C3F] pb-3">
+              <h3 className="text-lg font-headline font-black text-[#FFD700] uppercase">
+                Insights & Corrélations
+              </h3>
+              <p className="text-xs text-[#8E8E93] mt-0.5">Comment l'environnement réagit avec vos muscles.</p>
+            </div>
+
+            <div className="flex flex-col gap-3 text-xs font-sans text-gray-300">
+              <div className="bg-black/30 p-3.5 rounded-xl border border-[#1C1C3F]">
+                <strong className="text-white block mb-1">💤 Sommeil vs Force d'Ancrage</strong>
+                <p className="leading-relaxed text-[#8E8E93]">
+                  La phase de sommeil paradoxal permet de recharger les neurotransmetteurs de l'acétylcholine, indispensable pour l'influx des contractions rapides du muscle PC.
+                </p>
               </div>
 
-              <div className="flex flex-col gap-4">
-                
-                {/* 1 */}
-                <div>
-                  <div className="flex justify-between items-center text-xs pb-1">
-                    <span className="text-gray-400">Force PC Potentielle :</span>
-                    <span className="text-[#00E676] font-mono font-bold">92%</span>
-                  </div>
-                  <div className="w-full bg-[#1C1C35] h-1.5 rounded-full overflow-hidden">
-                    <div className="bg-[#00E676] h-full rounded-full" style={{ width: '92%' }} />
-                  </div>
-                </div>
-
-                {/* 2 */}
-                <div>
-                  <div className="flex justify-between items-center text-xs pb-1">
-                    <span className="text-gray-400">Niveau de Fatigue SNC :</span>
-                    <span className="text-[#E94560] font-mono font-bold">15% (Faible)</span>
-                  </div>
-                  <div className="w-full bg-[#1C1C35] h-1.5 rounded-full overflow-hidden">
-                    <div className="bg-[#E94560] h-full rounded-full" style={{ width: '15%' }} />
-                  </div>
-                </div>
-
-                {/* 3 */}
-                <div>
-                  <div className="flex justify-between items-center text-xs pb-1">
-                    <span className="text-gray-400">Mobilité Articulaire :</span>
-                    <span className="text-[#00B0FF] font-mono font-bold">Excellent</span>
-                  </div>
-                  <div className="w-full bg-[#1C1C35] h-1.5 rounded-full overflow-hidden">
-                    <div className="bg-[#00B0FF] h-full rounded-full" style={{ width: '85%' }} />
-                  </div>
-                </div>
-
-                <div className="bg-[#111124] p-3 rounded-xl border border-[#1C1C35] text-[10px] text-gray-400 leading-relaxed text-center">
-                  "Savoir écouter son corps fait l'homme fort." Les stats évoluent d'après vos complétions d'exercices physiques quotidiens.
-                </div>
+              <div className="bg-black/30 p-3.5 rounded-xl border border-[#1C1C3F]">
+                <strong className="text-white block mb-1">⚡ Fatigue & Récupération</strong>
+                <p className="leading-relaxed text-[#8E8E93]">
+                  Après un entraînement intensif des jambes (squats), l'afflux sanguin pelvien augmente de 300%, favorisant un apport en oxygène maximal pour les séances d'endurance de Kegel.
+                </p>
               </div>
-            </AlphaCard>
+            </div>
+
+            <button
+              onClick={() => setShowCorrelationDetails(false)}
+              className="w-full h-11 bg-[#E94560] rounded-xl text-white font-headline font-bold text-xs uppercase tracking-wider flex items-center justify-center cursor-pointer mt-2 active:scale-98"
+            >
+              FERMER
+            </button>
+
           </div>
-
         </div>
       )}
 

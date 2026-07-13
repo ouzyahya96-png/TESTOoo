@@ -36,6 +36,7 @@ import { AlphaProgress } from './AlphaProgress';
 import { AlphaKegelBiofeedback } from './AlphaKegelBiofeedback';
 import { AlphaKegelProgramme } from './AlphaKegelProgramme';
 import { AlphaKegelPhysical } from './AlphaKegelPhysical';
+import { KegelDashboardScreen } from '../screens/kegel/KegelDashboardScreen';
 
 interface AlphaKegelProps {
   addToast: (type: 'success' | 'warning' | 'error' | 'info', message: string) => void;
@@ -45,7 +46,7 @@ interface AlphaKegelProps {
 export const AlphaKegel: React.FC<AlphaKegelProps> = ({ addToast, onPointsUpdate }) => {
   // Service states
   const [kegelState, setKegelState] = useState(() => kegelService.getState());
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'levels' | 'history' | 'mobile_blueprint' | 'biofeedback' | 'programme' | 'physical'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'dashboard_spec' | 'levels' | 'history' | 'mobile_blueprint' | 'biofeedback' | 'programme' | 'physical'>('dashboard_spec');
 
   // Active workout states
   const [activeLevel, setActiveLevel] = useState<KegelLevel | null>(null);
@@ -671,6 +672,19 @@ const styles = StyleSheet.create({
       {/* ======================= COGNITIVE SUB-TABS SELECTOR ======================= */}
       <div className="flex bg-[#0F0F1A] border border-[#1A1A2E] p-1.5 rounded-2xl w-full md:max-w-4xl overflow-x-auto custom-scrollbar">
         <button
+          onClick={() => setActiveTab('dashboard_spec')}
+          className={`flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-xl text-xs font-headline font-extrabold uppercase tracking-wider transition-all cursor-pointer whitespace-nowrap
+            ${activeTab === 'dashboard_spec'
+              ? 'bg-[#E94560] text-white shadow-lg shadow-[#E94560]/15'
+              : 'text-[#8E8E93] hover:text-white hover:bg-[#16213E]/40'
+            }
+          `}
+        >
+          <Activity className="w-3.5 h-3.5 text-[#00D9A5]" />
+          Dashboard Mobile (Spec 2.1)
+        </button>
+
+        <button
           onClick={() => setActiveTab('dashboard')}
           className={`flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-xl text-xs font-headline font-extrabold uppercase tracking-wider transition-all cursor-pointer whitespace-nowrap
             ${activeTab === 'dashboard'
@@ -763,6 +777,11 @@ const styles = StyleSheet.create({
       </div>
 
       {/* ==================================== TAB RENDERINGS ==================================== */}
+
+      {/* 0. TAB: KEGEL DASHBOARD SCREEN SPEC #2.1 */}
+      {activeTab === 'dashboard_spec' && (
+        <KegelDashboardScreen addToast={addToast} onBack={() => setActiveTab('dashboard')} />
+      )}
 
       {/* 1. TAB: MAIN DASHBOARD */}
       {activeTab === 'dashboard' && (
@@ -1228,7 +1247,7 @@ const styles = StyleSheet.create({
 
       {/* 7. TAB: PHYSICAL INTEGRATION & FITNESS */}
       {activeTab === 'physical' && (
-        <AlphaKegelPhysical addToast={addToast} onPointsUpdate={onPointsUpdate} />
+        <AlphaKegelPhysical addToast={addToast} onPointsUpdate={onPointsUpdate} onBack={() => setActiveTab('dashboard')} />
       )}
 
     </div>

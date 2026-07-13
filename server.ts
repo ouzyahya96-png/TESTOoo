@@ -155,6 +155,42 @@ app.post('/api/pattern/feedback', (req, res) => {
   }
 });
 
+// API Endpoint: Kegel Dashboard Data
+app.get('/api/kegel/dashboard/:userId', (req, res) => {
+  try {
+    const userId = req.params.userId || 'ALPHA_SOLDIER_1';
+    res.json({
+      userId,
+      streak: 12,
+      currentLevelId: 4,
+      currentLevelName: "WARRIOR",
+      levelProgressPercent: 67,
+      sessionsNeeded: 12,
+      stats: {
+        force: 67,
+        endurance: "4m30",
+        contractions: 150
+      },
+      dailySession: {
+        timer: "12:00",
+        level: "Niveau 4 — WARRIOR",
+        details: "15 contractions × 3 séries",
+        timerDetails: "Tenue : 7 sec | Relâchement : 7 sec",
+        nextTime: "Prochaine séance : 20h00"
+      },
+      recentHistory: [
+        { id: "1", date: "Aujourd'hui", status: "completed", details: "15 min • Niveau 4 • 45 contractions" },
+        { id: "2", date: "Hier", status: "completed", details: "15 min • Niveau 4 • 45 contractions" },
+        { id: "3", date: "Sam 11 Juil", status: "completed", details: "15 min • Niveau 4 • 45 contractions" },
+        { id: "4", date: "Ven 10 Juil", status: "missed", details: "Niveau 4 • Séance manquée" },
+        { id: "5", date: "Jeu 9 Juil", status: "completed", details: "12 min • Niveau 3 • 30 contractions" }
+      ]
+    });
+  } catch (error: any) {
+    res.status(500).json({ error: 'Failed to retrieve Kegel dashboard', message: error.message });
+  }
+});
+
 // API Endpoint 3: Proxy secure Gemini API calls
 app.post('/api/chat', async (req, res) => {
   try {
