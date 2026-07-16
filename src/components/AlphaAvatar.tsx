@@ -42,7 +42,7 @@ export const AlphaAvatar: React.FC<AlphaAvatarProps> = ({
             cy={sizeClasses.svgSize / 2}
             r={radius}
             fill="none"
-            stroke="#16213E"
+            stroke="var(--app-surface)"
             strokeWidth={sizeClasses.strokeWidth}
           />
           {/* Colored Level Progress */}
@@ -51,7 +51,7 @@ export const AlphaAvatar: React.FC<AlphaAvatarProps> = ({
             cy={sizeClasses.svgSize / 2}
             r={radius}
             fill="none"
-            stroke="#FFD700" // Premium Gold
+            stroke="var(--app-accent)" // Dynamic Accent
             strokeWidth={sizeClasses.strokeWidth}
             strokeDasharray={circumference}
             strokeDashoffset={strokeDashoffset}
@@ -62,7 +62,7 @@ export const AlphaAvatar: React.FC<AlphaAvatarProps> = ({
       </div>
 
       {/* Avatar Image Container */}
-      <div className={`rounded-full overflow-hidden border-2 border-[#0F0F1A] bg-[#16213E] relative ${sizeClasses.container} z-10 m-[3px]`}>
+      <div className={`rounded-full overflow-hidden border-2 border-[var(--app-bg)] bg-[var(--app-surface)] relative ${sizeClasses.container} z-10 m-[3px]`}>
         <img
           src={avatarSrc}
           alt={`Alpha level ${level}`}

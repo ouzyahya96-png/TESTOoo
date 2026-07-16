@@ -212,7 +212,7 @@ export const AlphaJournal: React.FC<AlphaJournalProps> = ({ addToast, onPointsUp
   const recent10Entries = journalState.entries.slice(-10);
 
   return (
-    <div id="alpha-journaling-container" className="flex flex-col gap-6 w-full text-white">
+    <div id="alpha-journaling-container" className="flex flex-col gap-6 w-full text-white bg-[#0F0F1A] border border-[#1A1A2E] p-4 md:p-6 rounded-3xl overflow-hidden relative">
       
       {/* 1. SECTION BRANDING */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">

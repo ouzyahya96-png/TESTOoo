@@ -57,7 +57,7 @@ export const AlphaChart: React.FC<AlphaChartProps> = ({
         <polyline
           points={points}
           fill="none"
-          stroke="#E94560"
+          stroke="var(--app-primary)"
           strokeWidth="6"
           strokeLinecap="round"
           strokeLinejoin="round"
@@ -69,7 +69,7 @@ export const AlphaChart: React.FC<AlphaChartProps> = ({
         <polyline
           points={points}
           fill="none"
-          stroke="#E94560"
+          stroke="var(--app-primary)"
           strokeWidth="3"
           strokeLinecap="round"
           strokeLinejoin="round"
@@ -82,8 +82,8 @@ export const AlphaChart: React.FC<AlphaChartProps> = ({
               cx={getX(i)}
               cy={getY(d.value)}
               r={hoveredIndex === i ? 7 : 4}
-              fill={hoveredIndex === i ? '#FFD700' : '#E94560'}
-              stroke="#0F0F1A"
+              fill={hoveredIndex === i ? 'var(--app-accent)' : 'var(--app-primary)'}
+              stroke="var(--app-bg)"
               strokeWidth="2"
               onMouseEnter={() => setHoveredIndex(i)}
               onMouseLeave={() => setHoveredIndex(null)}
@@ -97,15 +97,15 @@ export const AlphaChart: React.FC<AlphaChartProps> = ({
                   width="90"
                   height="26"
                   rx="6"
-                  fill="#16213E"
-                  stroke="#FFD700"
+                  fill="var(--app-surface)"
+                  stroke="var(--app-accent)"
                   strokeWidth="1"
                 />
                 <text
                   x={getX(i)}
                   y={getY(d.value) - 19}
                   textAnchor="middle"
-                  fill="#FFFFFF"
+                  fill="var(--app-text)"
                   className="font-mono text-[10px] font-bold"
                 >
                   {d.value} points
@@ -142,7 +142,7 @@ export const AlphaChart: React.FC<AlphaChartProps> = ({
                 width={barWidth}
                 height={barHeight}
                 rx={4}
-                fill={hoveredIndex === i ? '#FFD700' : '#E94560'}
+                fill={hoveredIndex === i ? 'var(--app-accent)' : 'var(--app-primary)'}
                 opacity={hoveredIndex === i ? '0.4' : '0.15'}
                 className="blur-[2px] transition-all duration-200"
               />
@@ -153,7 +153,7 @@ export const AlphaChart: React.FC<AlphaChartProps> = ({
                 width={barWidth}
                 height={barHeight}
                 rx={4}
-                fill={hoveredIndex === i ? '#FFD700' : 'url(#barGradient)'}
+                fill={hoveredIndex === i ? 'var(--app-accent)' : 'url(#barGradient)'}
                 className="transition-all duration-200"
               />
               {hoveredIndex === i && (
@@ -164,15 +164,15 @@ export const AlphaChart: React.FC<AlphaChartProps> = ({
                     width="90"
                     height="26"
                     rx="6"
-                    fill="#16213E"
-                    stroke="#FFD700"
+                    fill="var(--app-surface)"
+                    stroke="var(--app-accent)"
                     strokeWidth="1"
                   />
                   <text
                     x={getX(i)}
                     y={y - 19}
                     textAnchor="middle"
-                    fill="#FFFFFF"
+                    fill="var(--app-text)"
                     className="font-mono text-[10px] font-bold"
                   >
                     {d.value} pts
@@ -225,8 +225,8 @@ export const AlphaChart: React.FC<AlphaChartProps> = ({
               key={sIdx}
               points={gridPoints}
               fill="none"
-              stroke="#5A5A5A"
-              strokeWidth="0.5"
+              stroke="var(--app-border)"
+              strokeWidth="1"
               strokeDasharray="4 4"
             />
           );
@@ -242,7 +242,7 @@ export const AlphaChart: React.FC<AlphaChartProps> = ({
               y1={center.y}
               x2={p.x}
               y2={p.y}
-              stroke="#1A1A2E"
+              stroke="var(--app-border)"
               strokeWidth="1.5"
             />
           );
@@ -252,7 +252,7 @@ export const AlphaChart: React.FC<AlphaChartProps> = ({
         <polygon
           points={radarPoints}
           fill="url(#radarGradient)"
-          stroke="#E94560"
+          stroke="var(--app-primary)"
           strokeWidth="2.5"
           opacity="0.8"
         />
@@ -268,15 +268,15 @@ export const AlphaChart: React.FC<AlphaChartProps> = ({
                 cx={p.x}
                 cy={p.y}
                 r={4}
-                fill="#FFD700"
-                stroke="#0F0F1A"
+                fill="var(--app-accent)"
+                stroke="var(--app-bg)"
                 strokeWidth="1.5"
               />
               <text
                 x={textPos.x}
                 y={textPos.y + 4}
                 textAnchor="middle"
-                fill="#8E8E93"
+                style={{ fill: 'var(--app-text-muted)' }}
                 className="font-headline text-[9px] font-bold uppercase tracking-widest"
               >
                 {d.label} ({d.value})
@@ -290,7 +290,7 @@ export const AlphaChart: React.FC<AlphaChartProps> = ({
 
   return (
     <div id={id} className={`w-full ${className}`}>
-      <div className="relative w-full bg-[#16213E]/40 border border-[#1A1A2E]/50 rounded-2xl p-4 shadow-[0_4px_16px_rgba(0,0,0,0.3)]">
+      <div className="relative w-full bg-[var(--app-surface)]/40 border border-[var(--app-border)]/50 rounded-2xl p-4 shadow-[0_4px_16px_rgba(0,0,0,0.3)]">
         <svg
           viewBox={`0 0 ${width} ${height}`}
           className="w-full h-auto select-none overflow-visible"
@@ -298,18 +298,18 @@ export const AlphaChart: React.FC<AlphaChartProps> = ({
           {/* Defs for gradients and glow */}
           <defs>
             <linearGradient id="chartGradient" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="#E94560" stopOpacity="0.4" />
-              <stop offset="100%" stopColor="#E94560" stopOpacity="0.0" />
+              <stop offset="0%" style={{ stopColor: 'var(--app-primary)' }} stopOpacity="0.4" />
+              <stop offset="100%" style={{ stopColor: 'var(--app-primary)' }} stopOpacity="0.0" />
             </linearGradient>
 
             <linearGradient id="barGradient" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="#E94560" />
-              <stop offset="100%" stopColor="#1A1A2E" />
+              <stop offset="0%" style={{ stopColor: 'var(--app-primary)' }} />
+              <stop offset="100%" style={{ stopColor: 'var(--app-border)' }} />
             </linearGradient>
 
             <linearGradient id="radarGradient" x1="0" y1="0" x2="1" y2="1">
-              <stop offset="0%" stopColor="#E94560" stopOpacity="0.5" />
-              <stop offset="100%" stopColor="#FFD700" stopOpacity="0.2" />
+              <stop offset="0%" style={{ stopColor: 'var(--app-primary)' }} stopOpacity="0.5" />
+              <stop offset="100%" style={{ stopColor: 'var(--app-accent)' }} stopOpacity="0.2" />
             </linearGradient>
           </defs>
 
@@ -328,14 +328,14 @@ export const AlphaChart: React.FC<AlphaChartProps> = ({
                       y1={y}
                       x2={width - paddingRight}
                       y2={y}
-                      stroke="#16213E"
+                      stroke="var(--app-border)"
                       strokeWidth="1"
                     />
                     <text
                       x={paddingLeft - 8}
                       y={y + 4}
                       textAnchor="end"
-                      fill="#5A5A5A"
+                      style={{ fill: 'var(--app-text-muted)' }}
                       className="font-mono text-[9px]"
                     >
                       {valueLabel}

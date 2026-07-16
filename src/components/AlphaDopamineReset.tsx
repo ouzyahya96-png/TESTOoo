@@ -356,7 +356,7 @@ export const AlphaDopamineReset: React.FC<AlphaDopamineResetProps> = ({ addToast
           <div className="lg:col-span-8 flex flex-col gap-6">
             
             {/* BIG DAY INDICATOR & COUNTDOWN */}
-            <div className="bg-gradient-to-r from-[#16213E]/60 to-[#1F2E54]/40 border border-[#1A1A2E] rounded-3xl p-6 text-center shadow-lg">
+            <div className="tokens-banner bg-gradient-to-r from-[#16213E]/60 to-[#1F2E54]/40 border border-[#1A1A2E] rounded-3xl p-6 text-center shadow-lg">
               <span className="text-[10px] font-mono text-[#FFD700] uppercase tracking-widest bg-[#FFD700]/10 border border-[#FFD700]/30 px-3 py-1 rounded-full">
                 SÉLECTION DU PROTOCOLE
               </span>

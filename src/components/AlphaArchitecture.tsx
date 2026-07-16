@@ -33,9 +33,10 @@ import { AlphaPrismaExplorer } from './AlphaPrismaExplorer';
 
 interface AlphaArchitectureProps {
   addToast: (type: 'success' | 'warning' | 'error' | 'info', message: string) => void;
+  onBack?: () => void;
 }
 
-export function AlphaArchitecture({ addToast }: AlphaArchitectureProps) {
+export function AlphaArchitecture({ addToast, onBack }: AlphaArchitectureProps) {
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
   const [activeSubTab, setActiveSubTab] = useState<'c4' | 'erd' | 'api' | 'folders' | 'devops'>('c4');
   const [c4Level, setC4Level] = useState<'context' | 'container' | 'component'>('context');
@@ -341,7 +342,7 @@ GEMINI_API_KEY="AIzaSyAlphaManGeminiSecretSecureEngine_2026"`;
   return (
     <div className="flex flex-col gap-8 animate-[fade-in_0.3s_ease-out]">
       {/* Title block */}
-      <div className="p-6 bg-gradient-to-r from-[#16213E] to-[#1A1A2E] rounded-3xl border border-[#E94560]/10 flex flex-col lg:flex-row items-center justify-between gap-6">
+      <div className="tokens-banner p-6 bg-gradient-to-r from-[#16213E] to-[#1A1A2E] rounded-3xl border border-[#E94560]/10 flex flex-col lg:flex-row items-center justify-between gap-6">
         <div className="max-w-2xl">
           <span className="text-xs px-2.5 py-1 rounded-full bg-[#E94560]/10 border border-[#E94560]/30 text-[#E94560] font-headline font-bold uppercase tracking-widest">
             Architecture Systèmes & DevOps
@@ -354,6 +355,11 @@ GEMINI_API_KEY="AIzaSyAlphaManGeminiSecretSecureEngine_2026"`;
           </p>
         </div>
         <div className="flex flex-wrap gap-3">
+          {onBack && (
+            <AlphaButton variant="ghost" size="sm" onClick={onBack}>
+              Retour
+            </AlphaButton>
+          )}
           <AlphaButton variant="secondary" onClick={() => handleCopy(envExampleContent, 'full-env')}>
             <Copy className="w-4 h-4 mr-1" /> Copier l'Env Template
           </AlphaButton>

@@ -191,6 +191,439 @@ app.get('/api/kegel/dashboard/:userId', (req, res) => {
   }
 });
 
+// API Endpoint: Kegel Biofeedback History Data
+app.get('/api/kegel/biofeedback/:userId', (req, res) => {
+  try {
+    const userId = req.params.userId || 'ALPHA_SOLDIER_1';
+    const period = (req.query.period as string) || '7d';
+    
+    // Generate dates & values depending on selected period
+    let forceData: any[] = [];
+    if (period === '7d' || period === '7J') {
+      forceData = [
+        { date: "07/07", value: 65 },
+        { date: "08/07", value: 68 },
+        { date: "09/07", value: 67 },
+        { date: "10/07", value: 72 },
+        { date: "11/07", value: 70 },
+        { date: "12/07", value: 75 },
+        { date: "Aujourd'hui", value: 78 }
+      ];
+    } else if (period === '30d' || period === '30J') {
+      forceData = [
+        { date: "15/06", value: 55 },
+        { date: "20/06", value: 58 },
+        { date: "25/06", value: 62 },
+        { date: "30/06", value: 65 },
+        { date: "05/07", value: 70 },
+        { date: "10/07", value: 74 },
+        { date: "Aujourd'hui", value: 78 }
+      ];
+    } else {
+      forceData = [
+        { date: "Jan", value: 45 },
+        { date: "Fév", value: 50 },
+        { date: "Mar", value: 58 },
+        { date: "Avr", value: 64 },
+        { date: "Mai", value: 70 },
+        { date: "Juin", value: 74 },
+        { date: "Juil", value: 78 }
+      ];
+    }
+
+    const enduranceData = [
+      { day: "Lun", value: 210, goal: 300 },
+      { day: "Mar", value: 240, goal: 300 },
+      { day: "Mer", value: 220, goal: 300 },
+      { day: "Jeu", value: 250, goal: 300 },
+      { day: "Ven", value: 270, goal: 300 },
+      { day: "Sam", value: 260, goal: 300 },
+      { day: "Dim", value: 280, goal: 300 }
+    ];
+
+    res.json({
+      userId,
+      globalScore: 78,
+      scorePercentile: 78,
+      scoreTrend: 12,
+      selectedPeriod: period,
+      forceData,
+      enduranceData
+    });
+  } catch (error: any) {
+    res.status(500).json({ error: 'Failed to retrieve biofeedback data', message: error.message });
+  }
+});
+
+// API Endpoint: Kegel Skill Radar Data
+app.get('/api/kegel/radar/:userId', (req, res) => {
+  try {
+    const userId = req.params.userId || 'ALPHA_SOLDIER_1';
+    res.json({
+      userId,
+      radarData: {
+        current: { force: 78, endurance: 72, speed: 80, control: 65, consistency: 85 },
+        previous: { force: 70, endurance: 68, speed: 75, control: 60, consistency: 80 }
+      }
+    });
+  } catch (error: any) {
+    res.status(500).json({ error: 'Failed to retrieve radar data', message: error.message });
+  }
+});
+
+// API Endpoint: Detailed Stats List
+app.get('/api/kegel/stats/:userId', (req, res) => {
+  try {
+    const userId = req.params.userId || 'ALPHA_SOLDIER_1';
+    res.json({
+      userId,
+      detailedStats: {
+        totalContractions: 1247,
+        contractionsTrend: 340,
+        totalTrainingTime: "18h 42m",
+        trainingTimeTrend: "+2h 15m",
+        completedSessions: 89,
+        completedTrend: 12,
+        missedSessions: 7,
+        missedTrend: -3,
+        streakDays: 12,
+        streakRecord: 23,
+        maxForce: 87,
+        maxForceDate: "Le 10 Juillet"
+      }
+    });
+  } catch (error: any) {
+    res.status(500).json({ error: 'Failed to retrieve detailed stats', message: error.message });
+  }
+});
+
+// API Endpoint: Weekly Report Summary
+app.get('/api/kegel/weekly-report/:userId', (req, res) => {
+  try {
+    const userId = req.params.userId || 'ALPHA_SOLDIER_1';
+    res.json({
+      userId,
+      weeklyReport: {
+        summary: "Cette semaine : 12 séances, +15% force, +45s endurance. Tu progresses plus vite que 82% des utilisateurs.",
+        suggestion: "💡 Suggestion : Augmente la durée de tenue de 2 secondes la semaine prochaine."
+      }
+    });
+  } catch (error: any) {
+    res.status(500).json({ error: 'Failed to retrieve weekly report', message: error.message });
+  }
+});
+
+// API Endpoint: Bluetooth Devices Scan List
+app.get('/api/biofeedback/devices', (req, res) => {
+  try {
+    res.json({
+      devices: [
+        { id: "dev_1", name: "Perifit Pro", battery: 92, supported: true },
+        { id: "dev_2", name: "kGoal Boost", battery: 74, supported: true },
+        { id: "dev_3", name: "Elvie Trainer", battery: 85, supported: true },
+        { id: "dev_4", name: "MyKegel Smart Sensor", battery: 100, supported: true }
+      ]
+    });
+  } catch (error: any) {
+    res.status(500).json({ error: 'Failed to list biofeedback devices', message: error.message });
+  }
+});
+
+// API Endpoint: Connect Device
+let connectedDevice: any = null;
+app.post('/api/biofeedback/connect', express.json(), (req, res) => {
+  try {
+    const { deviceId, name } = req.body;
+    connectedDevice = {
+      connected: true,
+      id: deviceId || "dev_1",
+      name: name || "Perifit Pro",
+      battery: 88,
+      lastReading: 45 // 45mV baseline
+    };
+    res.json({ success: true, device: connectedDevice });
+  } catch (error: any) {
+    res.status(500).json({ error: 'Failed to connect device', message: error.message });
+  }
+});
+
+// API Endpoint: Disconnect Device
+app.post('/api/biofeedback/disconnect', (req, res) => {
+  try {
+    connectedDevice = null;
+    res.json({ success: true, device: { connected: false, name: null, battery: null, lastReading: null } });
+  } catch (error: any) {
+    res.status(500).json({ error: 'Failed to disconnect device', message: error.message });
+  }
+});
+
+// API Endpoint: Get Complementary Exercises List
+app.get('/api/exercises', (req, res) => {
+  try {
+    const category = req.query.category as string || 'all';
+    
+    const allExercises = [
+      {
+        id: "ex_1",
+        name: "Squats profonds",
+        category: "strength",
+        difficulty: "medium",
+        duration: 5,
+        tags: ["💪 Force", "⏱ 5 min"],
+        kegelBenefit: "+25% force",
+        videoUrl: "assets/videos/squats.mp4",
+        thumbnailUrl: "https://images.unsplash.com/photo-1574680096145-d05b474e2155?auto=format&fit=crop&q=80&w=200",
+        description: "Renforce hanches et plancher pelvien"
+      },
+      {
+        id: "ex_2",
+        name: "Ponts fessiers (Glute Bridges)",
+        category: "strength",
+        difficulty: "easy",
+        duration: 4,
+        tags: ["💪 Force", "⏱ 4 min"],
+        kegelBenefit: "Activation synergique",
+        videoUrl: "assets/videos/glute_bridges.mp4",
+        thumbnailUrl: "https://images.unsplash.com/photo-1517838277536-f5f99be501cd?auto=format&fit=crop&q=80&w=200",
+        description: "Active les fessiers en coordination avec le périnée"
+      },
+      {
+        id: "ex_3",
+        name: "Planche (Plank)",
+        category: "strength",
+        difficulty: "medium",
+        duration: 3,
+        tags: ["💪 Core", "⏱ 3 min"],
+        kegelBenefit: "Core stability + plancher pelvien",
+        videoUrl: "assets/videos/plank.mp4",
+        thumbnailUrl: "https://images.unsplash.com/photo-1566241477600-ac026ad43874?auto=format&fit=crop&q=80&w=200",
+        description: "Gainage abdominal profond et stabilisation de la ceinture"
+      },
+      {
+        id: "ex_4",
+        name: "Superman",
+        category: "strength",
+        difficulty: "easy",
+        duration: 3,
+        tags: ["💪 Dos", "⏱ 3 min"],
+        kegelBenefit: "Dos + plancher pelvien",
+        videoUrl: "assets/videos/superman.mp4",
+        thumbnailUrl: "https://images.unsplash.com/photo-1607962837359-5e7e89f866ad?auto=format&fit=crop&q=80&w=200",
+        description: "Renforcement de la chaîne postérieure lombaire"
+      },
+      {
+        id: "ex_5",
+        name: "Bird-Dog",
+        category: "strength",
+        difficulty: "medium",
+        duration: 4,
+        tags: ["💪 Équilibre", "⏱ 4 min"],
+        kegelBenefit: "Équilibre + coordination",
+        videoUrl: "assets/videos/bird_dog.mp4",
+        thumbnailUrl: "https://images.unsplash.com/photo-1544367567-0f2fcb009e0b?auto=format&fit=crop&q=80&w=200",
+        description: "Stabilisation controlatérale d'acier"
+      },
+      {
+        id: "ex_6",
+        name: "Deep Squats",
+        category: "strength",
+        difficulty: "hard",
+        duration: 6,
+        tags: ["💪 Mobilité", "⏱ 6 min"],
+        kegelBenefit: "Mobilité hanche + plancher pelvien",
+        videoUrl: "assets/videos/deep_squats.mp4",
+        thumbnailUrl: "https://images.unsplash.com/photo-1517838277536-f5f99be501cd?auto=format&fit=crop&q=80&w=200",
+        description: "Flexion profonde pour assouplir le bassin"
+      },
+      {
+        id: "ex_7",
+        name: "Redressement assis",
+        category: "posture",
+        difficulty: "easy",
+        duration: 3,
+        tags: ["🧍 Posture", "⏱ 3 min"],
+        kegelBenefit: "Alignement pelvien",
+        videoUrl: "assets/videos/posture_sit.mp4",
+        thumbnailUrl: "https://images.unsplash.com/photo-1599447421416-3414500d18a5?auto=format&fit=crop&q=80&w=200",
+        description: "Ajustement de la posture assise active"
+      },
+      {
+        id: "ex_8",
+        name: "Étirement du psoas",
+        category: "mobility",
+        difficulty: "easy",
+        duration: 4,
+        tags: ["🧘 Mobilité", "⏱ 4 min"],
+        kegelBenefit: "Hanches détendues = plancher libre",
+        videoUrl: "assets/videos/hip_stretch.mp4",
+        thumbnailUrl: "https://images.unsplash.com/photo-1506126613408-eca07ce68773?auto=format&fit=crop&q=80&w=200",
+        description: "Libère les tensions du fléchisseur de la hanche"
+      },
+      {
+        id: "ex_9",
+        name: "90/90 Stretch",
+        category: "mobility",
+        difficulty: "medium",
+        duration: 5,
+        tags: ["🧘 Mobilité", "⏱ 5 min"],
+        kegelBenefit: "Rotation hanche complète",
+        videoUrl: "assets/videos/ninety_stretch.mp4",
+        thumbnailUrl: "https://images.unsplash.com/photo-1552196563-55cd4e45efb3?auto=format&fit=crop&q=80&w=200",
+        description: "Améliore la rotation interne et externe des hanches"
+      },
+      {
+        id: "ex_10",
+        name: "Respiration + Kegel Coordination",
+        category: "breathing",
+        difficulty: "medium",
+        duration: 5,
+        tags: ["🫁 Respiration", "⏱ 5 min"],
+        kegelBenefit: "Amplifie ton Kegel de 40%",
+        videoUrl: "assets/videos/breath_kegel.mp4",
+        thumbnailUrl: "https://images.unsplash.com/photo-1506126613408-eca07ce68773?auto=format&fit=crop&q=80&w=200",
+        description: "Synchronisation du diaphragme et du plancher pelvien"
+      },
+      {
+        id: "ex_11",
+        name: "Box Breathing + Kegel",
+        category: "breathing",
+        difficulty: "easy",
+        duration: 4,
+        tags: ["🫁 Respiration", "⏱ 4 min"],
+        kegelBenefit: "Contrôle + calme",
+        videoUrl: "assets/videos/box_breath_kegel.mp4",
+        thumbnailUrl: "https://images.unsplash.com/photo-1518281400699-c26215510716?auto=format&fit=crop&q=80&w=200",
+        description: "Respiration au carré pour calmer le système nerveux"
+      },
+      {
+        id: "ex_12",
+        name: "Wim Hof + Kegel Avancé",
+        category: "breathing",
+        difficulty: "hard",
+        duration: 8,
+        tags: ["🫁 Respiration", "❄️ Froid", "⏱ 8 min"],
+        kegelBenefit: "Énergie maximale + contrôle",
+        videoUrl: "assets/videos/wimhof_kegel.mp4",
+        thumbnailUrl: "https://images.unsplash.com/photo-1471864190281-a93a3070b6de?auto=format&fit=crop&q=80&w=200",
+        description: "Hyperventilation contrôlée suivie de contractions souveraines"
+      }
+    ];
+
+    const filtered = category === 'all' 
+      ? allExercises 
+      : allExercises.filter(ex => ex.category === category);
+
+    res.json({ exercises: filtered });
+  } catch (error: any) {
+    res.status(500).json({ error: 'Failed to retrieve exercises', message: error.message });
+  }
+});
+
+// API Endpoint: Get Weekly Program (Elite+)
+app.get('/api/exercises/weekly-program/:userId', (req, res) => {
+  try {
+    const userId = req.params.userId || 'ALPHA_SOLDIER_1';
+    res.json({
+      userId,
+      weeklyProgram: [
+        { day: "LUN", exercises: "Squats profonds + Kegel Niv.4", duration: 15, completed: true },
+        { day: "MAR", exercises: "Ponts fessiers + Respiration", duration: 12, completed: true },
+        { day: "MER", exercises: "Planche (Plank) + Wim Hof", duration: 10, completed: false },
+        { day: "JEU", exercises: "90/90 Stretch + Superman", duration: 14, completed: false },
+        { day: "VEN", exercises: "Bird-Dog + Box Breathing", duration: 15, completed: false }
+      ]
+    });
+  } catch (error: any) {
+    res.status(500).json({ error: 'Failed to retrieve weekly program', message: error.message });
+  }
+});
+
+// API Endpoint: Get Daily Tip
+app.get('/api/exercises/daily-tip/:userId', (req, res) => {
+  try {
+    res.json({
+      tip: "💡 Combine toujours tes exercices de renforcement avec une séance Kegel. L'effet synergique augmente tes résultats de 40%."
+    });
+  } catch (error: any) {
+    res.status(500).json({ error: 'Failed to retrieve daily tip', message: error.message });
+  }
+});
+
+// In-memory store for Progress Photos metadata (simulating cloud backup)
+let progressPhotosStore: Record<string, any[]> = {
+  'ALPHA_SOLDIER_1': [
+    {
+      id: "photo_before_1",
+      uri: "https://images.unsplash.com/photo-1544367567-0f2fcb009e0b?auto=format&fit=crop&q=80&w=400",
+      date: "2026-05-29T08:00:00.000Z",
+      type: "before",
+      levelAtCapture: 4,
+      faceBlurred: true
+    },
+    {
+      id: "photo_after_1",
+      uri: "https://images.unsplash.com/photo-1517838277536-f5f99be501cd?auto=format&fit=crop&q=80&w=400",
+      date: "2026-07-13T08:00:00.000Z",
+      type: "after",
+      levelAtCapture: 5,
+      faceBlurred: true
+    }
+  ]
+};
+
+// API Endpoint: Get Progress Photos Metadata
+app.get('/api/photos/:userId', (req, res) => {
+  try {
+    const userId = req.params.userId || 'ALPHA_SOLDIER_1';
+    const photos = progressPhotosStore[userId] || [];
+    res.json({ photos });
+  } catch (error: any) {
+    res.status(500).json({ error: 'Failed to retrieve photos metadata', message: error.message });
+  }
+});
+
+// API Endpoint: Add Progress Photo Metadata
+app.post('/api/photos/:userId', express.json(), (req, res) => {
+  try {
+    const userId = req.params.userId || 'ALPHA_SOLDIER_1';
+    const { id, uri, date, type, levelAtCapture, faceBlurred } = req.body;
+    
+    if (!id || !uri) {
+      return res.status(400).json({ error: 'Missing photo id or uri' });
+    }
+
+    if (!progressPhotosStore[userId]) {
+      progressPhotosStore[userId] = [];
+    }
+
+    const newPhoto = {
+      id,
+      uri,
+      date: date || new Date().toISOString(),
+      type: type || 'progress',
+      levelAtCapture: levelAtCapture || 1,
+      faceBlurred: faceBlurred !== undefined ? faceBlurred : true
+    };
+
+    progressPhotosStore[userId].push(newPhoto);
+    res.status(201).json({ success: true, photo: newPhoto });
+  } catch (error: any) {
+    res.status(500).json({ error: 'Failed to save photo metadata', message: error.message });
+  }
+});
+
+// API Endpoint: Delete All Photos
+app.delete('/api/photos/:userId', (req, res) => {
+  try {
+    const userId = req.params.userId || 'ALPHA_SOLDIER_1';
+    progressPhotosStore[userId] = [];
+    res.json({ success: true, message: 'All photos deleted successfully' });
+  } catch (error: any) {
+    res.status(500).json({ error: 'Failed to delete photos', message: error.message });
+  }
+});
+
+
 // API Endpoint 3: Proxy secure Gemini API calls
 app.post('/api/chat', async (req, res) => {
   try {

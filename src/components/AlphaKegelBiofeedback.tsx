@@ -845,7 +845,7 @@ const styles = StyleSheet.create({
                         y1={20 + 150 * ratio} 
                         x2="470" 
                         y2={20 + 150 * ratio} 
-                        stroke="#1C1C35" 
+                        stroke="var(--app-border)" 
                         strokeWidth="1" 
                       />
                     ))}
@@ -1039,7 +1039,7 @@ const styles = StyleSheet.create({
                           ${100 - r * 0.95},${100 - r * 0.31}
                         `}
                         fill="none" 
-                        stroke="#1C1C35" 
+                        stroke="var(--app-border)" 
                         strokeWidth="1" 
                       />
                     ))}
@@ -1050,7 +1050,7 @@ const styles = StyleSheet.create({
                       const x = 100 + 100 * Math.cos(angle);
                       const y = 100 + 100 * Math.sin(angle);
                       return (
-                        <line key={i} x1="100" y1="100" x2={x} y2={y} stroke="#1C1C35" strokeWidth="1" />
+                        <line key={i} x1="100" y1="100" x2={x} y2={y} stroke="var(--app-border)" strokeWidth="1" />
                       );
                     })}
 

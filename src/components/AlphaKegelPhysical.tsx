@@ -433,7 +433,7 @@ export const AlphaKegelPhysical: React.FC<AlphaKegelPhysicalProps> = ({ addToast
           <div className="flex items-center gap-4">
             
             {/* Elegant Posture Male vector SVG Illustration */}
-            <svg width="80" height="120" viewBox="0 0 80 120" className="bg-[#1A1A2E] rounded-xl border border-[#1C1C35] shrink-0 p-1">
+            <svg width="80" height="120" viewBox="0 0 80 120" className="bg-[var(--app-bg)] rounded-xl border border-[var(--app-border)] shrink-0 p-1">
               {/* Grid backdrop */}
               <line x1="20" y1="0" x2="20" y2="120" stroke="#00D9A5" strokeOpacity="0.05" />
               <line x1="40" y1="0" x2="40" y2="120" stroke="#00D9A5" strokeOpacity="0.05" />
@@ -441,11 +441,11 @@ export const AlphaKegelPhysical: React.FC<AlphaKegelPhysicalProps> = ({ addToast
               {/* Spine Line */}
               <path d="M 40 15 Q 43 45 38 75 T 41 110" fill="none" stroke="#00D9A5" strokeWidth="2.5" strokeLinecap="round" />
               {/* Head */}
-              <circle cx="40" cy="18" r="8" fill="#16213E" stroke="#00D9A5" strokeWidth="2" />
+              <circle cx="40" cy="18" r="8" fill="var(--app-surface)" stroke="#00D9A5" strokeWidth="2" />
               {/* Pelvis region indicator */}
               <ellipse cx="40" cy="80" rx="12" ry="6" fill="#00D9A5" fillOpacity="0.15" stroke="#00D9A5" strokeWidth="1.5" strokeDasharray="3,3" />
               {/* Ground */}
-              <line x1="15" y1="115" x2="65" y2="115" stroke="#1C1C35" strokeWidth="2" strokeLinecap="round" />
+              <line x1="15" y1="115" x2="65" y2="115" stroke="var(--app-border)" strokeWidth="2" strokeLinecap="round" />
             </svg>
 
             {/* Right Side Info */}
@@ -661,24 +661,24 @@ export const AlphaKegelPhysical: React.FC<AlphaKegelPhysicalProps> = ({ addToast
         <div className="w-full bg-[#16213E] rounded-3xl p-5 shadow-lg border border-[#1C1C3F] flex flex-col gap-4">
           
           {/* Custom SVG Radar Chart representation */}
-          <div className="bg-[#0D1426] rounded-2xl border border-white/5 p-4 flex flex-col items-center justify-center relative">
-            <span className="absolute top-2 left-3 font-mono text-[9px] text-[#8E8E93] uppercase">Modèle de force croisé</span>
+          <div className="bg-[var(--app-bg)] rounded-2xl border border-[var(--app-border)] p-4 flex flex-col items-center justify-center relative">
+            <span className="absolute top-2 left-3 font-mono text-[9px] text-[var(--app-text-muted)] uppercase">Modèle de force croisé</span>
             
             <svg width="220" height="200" viewBox="0 0 200 200" className="mx-auto mt-2">
               {/* Pentagonal grid lines */}
               {/* Outer pentagon (radius 65) */}
-              <polygon points="100,35 162,80 138,153 62,153 38,80" fill="none" stroke="#1A2E50" strokeWidth="1" />
+              <polygon points="100,35 162,80 138,153 62,153 38,80" fill="none" stroke="var(--app-border)" strokeWidth="1" />
               {/* Middle pentagon (radius 45) */}
-              <polygon points="100,55 143,86 126,137 74,137 57,86" fill="none" stroke="#1A2E50" strokeWidth="1" />
+              <polygon points="100,55 143,86 126,137 74,137 57,86" fill="none" stroke="var(--app-border)" strokeWidth="1" />
               {/* Inner pentagon (radius 25) */}
-              <polygon points="100,75 124,92 115,120 85,120 76,92" fill="none" stroke="#1A2E50" strokeWidth="1" />
+              <polygon points="100,75 124,92 115,120 85,120 76,92" fill="none" stroke="var(--app-border)" strokeWidth="1" />
 
               {/* Axis connector lines */}
-              <line x1="100" y1="100" x2="100" y2="35" stroke="#1A2E50" strokeWidth="1" strokeDasharray="2,2" />
-              <line x1="100" y1="100" x2="162" y2="80" stroke="#1A2E50" strokeWidth="1" strokeDasharray="2,2" />
-              <line x1="100" y1="100" x2="138" y2="153" stroke="#1A2E50" strokeWidth="1" strokeDasharray="2,2" />
-              <line x1="100" y1="100" x2="62" y2="153" stroke="#1A2E50" strokeWidth="1" strokeDasharray="2,2" />
-              <line x1="100" y1="100" x2="38" y2="80" stroke="#1A2E50" strokeWidth="1" strokeDasharray="2,2" />
+              <line x1="100" y1="100" x2="100" y2="35" stroke="var(--app-border)" strokeWidth="1" strokeDasharray="2,2" />
+              <line x1="100" y1="100" x2="162" y2="80" stroke="var(--app-border)" strokeWidth="1" strokeDasharray="2,2" />
+              <line x1="100" y1="100" x2="138" y2="153" stroke="var(--app-border)" strokeWidth="1" strokeDasharray="2,2" />
+              <line x1="100" y1="100" x2="62" y2="153" stroke="var(--app-border)" strokeWidth="1" strokeDasharray="2,2" />
+              <line x1="100" y1="100" x2="38" y2="80" stroke="var(--app-border)" strokeWidth="1" strokeDasharray="2,2" />
 
               {/* Data Series 1: Semaine Dernière (Grey/Blue dash, e.g. moderate values) */}
               <polygon points="100,60 142,92 118,135 80,128 58,95" fill="#4A90D9" fillOpacity="0.15" stroke="#4A90D9" strokeWidth="1.5" strokeDasharray="3,3" />

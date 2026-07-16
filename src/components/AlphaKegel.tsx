@@ -7,6 +7,7 @@ import {
   Zap,
   Shield,
   Target,
+  Moon,
   Play,
   Pause,
   X,
@@ -25,7 +26,12 @@ import {
   Copy,
   Lock,
   Compass,
-  Sliders
+  Sliders,
+  Camera,
+  Sun,
+  Apple,
+  Snowflake,
+  Wind
 } from 'lucide-react';
 
 import { kegelService, KEGEL_LEVELS, KegelLevel, KegelSession } from '../pattern_killer/kegelService';
@@ -37,6 +43,22 @@ import { AlphaKegelBiofeedback } from './AlphaKegelBiofeedback';
 import { AlphaKegelProgramme } from './AlphaKegelProgramme';
 import { AlphaKegelPhysical } from './AlphaKegelPhysical';
 import { KegelDashboardScreen } from '../screens/kegel/KegelDashboardScreen';
+import { BiofeedbackTrackingScreen } from '../screens/kegel/BiofeedbackTrackingScreen';
+import { ComplementaryExercisesScreen } from '../screens/physical/ComplementaryExercisesScreen';
+import { ProgressPhotosScreen } from '../screens/kegel/ProgressPhotosScreen';
+import { SplashScreen } from '../screens/onboarding/SplashScreen';
+import { OnboardingStep1Screen } from '../screens/onboarding/OnboardingStep1Screen';
+import { OnboardingStep2Screen } from '../screens/onboarding/OnboardingStep2Screen';
+import { OnboardingStep3Screen } from '../screens/onboarding/OnboardingStep3Screen';
+import { OnboardingStep4Screen } from '../screens/onboarding/OnboardingStep4Screen';
+import { OnboardingStep5Screen } from '../screens/onboarding/OnboardingStep5Screen';
+import { DashboardScreen } from '../screens/dashboard/DashboardScreen';
+import { SleepTrackerScreen } from '../screens/energy/SleepTrackerScreen';
+import { SunProtocolScreen } from '../screens/energy/SunProtocolScreen';
+import { NutritionScreen } from '../screens/energy/NutritionScreen';
+import { ColdExposureScreen } from '../screens/energy/ColdExposureScreen';
+import { BreathingEngineScreen } from '../screens/energy/BreathingEngineScreen';
+import { VitalityDashboardScreen } from '../screens/energy/VitalityDashboardScreen';
 
 interface AlphaKegelProps {
   addToast: (type: 'success' | 'warning' | 'error' | 'info', message: string) => void;
@@ -46,7 +68,7 @@ interface AlphaKegelProps {
 export const AlphaKegel: React.FC<AlphaKegelProps> = ({ addToast, onPointsUpdate }) => {
   // Service states
   const [kegelState, setKegelState] = useState(() => kegelService.getState());
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'dashboard_spec' | 'levels' | 'history' | 'mobile_blueprint' | 'biofeedback' | 'programme' | 'physical'>('dashboard_spec');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'dashboard_spec' | 'sleep_tracker' | 'sun_protocol' | 'nutrition' | 'cold_exposure' | 'breathing' | 'vitality' | 'biofeedback_spec' | 'physical_spec' | 'photos_spec' | 'splash_spec' | 'onboarding1_spec' | 'onboarding2_spec' | 'onboarding3_spec' | 'onboarding4_spec' | 'onboarding5_spec' | 'levels' | 'history' | 'mobile_blueprint' | 'biofeedback' | 'programme' | 'physical'>('physical_spec');
 
   // Active workout states
   const [activeLevel, setActiveLevel] = useState<KegelLevel | null>(null);
@@ -389,7 +411,7 @@ const styles = StyleSheet.create({
 });`;
 
   return (
-    <div id="alpha-kegel-module-root" className={`flex flex-col gap-6 w-full text-white transition-all duration-300 ${hapticTriggered ? 'scale-[0.99] opacity-90' : ''}`}>
+    <div id="alpha-kegel-module-root" className={`flex flex-col gap-6 w-full text-white bg-[#0F0F1A] border border-[#1A1A2E] p-4 md:p-6 rounded-3xl overflow-hidden relative transition-all duration-300 ${hapticTriggered ? 'scale-[0.99] opacity-90' : ''}`}>
       
       {/* ======================= ACTIVE WORKOUT HUD OVERLAY ======================= */}
       {workoutActive && activeLevel && (
@@ -685,6 +707,214 @@ const styles = StyleSheet.create({
         </button>
 
         <button
+          onClick={() => setActiveTab('biofeedback_spec')}
+          className={`flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-xl text-xs font-headline font-extrabold uppercase tracking-wider transition-all cursor-pointer whitespace-nowrap
+            ${activeTab === 'biofeedback_spec'
+              ? 'bg-[#E94560] text-white shadow-lg shadow-[#E94560]/15'
+              : 'text-[#8E8E93] hover:text-white hover:bg-[#16213E]/40'
+            }
+          `}
+        >
+          <Zap className="w-3.5 h-3.5 text-[#FFD700]" />
+          Biofeedback Spec (2.2)
+        </button>
+
+        <button
+          onClick={() => setActiveTab('physical_spec')}
+          className={`flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-xl text-xs font-headline font-extrabold uppercase tracking-wider transition-all cursor-pointer whitespace-nowrap
+            ${activeTab === 'physical_spec'
+              ? 'bg-[#E94560] text-white shadow-lg shadow-[#E94560]/15'
+              : 'text-[#8E8E93] hover:text-white hover:bg-[#16213E]/40'
+            }
+          `}
+        >
+          <Sliders className="w-3.5 h-3.5 text-[#00D9A5]" />
+          Exercices Spec (2.5)
+        </button>
+
+        <button
+          onClick={() => setActiveTab('photos_spec')}
+          className={`flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-xl text-xs font-headline font-extrabold uppercase tracking-wider transition-all cursor-pointer whitespace-nowrap
+            ${activeTab === 'photos_spec'
+              ? 'bg-[#E94560] text-white shadow-lg shadow-[#E94560]/15'
+              : 'text-[#8E8E93] hover:text-white hover:bg-[#16213E]/40'
+            }
+          `}
+        >
+          <Camera className="w-3.5 h-3.5 text-[#E94560]" />
+          Photos Progrès (2.6)
+        </button>
+
+        <button
+          onClick={() => setActiveTab('splash_spec')}
+          className={`flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-xl text-xs font-headline font-extrabold uppercase tracking-wider transition-all cursor-pointer whitespace-nowrap
+            ${activeTab === 'splash_spec'
+              ? 'bg-[#E94560] text-white shadow-lg shadow-[#E94560]/15'
+              : 'text-[#8E8E93] hover:text-white hover:bg-[#16213E]/40'
+            }
+          `}
+        >
+          <Smartphone className="w-3.5 h-3.5 text-[#FFD700]" />
+          Splash Screen (8.1)
+        </button>
+
+        <button
+          onClick={() => setActiveTab('onboarding1_spec')}
+          className={`flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-xl text-xs font-headline font-extrabold uppercase tracking-wider transition-all cursor-pointer whitespace-nowrap
+            ${activeTab === 'onboarding1_spec'
+              ? 'bg-[#E94560] text-white shadow-lg shadow-[#E94560]/15'
+              : 'text-[#8E8E93] hover:text-white hover:bg-[#16213E]/40'
+            }
+          `}
+        >
+          <Smartphone className="w-3.5 h-3.5 text-[#00D9A5]" />
+          Onboarding 1 (8.2)
+        </button>
+
+        <button
+          onClick={() => setActiveTab('onboarding2_spec')}
+          className={`flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-xl text-xs font-headline font-extrabold uppercase tracking-wider transition-all cursor-pointer whitespace-nowrap
+            ${activeTab === 'onboarding2_spec'
+              ? 'bg-[#E94560] text-white shadow-lg shadow-[#E94560]/15'
+              : 'text-[#8E8E93] hover:text-white hover:bg-[#16213E]/40'
+            }
+          `}
+        >
+          <Smartphone className="w-3.5 h-3.5 text-[#FF2D55]" />
+          Onboarding 2 (8.3)
+        </button>
+
+        <button
+          onClick={() => setActiveTab('onboarding3_spec')}
+          className={`flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-xl text-xs font-headline font-extrabold uppercase tracking-wider transition-all cursor-pointer whitespace-nowrap
+            ${activeTab === 'onboarding3_spec'
+              ? 'bg-[#E94560] text-white shadow-lg shadow-[#E94560]/15'
+              : 'text-[#8E8E93] hover:text-white hover:bg-[#16213E]/40'
+            }
+          `}
+        >
+          <Smartphone className="w-3.5 h-3.5 text-[#FFD700]" />
+          Onboarding 3 (8.4)
+        </button>
+
+        <button
+          onClick={() => setActiveTab('onboarding4_spec')}
+          className={`flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-xl text-xs font-headline font-extrabold uppercase tracking-wider transition-all cursor-pointer whitespace-nowrap
+            ${activeTab === 'onboarding4_spec'
+              ? 'bg-[#E94560] text-white shadow-lg shadow-[#E94560]/15'
+              : 'text-[#8E8E93] hover:text-white hover:bg-[#16213E]/40'
+            }
+          `}
+        >
+          <Smartphone className="w-3.5 h-3.5 text-[#00D9A5]" />
+          Onboarding 4 (8.5)
+        </button>
+
+        <button
+          onClick={() => setActiveTab('onboarding5_spec')}
+          className={`flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-xl text-xs font-headline font-extrabold uppercase tracking-wider transition-all cursor-pointer whitespace-nowrap
+            ${activeTab === 'onboarding5_spec'
+              ? 'bg-[#E94560] text-white shadow-lg shadow-[#E94560]/15'
+              : 'text-[#8E8E93] hover:text-white hover:bg-[#16213E]/40'
+            }
+          `}
+        >
+          <Sparkles className="w-3.5 h-3.5 text-[#FFD700]" />
+          Onboarding 5 (8.6)
+        </button>
+
+        <button
+          onClick={() => setActiveTab('dashboard_spec')}
+          className={`flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-xl text-xs font-headline font-extrabold uppercase tracking-wider transition-all cursor-pointer whitespace-nowrap
+            ${activeTab === 'dashboard_spec'
+              ? 'bg-[#E94560] text-white shadow-lg shadow-[#E94560]/15'
+              : 'text-[#8E8E93] hover:text-white hover:bg-[#16213E]/40'
+            }
+          `}
+        >
+          <Flame className="w-3.5 h-3.5 text-[#E94560] fill-[#E94560]/25" />
+          Dashboard (8.7)
+        </button>
+
+        <button
+          onClick={() => setActiveTab('vitality')}
+          className={`flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-xl text-xs font-headline font-extrabold uppercase tracking-wider transition-all cursor-pointer whitespace-nowrap
+            ${activeTab === 'vitality'
+              ? 'bg-[#00D9A5] text-[#0F0F1A] shadow-lg shadow-[#00D9A5]/15'
+              : 'text-[#8E8E93] hover:text-white hover:bg-[#16213E]/40'
+            }
+          `}
+        >
+          <Zap className="w-3.5 h-3.5 text-[#00D9A5]" />
+          Vitalité (3.6)
+        </button>
+
+        <button
+          onClick={() => setActiveTab('sleep_tracker')}
+          className={`flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-xl text-xs font-headline font-extrabold uppercase tracking-wider transition-all cursor-pointer whitespace-nowrap
+            ${activeTab === 'sleep_tracker'
+              ? 'bg-[#4A90D9] text-white shadow-lg shadow-[#4A90D9]/15'
+              : 'text-[#8E8E93] hover:text-white hover:bg-[#16213E]/40'
+            }
+          `}
+        >
+          <Moon className="w-3.5 h-3.5 text-[#4A90D9] fill-[#4A90D9]/25" />
+          Sommeil (3.1)
+        </button>
+
+        <button
+          onClick={() => setActiveTab('sun_protocol')}
+          className={`flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-xl text-xs font-headline font-extrabold uppercase tracking-wider transition-all cursor-pointer whitespace-nowrap
+            ${activeTab === 'sun_protocol'
+              ? 'bg-[#FFD700] text-[#0F0F1A] shadow-lg shadow-[#FFD700]/15'
+              : 'text-[#8E8E93] hover:text-white hover:bg-[#16213E]/40'
+            }
+          `}
+        >
+          <Sun className="w-3.5 h-3.5 text-[#FFD700] fill-[#FFD700]/25" />
+          Soleil (3.2)
+        </button>
+
+        <button
+          onClick={() => setActiveTab('nutrition')}
+          className={`flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-xl text-xs font-headline font-extrabold uppercase tracking-wider transition-all cursor-pointer whitespace-nowrap
+            ${activeTab === 'nutrition'
+              ? 'bg-[#00D9A5] text-white shadow-lg shadow-[#00D9A5]/15'
+              : 'text-[#8E8E93] hover:text-white hover:bg-[#16213E]/40'
+            }
+          `}
+        >
+          <Apple className="w-3.5 h-3.5 text-[#00D9A5]" />
+          Nutrition (3.3)
+        </button>
+
+        <button
+          onClick={() => setActiveTab('cold_exposure')}
+          className={`flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-xl text-xs font-headline font-extrabold uppercase tracking-wider transition-all cursor-pointer whitespace-nowrap
+            ${activeTab === 'cold_exposure'
+              ? 'bg-[#4A90D9] text-white shadow-lg shadow-[#4A90D9]/15'
+              : 'text-[#8E8E93] hover:text-white hover:bg-[#16213E]/40'
+            }
+          `}
+        >
+          <Snowflake className="w-3.5 h-3.5 text-[#4A90D9]" />
+          Froid (3.4)
+        </button>
+
+        <button
+          onClick={() => setActiveTab('breathing')}
+          className={`flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-xl text-xs font-headline font-extrabold uppercase tracking-wider transition-all cursor-pointer whitespace-nowrap
+            ${activeTab === 'breathing'
+              ? 'bg-[#00D9A5] text-[#0F0F1A] shadow-lg shadow-[#00D9A5]/15'
+              : 'text-[#8E8E93] hover:text-white hover:bg-[#16213E]/40'
+            }
+          `}
+        >
+          <Wind className="w-3.5 h-3.5 text-[#00D9A5]" />
+          Respiration (3.5)
+        </button>
+
+        <button
           onClick={() => setActiveTab('dashboard')}
           className={`flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-xl text-xs font-headline font-extrabold uppercase tracking-wider transition-all cursor-pointer whitespace-nowrap
             ${activeTab === 'dashboard'
@@ -780,7 +1010,110 @@ const styles = StyleSheet.create({
 
       {/* 0. TAB: KEGEL DASHBOARD SCREEN SPEC #2.1 */}
       {activeTab === 'dashboard_spec' && (
-        <KegelDashboardScreen addToast={addToast} onBack={() => setActiveTab('dashboard')} />
+        <KegelDashboardScreen addToast={addToast} onBack={() => setActiveTab('biofeedback_spec')} />
+      )}
+
+      {/* 0.5. TAB: KEGEL BIOFEEDBACK TRACKING SPEC #2.2 */}
+      {activeTab === 'biofeedback_spec' && (
+        <BiofeedbackTrackingScreen addToast={addToast} onBack={() => setActiveTab('dashboard_spec')} />
+      )}
+
+      {/* 0.75. TAB: PHYSICAL EXERCISES SPEC #2.5 */}
+      {activeTab === 'physical_spec' && (
+        <ComplementaryExercisesScreen addToast={addToast} onBack={() => setActiveTab('dashboard')} />
+      )}
+
+      {/* 0.85. TAB: PROGRESS PHOTOS SPEC #2.6 */}
+      {activeTab === 'photos_spec' && (
+        <ProgressPhotosScreen addToast={addToast} onBack={() => setActiveTab('dashboard')} onPointsUpdate={onPointsUpdate} />
+      )}
+
+      {/* 0.95. TAB: SPLASH SCREEN SPEC #8.1 */}
+      {activeTab === 'splash_spec' && (
+        <SplashScreen addToast={addToast} onBack={() => setActiveTab('dashboard')} />
+      )}
+
+      {/* 0.96. TAB: ONBOARDING STEP 1 SPEC #8.2 */}
+      {activeTab === 'onboarding1_spec' && (
+        <OnboardingStep1Screen addToast={addToast} onBack={() => setActiveTab('dashboard')} onNext={() => {
+          setActiveTab('onboarding2_spec');
+          addToast('success', 'Transition vers l\'Étape 2/5 ! 🚀');
+        }} />
+      )}
+
+      {/* 0.97. TAB: ONBOARDING STEP 2 SPEC #8.3 */}
+      {activeTab === 'onboarding2_spec' && (
+        <OnboardingStep2Screen addToast={addToast} onBack={() => setActiveTab('dashboard')} onNext={(val) => {
+          setActiveTab('onboarding3_spec');
+          addToast('success', `Étape 2 complétée avec l'option : ${val} ! 🎉`);
+        }} />
+      )}
+
+      {/* 0.98. TAB: ONBOARDING STEP 3 SPEC #8.4 */}
+      {activeTab === 'onboarding3_spec' && (
+        <OnboardingStep3Screen addToast={addToast} onBack={() => setActiveTab('dashboard')} onNext={(val) => {
+          setActiveTab('onboarding4_spec');
+          addToast('success', `Étape 3 complétée avec ${val.length} triggers ! 🎉`);
+        }} />
+      )}
+
+      {/* 0.99. TAB: ONBOARDING STEP 4 SPEC #8.5 */}
+      {activeTab === 'onboarding4_spec' && (
+        <OnboardingStep4Screen addToast={addToast} onBack={() => setActiveTab('dashboard')} onNext={(val) => {
+          setActiveTab('onboarding5_spec');
+          addToast('success', `Étape 4 complétée ! Humeur: ${val.currentMood}, Énergie: ${val.energyLevel}, Urge: ${val.urgeLevel} 🎉`);
+        }} />
+      )}
+
+      {/* 1.00. TAB: ONBOARDING STEP 5 SPEC #8.6 */}
+      {activeTab === 'onboarding5_spec' && (
+        <OnboardingStep5Screen addToast={addToast} onBack={() => setActiveTab('dashboard')} onNext={() => {
+          setActiveTab('dashboard_spec');
+          addToast('success', "Félicitations pour l'onboarding complet ! Passons au Tableau de bord principal. 🥇");
+        }} />
+      )}
+
+      {/* 1.01. TAB: DASHBOARD SPEC #8.7 */}
+      {activeTab === 'dashboard_spec' && (
+        <DashboardScreen 
+          addToast={addToast} 
+          onBack={() => setActiveTab('dashboard')} 
+          onNavigateToTab={(tab) => setActiveTab(tab)}
+        />
+      )}
+
+      {/* 1.02. TAB: SLEEP TRACKER SPEC #3.1 */}
+      {activeTab === 'sleep_tracker' && (
+        <SleepTrackerScreen addToast={addToast} onBack={() => setActiveTab('dashboard_spec')} />
+      )}
+
+      {/* 1.03. TAB: SUN PROTOCOL SPEC #3.2 */}
+      {activeTab === 'sun_protocol' && (
+        <SunProtocolScreen addToast={addToast} onBack={() => setActiveTab('dashboard_spec')} />
+      )}
+
+      {/* 1.04. TAB: NUTRITION SPEC #3.3 */}
+      {activeTab === 'nutrition' && (
+        <NutritionScreen addToast={addToast} onBack={() => setActiveTab('dashboard_spec')} />
+      )}
+
+      {/* 1.05. TAB: COLD EXPOSURE SPEC #3.4 */}
+      {activeTab === 'cold_exposure' && (
+        <ColdExposureScreen addToast={addToast} onBack={() => setActiveTab('dashboard_spec')} />
+      )}
+
+      {/* 1.06. TAB: BREATHING ENGINE SPEC #3.5 */}
+      {activeTab === 'breathing' && (
+        <BreathingEngineScreen addToast={addToast} onBack={() => setActiveTab('dashboard_spec')} />
+      )}
+
+      {/* 1.07. TAB: VITALITY DASHBOARD SPEC #3.6 */}
+      {activeTab === 'vitality' && (
+        <VitalityDashboardScreen 
+          addToast={addToast} 
+          onBack={() => setActiveTab('dashboard_spec')} 
+          onNavigateToTab={(tab) => setActiveTab(tab)}
+        />
       )}
 
       {/* 1. TAB: MAIN DASHBOARD */}
