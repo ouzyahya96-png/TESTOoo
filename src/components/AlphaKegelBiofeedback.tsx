@@ -105,7 +105,7 @@ export const AlphaKegelBiofeedback: React.FC<AlphaKegelBiofeedbackProps> = ({ ad
     } catch (_) {}
   };
 
-  // Sync state on custom updates
+  // Sync state on custom updates and clean up AudioContext on unmount
   useEffect(() => {
     const handleUpdate = () => {
       setTrackingState(trackingService.getState());
@@ -116,6 +116,11 @@ export const AlphaKegelBiofeedback: React.FC<AlphaKegelBiofeedbackProps> = ({ ad
     return () => {
       window.removeEventListener('alphaman_tracking_updated', handleUpdate);
       window.removeEventListener('alphaman_kegel_updated', handleUpdate);
+      if (audioCtxRef.current) {
+        try {
+          audioCtxRef.current.close();
+        } catch (_) {}
+      }
     };
   }, []);
 

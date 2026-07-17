@@ -31,22 +31,56 @@ import { AlphaButton } from '../../components/AlphaButton';
 interface ColdExposureScreenProps {
   addToast: (type: 'success' | 'warning' | 'error' | 'info', message: string) => void;
   onBack?: () => void;
+  vitalityPoints?: number;
+  onPointsUpdate?: (newPoints: number) => void;
 }
 
-export const ColdExposureScreen: React.FC<ColdExposureScreenProps> = ({ addToast, onBack }) => {
+export const ColdExposureScreen: React.FC<ColdExposureScreenProps> = ({ addToast, onBack, vitalityPoints = 2340, onPointsUpdate }) => {
   // Simulator View Settings
   const [showNativeCode, setShowNativeCode] = useState<boolean>(false);
   const [copied, setCopied] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [selectedDate, setSelectedDate] = useState<string>("Aujourd'hui");
 
-  // Core Cold Parameters State
-  const [coldScore, setColdScore] = useState<number>(78);
-  const [personalBest, setPersonalBest] = useState<number>(82);
-  const [sessionDuration, setSessionDuration] = useState<number>(150); // seconds today
+  // Core Cold Parameters State loaded from localStorage
+  const [coldScore, setColdScore] = useState<number>(() => {
+    try {
+      const saved = localStorage.getItem('alphaman_cold_score');
+      return saved ? Number(saved) : 78;
+    } catch {
+      return 78;
+    }
+  });
+  const [personalBest, setPersonalBest] = useState<number>(() => {
+    try {
+      const saved = localStorage.getItem('alphaman_cold_pb');
+      return saved ? Number(saved) : 82;
+    } catch {
+      return 82;
+    }
+  });
+  const [sessionDuration, setSessionDuration] = useState<number>(() => {
+    try {
+      const saved = localStorage.getItem('alphaman_cold_duration');
+      return saved ? Number(saved) : 150;
+    } catch {
+      return 150;
+    }
+  });
   const [targetDuration, setTargetDuration] = useState<number>(180); // 3 minutes standard
   const [targetTemp, setTargetTemp] = useState<number>(15); // °C
   const [trend, setTrend] = useState<number>(15);
+
+  // Sync state changes to localStorage
+  useEffect(() => {
+    try {
+      localStorage.setItem('alphaman_cold_score', String(coldScore));
+      localStorage.setItem('alphaman_cold_pb', String(personalBest));
+      localStorage.setItem('alphaman_cold_duration', String(sessionDuration));
+    } catch (e) {
+      console.warn("Failed to save cold parameters state to localStorage", e);
+    }
+  }, [coldScore, personalBest, sessionDuration]);
 
   // Timer State
   const [timerActive, setTimerActive] = useState<boolean>(false);
@@ -90,21 +124,30 @@ export const ColdExposureScreen: React.FC<ColdExposureScreenProps> = ({ addToast
   useEffect(() => {
     if (timerActive && !timerPaused) {
       timerRef.current = setInterval(() => {
+        let reachedTarget = false;
+        let nextValCalculated = 0;
+        let nextScoreCalculated = 0;
+
         setTimerElapsed(prev => {
           const nextVal = prev + 1;
-          setSessionDuration(nextVal);
-          
-          // recalculate score dynamically
-          const nextScore = Math.min(100, Math.round((nextVal / targetDuration) * 100));
-          setColdScore(nextScore);
+          nextValCalculated = nextVal;
+          nextScoreCalculated = Math.min(100, Math.round((nextVal / targetDuration) * 100));
 
           if (nextVal >= timerTarget) {
-            handleStopTimer();
-            addToast('success', "Session de Froid terminée ! Incroyable résilience. ❄️");
+            reachedTarget = true;
             return timerTarget;
           }
           return nextVal;
         });
+
+        // Run side-effects outside of the functional updater callback
+        setSessionDuration(nextValCalculated);
+        setColdScore(nextScoreCalculated);
+
+        if (reachedTarget) {
+          handleStopTimer();
+          addToast('success', "Session de Froid terminée ! Incroyable résilience. ❄️");
+        }
       }, 1000);
     } else {
       if (timerRef.current) {
@@ -138,8 +181,20 @@ export const ColdExposureScreen: React.FC<ColdExposureScreenProps> = ({ addToast
   const handleStopTimer = () => {
     setTimerActive(false);
     setTimerPaused(false);
+    const finalDuration = timerElapsed > 0 ? timerElapsed : sessionDuration;
+    
+    // Check for personal best update
+    if (finalDuration > personalBest) {
+      setPersonalBest(finalDuration);
+    }
+    
+    // Award points
+    if (onPointsUpdate) {
+      onPointsUpdate(vitalityPoints + 30);
+    }
+    
     setTimerElapsed(0);
-    addToast('success', `Session de froid enregistrée : ${formatTime(sessionDuration)} accumulés ! ⚡`);
+    addToast('success', `Session de froid enregistrée : ${formatTime(finalDuration)} accumulés ! +30 PTS d'Esprit Souverain. ⚡`);
   };
 
   const handleSetTimerTarget = (mins: number) => {

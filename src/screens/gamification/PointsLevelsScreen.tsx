@@ -29,9 +29,11 @@ import { AlphaButton } from '../../components/AlphaButton';
 interface PointsLevelsScreenProps {
   addToast: (type: 'success' | 'warning' | 'error' | 'info', message: string) => void;
   onBack?: () => void;
+  vitalityPoints?: number;
+  onPointsUpdate?: (newPoints: number) => void;
 }
 
-export const PointsLevelsScreen: React.FC<PointsLevelsScreenProps> = ({ addToast, onBack }) => {
+export const PointsLevelsScreen: React.FC<PointsLevelsScreenProps> = ({ addToast, onBack, vitalityPoints: propVitalityPoints, onPointsUpdate }) => {
   // Simulator View Settings
   const [showNativeCode, setShowNativeCode] = useState<boolean>(false);
   const [copied, setCopied] = useState<boolean>(false);
@@ -39,7 +41,14 @@ export const PointsLevelsScreen: React.FC<PointsLevelsScreenProps> = ({ addToast
   const [historyLimit, setHistoryLimit] = useState<number>(5);
 
   // Core Gamification State
-  const [vitalityPoints, setVitalityPoints] = useState<number>(2340);
+  const [vitalityPoints, setVitalityPoints] = useState<number>(() => propVitalityPoints ?? 2340);
+
+  // Sync changes back to parent
+  React.useEffect(() => {
+    if (onPointsUpdate && vitalityPoints !== propVitalityPoints) {
+      onPointsUpdate(vitalityPoints);
+    }
+  }, [vitalityPoints, propVitalityPoints, onPointsUpdate]);
   const [currentLevel, setCurrentLevel] = useState<number>(7);
   const [levelName, setLevelName] = useState<string>('WARRIOR');
   const [nextLevelName, setNextLevelName] = useState<string>('GLADIATOR');

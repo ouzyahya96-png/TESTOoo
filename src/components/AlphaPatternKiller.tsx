@@ -157,6 +157,10 @@ export const AlphaPatternKiller: React.FC<AlphaPatternKillerProps> = ({ addToast
         osc2.start();
         osc1.stop(audioCtx.currentTime + 0.8);
         osc2.stop(audioCtx.currentTime + 0.8);
+        // Explicitly close AudioContext to prevent browser leak of suspended threads
+        setTimeout(() => {
+          try { audioCtx.close(); } catch (err) {}
+        }, 1000);
       } else if (type === 'victory') {
         // Golden major chord triumphant sweep
         const notes = [261.63, 329.63, 392.00, 523.25]; // C4, E4, G4, C5 major chord
@@ -172,6 +176,10 @@ export const AlphaPatternKiller: React.FC<AlphaPatternKillerProps> = ({ addToast
           osc.start(audioCtx.currentTime + idx * 0.1);
           osc.stop(audioCtx.currentTime + idx * 0.1 + 0.6);
         });
+        // Explicitly close AudioContext to prevent browser leak of suspended threads
+        setTimeout(() => {
+          try { audioCtx.close(); } catch (err) {}
+        }, 1200);
       }
     } catch (e) {
       // Browser audio context disabled or unsupported
@@ -230,10 +238,26 @@ export const AlphaPatternKiller: React.FC<AlphaPatternKillerProps> = ({ addToast
 
     // Re-normalize sum to 1
     const totalW = Object.values(newWeights).reduce((acc: number, v: number) => acc + v, 0) as number;
+    let roundedSum = 0;
+    let maxKey = Object.keys(newWeights)[0];
+    let maxVal = -1;
+
     Object.keys(newWeights).forEach((key) => {
       const currentVal = (newWeights[key] || 0) as number;
-      newWeights[key] = Math.round((currentVal / (totalW || 1)) * 1000) / 1000;
+      const roundedVal = Math.round((currentVal / (totalW || 1)) * 1000) / 1000;
+      newWeights[key] = roundedVal;
+      roundedSum += roundedVal;
+      if (roundedVal > maxVal) {
+        maxVal = roundedVal;
+        maxKey = key;
+      }
     });
+
+    // Adjust any small rounding error to guarantee sum is exactly 1.0
+    const diff = Math.round((1.0 - roundedSum) * 1000) / 1000;
+    if (diff !== 0 && maxKey) {
+      newWeights[maxKey] = Math.round((newWeights[maxKey] + diff) * 1000) / 1000;
+    }
 
     setWeights(newWeights);
     return deltaSum;

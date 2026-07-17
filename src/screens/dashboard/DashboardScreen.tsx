@@ -1478,7 +1478,13 @@ const styles = StyleSheet.create({
                     </button>
 
                     <button 
-                      onClick={() => addToast('info', 'Démarrage du tchat de soutien IA de l\'Alpha Coach 🤖')}
+                      onClick={() => {
+                        if (onNavigateToTab) {
+                          onNavigateToTab('ai_engine_spec');
+                        } else {
+                          addToast('info', 'Démarrage du tchat de soutien IA de l\'Alpha Coach 🤖');
+                        }
+                      }}
                       className="w-20 h-20 bg-[#16213E] rounded-xl flex flex-col justify-center items-center flex-shrink-0 relative hover:bg-[#1f2d53] transition-all cursor-pointer"
                     >
                       <MessageSquare className="w-6 h-6 text-gray-400" />

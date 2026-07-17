@@ -213,6 +213,15 @@ export default function App() {
   const [resetStreak, setResetStreak] = useState<number>(() => progressService.getState().streak);
   const [dashboardSubTab, setDashboardSubTab] = useState<'coaching' | 'dopamine' | 'education' | 'journal'>('dopamine');
 
+  // Synchronize vitalityPoints state to persistent progressService
+  useEffect(() => {
+    const currentState = progressService.getState();
+    if (currentState.totalPoints !== vitalityPoints) {
+      currentState.totalPoints = vitalityPoints;
+      progressService.saveState(currentState);
+    }
+  }, [vitalityPoints]);
+
   // Trigger relapse shake
   const handleRelapseTrigger = () => {
     setRelapseShake(true);
@@ -857,15 +866,15 @@ export default function App() {
         )}
 
         {activeTab === 'cold' && (
-          <ColdExposureScreen addToast={addToast} onBack={() => setActiveTab('dashboard')} />
+          <ColdExposureScreen addToast={addToast} onBack={() => setActiveTab('dashboard')} vitalityPoints={vitalityPoints} onPointsUpdate={(pts) => setVitalityPoints(pts)} />
         )}
 
         {activeTab === 'rewards' && (
-          <AdRewardsScreen addToast={addToast} onBack={() => setActiveTab('dashboard')} />
+          <AdRewardsScreen addToast={addToast} onBack={() => setActiveTab('dashboard')} vitalityPoints={vitalityPoints} onPointsUpdate={(pts) => setVitalityPoints(pts)} />
         )}
 
         {activeTab === 'points' && (
-          <PointsLevelsScreen addToast={addToast} onBack={() => setActiveTab('dashboard')} />
+          <PointsLevelsScreen addToast={addToast} onBack={() => setActiveTab('dashboard')} vitalityPoints={vitalityPoints} onPointsUpdate={(pts) => setVitalityPoints(pts)} />
         )}
 
         {activeTab === 'clans' && (
@@ -873,7 +882,7 @@ export default function App() {
         )}
 
         {activeTab === 'challenges' && (
-          <ChallengesScreen addToast={addToast} onBack={() => setActiveTab('dashboard')} />
+          <ChallengesScreen addToast={addToast} onBack={() => setActiveTab('dashboard')} vitalityPoints={vitalityPoints} onPointsUpdate={(pts) => setVitalityPoints(pts)} />
         )}
 
         {activeTab === 'badges' && (

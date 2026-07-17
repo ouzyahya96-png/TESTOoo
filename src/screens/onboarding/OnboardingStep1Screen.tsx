@@ -40,6 +40,7 @@ export const OnboardingStep1Screen: React.FC<OnboardingStep1ScreenProps> = ({
   // Custom Simulator Parameters
   const [simulatedStep, setSimulatedStep] = useState<number>(1);
   const [hasSkipped, setHasSkipped] = useState<boolean>(false);
+  const [showSkipConfirm, setShowSkipConfirm] = useState<boolean>(false);
 
   // Brain pulsing animation simulation
   useEffect(() => {
@@ -69,11 +70,13 @@ export const OnboardingStep1Screen: React.FC<OnboardingStep1ScreenProps> = ({
 
   const handleSkip = () => {
     triggerHaptic();
-    const confirmSkip = window.confirm("🚨 Passer l'onboarding ?\nTu manqueras des fonctionnalités hautement personnalisées basées sur tes réponses.");
-    if (confirmSkip) {
-      setHasSkipped(true);
-      addToast('warning', "Onboarding ignoré. Redirection vers le Dashboard.");
-    }
+    setShowSkipConfirm(true);
+  };
+
+  const handleConfirmSkipAction = () => {
+    setShowSkipConfirm(false);
+    setHasSkipped(true);
+    addToast('warning', "Onboarding ignoré. Redirection vers le Dashboard.");
   };
 
   const copyNativeCode = () => {
@@ -653,6 +656,37 @@ const styles = StyleSheet.create({
                   Passer
                 </button>
               </div>
+
+              {/* CUSTOM IN-APP SKIP CONFIRMATION DIALOG */}
+              {showSkipConfirm && (
+                <div className="absolute inset-0 bg-black/80 flex items-center justify-center p-6 z-50 animate-[fade-in_0.2s_ease-out]">
+                  <div className="w-full max-w-[280px] bg-[#1A1A2E] border border-gray-800 rounded-2xl p-5 shadow-2xl flex flex-col items-center">
+                    <div className="w-12 h-12 bg-[#E94560]/10 border border-[#E94560]/30 rounded-full flex items-center justify-center text-[#E94560] mb-3">
+                      <AlertCircle className="w-6 h-6 animate-pulse" />
+                    </div>
+                    <h4 className="text-xs font-headline font-black text-white text-center uppercase tracking-wider">
+                      Passer l'évaluation ?
+                    </h4>
+                    <p className="text-[10px] text-gray-400 text-center mt-2 leading-relaxed">
+                      Tu manqueras des fonctionnalités de personnalisation hautement optimisées basées sur tes réponses physiologiques.
+                    </p>
+                    <div className="flex gap-2.5 w-full mt-4">
+                      <button
+                        onClick={() => setShowSkipConfirm(false)}
+                        className="flex-1 h-9 rounded-lg bg-gray-900 border border-gray-800 text-[10px] font-headline font-black text-gray-400 active:scale-95 transition-transform"
+                      >
+                        RESTER
+                      </button>
+                      <button
+                        onClick={handleConfirmSkipAction}
+                        className="flex-1 h-9 rounded-lg bg-[#E94560] text-[10px] font-headline font-black text-white active:scale-95 transition-transform"
+                      >
+                        PASSER
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {/* SIMULATED ROUTING SKIP SCREEN OVERLAY */}
               {hasSkipped && (

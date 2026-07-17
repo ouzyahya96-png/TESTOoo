@@ -84,8 +84,15 @@ export const SunProtocolScreen: React.FC<SunProtocolScreenProps> = ({ addToast, 
   useEffect(() => {
     if (timerActive && !timerPaused) {
       timerRef.current = setInterval(() => {
+        let reachedTarget = false;
+
         setTimerElapsed(prev => {
           const nextVal = prev + 1;
+          // Cap at target seconds
+          if (nextVal >= timerTarget) {
+            reachedTarget = true;
+            return timerTarget;
+          }
           // Synchronize to minutes
           if (nextVal % 60 === 0) {
             setSunDuration(curr => {
@@ -96,14 +103,13 @@ export const SunProtocolScreen: React.FC<SunProtocolScreenProps> = ({ addToast, 
               return nextMin;
             });
           }
-          // Cap at target seconds
-          if (nextVal >= timerTarget) {
-            handleStopTimer();
-            addToast('success', "Protocole Solaire complété ! Ta production hormonale est au zénith. ☀️");
-            return timerTarget;
-          }
           return nextVal;
         });
+
+        if (reachedTarget) {
+          handleStopTimer();
+          addToast('success', "Protocole Solaire complété ! Ta production hormonale est au zénith. ☀️");
+        }
       }, 1000);
     } else {
       if (timerRef.current) {
@@ -138,6 +144,10 @@ export const SunProtocolScreen: React.FC<SunProtocolScreenProps> = ({ addToast, 
     setTimerActive(false);
     setTimerPaused(false);
     setTimerElapsed(0);
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
+      timerRef.current = null;
+    }
     addToast('success', `Session enregistrée : ${sunDuration} min d'exposition accumulés ! ⚡`);
   };
 
@@ -160,7 +170,11 @@ export const SunProtocolScreen: React.FC<SunProtocolScreenProps> = ({ addToast, 
       setSunScore(100);
       setSunDuration(22);
       setWeatherData({ city: "Casablanca", temperature: 26, uvIndex: 7, condition: "sunny" });
-    } else { // Reset
+    } else if (nextIdx === 3) { // 12 Juillet
+      setSunScore(45);
+      setSunDuration(8);
+      setWeatherData({ city: "Casablanca", temperature: 19, uvIndex: 3, condition: "cloudy" });
+    } else { // Aujourd'hui
       setSunScore(92);
       setSunDuration(18);
       setWeatherData({ city: "Casablanca", temperature: 24, uvIndex: 6, condition: "sunny" });

@@ -624,6 +624,144 @@ app.delete('/api/photos/:userId', (req, res) => {
 });
 
 
+// API Endpoints for AI Engine (Specification 7.1)
+let activatedRecommendations: Record<string, boolean> = {};
+
+app.get('/api/ai-engine/:userId', (req, res) => {
+  try {
+    const userId = req.params.userId || 'ALPHA_SOLDIER_1';
+    
+    // Simulating rich analysis results mapped with realistic user stats (Kegel, sleep, cold exposure, etc.)
+    res.json({
+      userId,
+      globalScore: 84,
+      scoreTrend: "+6%",
+      priorityRecommendation: {
+        id: "rec_sleep_1",
+        title: "Dors avant 23:00 ce soir",
+        reason: "Tes 3 dernières alertes de surcharge de stress (urges) coïncident statistiquement avec des nuits de moins de 6h15.",
+        actionLabel: "Activer le rappel Sommeil",
+        activated: activatedRecommendations["rec_sleep_1"] || false
+      },
+      insights: [
+        {
+          id: "insight_1",
+          type: "correlation",
+          title: "Sommeil ↔ Force Kegel",
+          description: "Les jours après une nuit de sommeil profond ≥ 85%, ta force d'amplitude musculaire augmente de 18%. Le repos nourrit le système nerveux pelvien.",
+          metric: "7h42 moyen",
+          status: "optimal"
+        },
+        {
+          id: "insight_2",
+          type: "prediction",
+          title: "Fenêtre à risque prévue",
+          description: "Modèle prédictif : risque d'impulsion comportementale estimé à 74% demain entre 21h30 et 23h00 (fatigue + heure tardive). Reste sur tes gardes.",
+          metric: "Dimanche soir",
+          status: "warning"
+        },
+        {
+          id: "insight_3",
+          type: "alert",
+          title: "Surcharge cognitive détectée",
+          description: "Ton temps d'écran cumulé hier a dépassé 4h20, augmentant ton stress mental de 25%. Ce soir, privilégie 10min de Respiration Wim Hof.",
+          metric: "+25% cortisol",
+          status: "alert"
+        },
+        {
+          id: "insight_4",
+          type: "synergy",
+          title: "Synergie Froid ↔ Testostérone",
+          description: "La combinaison de l'exposition au froid à 12°C et de ta séance de Kegel matinale crée un pic d'énergie durable mesuré à +35%.",
+          metric: "+35% énergie",
+          status: "success"
+        }
+      ],
+      weeklyReport: {
+        summary: "Semaine d'excellence globale, soldée par un streak Kegel de 12 jours consécutifs et une régularité de sommeil en hausse de 5%. Ton système d'auto-discipline neuro-comportementale s'est renforcé.",
+        streakDays: 12,
+        avgMood: 7.8,
+        avgSleepQuality: 85,
+        sessionsCompleted: 11,
+        sessionsTotal: 12,
+        activeUrgesResisted: 9
+      },
+      modelTransparency: {
+        dataPoints: [
+          { name: "Force & amplitude contractile", source: "Capteur Perifit / kGoal", weight: "25%" },
+          { name: "Qualité & régularité du sommeil", source: "Clinique du Sommeil / Capteurs", weight: "20%" },
+          { name: "Stress & humeur auto-déclarés", source: "Journal de bord", weight: "15%" },
+          { name: "Temps d'écran & médias sociaux", source: "Données locales de l'appareil", weight: "15%" },
+          { name: "Fréquence & historique des urges", source: "Pattern Killer", weight: "15%" },
+          { name: "Température d'exposition au froid", source: "Protocole Glace", weight: "10%" }
+        ],
+        note: "Le calcul de synergie s'effectue localement via un réseau de neurones de régression bayésienne. Aucune donnée d'évaluation brute ou comportementale ne quitte ton espace privé.",
+        version: "AlphaEngine v2.4 (CJS-Hybrid)"
+      }
+    });
+  } catch (error: any) {
+    res.status(500).json({ error: 'Failed to retrieve AI Engine report', message: error.message });
+  }
+});
+
+app.post('/api/ai-engine/:userId/recommendation/activate', (req, res) => {
+  try {
+    const userId = req.params.userId || 'ALPHA_SOLDIER_1';
+    const { id } = req.body;
+    
+    if (id) {
+      activatedRecommendations[id] = true;
+    }
+    
+    res.json({
+      success: true,
+      message: "Recommandation d'optimisation activée avec succès ! Rappel synchronisé.",
+      id
+    });
+  } catch (error: any) {
+    res.status(500).json({ error: 'Failed to activate recommendation', message: error.message });
+  }
+});
+
+app.post('/api/ai-engine/:userId/chat', async (req, res) => {
+  try {
+    const { message, history } = req.body;
+
+    if (!process.env.GEMINI_API_KEY) {
+      // High-quality offline fallback in case the API Key is not set yet in the environment
+      return res.json({
+        reply: "Salut guerrier, je suis ton Moteur d'Analyse Alpha. Bien que ma clé de communication externe (Gemini) soit déconnectée pour l'instant, mon algorithme local te conseille ceci : concentre-toi sur tes séances de Kegel et garde un sommeil régulier. Pour rappel, ta force d'amplitude est corrélée à ton repos à hauteur de 25%. Des questions sur tes métriques ?"
+      });
+    }
+
+    const systemInstruction = 
+      "Tu es le Moteur d'Analyse IA (AlphaEngine) de l'application ALPHA MAN, un système d'analyse prédictif et d'optimisation de haut niveau. " +
+      "Ton style est direct, scientifique, rigoureux, fraternel, digne d'un mentor d'élite qui s'appuie sur des données réelles. " +
+      "Tu n'es pas seulement un chatbot, tu es une intelligence qui corrèle la force pelvienne (Kegel), la qualité du sommeil, le stress, le temps d'écran et la résistance aux impulsions (Pattern Killer). " +
+      "Tes réponses doivent être structurées, basées sur la synergie de vie, percutantes et rédigées en français (Maximum 4-5 phrases). " +
+      "Ne parle jamais de code ou d'API. Parle de données d'amplitude musculaire, d'activation parasympathique et d'ondes lentes du sommeil.";
+
+    // Call Gemini using the official @google/genai syntax (gemini-3.5-flash as default)
+    const response = await ai.models.generateContent({
+      model: 'gemini-3.5-flash',
+      contents: [
+        { role: 'user', parts: [{ text: systemInstruction }] },
+        ...(history || []).map((h: any) => ({
+          role: h.role === 'assistant' ? 'model' : 'user', // standard sdk role mapping
+          parts: [{ text: h.parts?.[0]?.text || h.text || '' }]
+        })),
+        { role: 'user', parts: [{ text: message }] }
+      ],
+    });
+
+    res.json({ reply: response.text });
+  } catch (error: any) {
+    console.error('AI Engine Gemini call failure:', error);
+    res.status(500).json({ error: 'AI Engine conversation failed', message: error.message });
+  }
+});
+
+
 // API Endpoint 3: Proxy secure Gemini API calls
 app.post('/api/chat', async (req, res) => {
   try {

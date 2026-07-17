@@ -28,6 +28,8 @@ import { AlphaButton } from '../../components/AlphaButton';
 interface AdRewardsScreenProps {
   addToast: (type: 'success' | 'warning' | 'error' | 'info', message: string) => void;
   onBack?: () => void;
+  vitalityPoints?: number;
+  onPointsUpdate?: (newPoints: number) => void;
 }
 
 const formatTime = (totalSeconds: number) => {
@@ -36,14 +38,28 @@ const formatTime = (totalSeconds: number) => {
   return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
 };
 
-export const AdRewardsScreen: React.FC<AdRewardsScreenProps> = ({ addToast, onBack }) => {
+export const AdRewardsScreen: React.FC<AdRewardsScreenProps> = ({ addToast, onBack, vitalityPoints: propVitalityPoints, onPointsUpdate }) => {
   // Simulator View Settings
   const [showNativeCode, setShowNativeCode] = useState<boolean>(false);
   const [copied, setCopied] = useState<boolean>(false);
   const [selectedTab, setSelectedTab] = useState<string>("ads");
 
   // Core Points state
-  const [vitalityPoints, setVitalityPoints] = useState<number>(2340);
+  const [vitalityPoints, setVitalityPoints] = useState<number>(() => propVitalityPoints ?? 2340);
+
+  // Sync changes from parent down to local state if changed externally
+  useEffect(() => {
+    if (propVitalityPoints !== undefined) {
+      setVitalityPoints(propVitalityPoints);
+    }
+  }, [propVitalityPoints]);
+
+  // Sync changes back to parent
+  useEffect(() => {
+    if (onPointsUpdate && vitalityPoints !== propVitalityPoints) {
+      onPointsUpdate(vitalityPoints);
+    }
+  }, [vitalityPoints, propVitalityPoints, onPointsUpdate]);
   const [currentLevel, setCurrentLevel] = useState<number>(7);
   const [levelName, setLevelName] = useState<string>('WARRIOR');
   const [nextLevelName, setNextLevelName] = useState<string>('GLADIATOR');

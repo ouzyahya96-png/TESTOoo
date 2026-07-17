@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   ArrowLeft,
   FileText,
@@ -24,6 +24,15 @@ interface BillingHistoryScreenProps {
 }
 
 export const BillingHistoryScreen: React.FC<BillingHistoryScreenProps> = ({ addToast, onBack }) => {
+  const isMounted = useRef<boolean>(true);
+
+  useEffect(() => {
+    isMounted.current = true;
+    return () => {
+      isMounted.current = false;
+    };
+  }, []);
+
   // Simulator states
   const [showNativeCode, setShowNativeCode] = useState<boolean>(false);
   const [copied, setCopied] = useState<boolean>(false);
@@ -154,7 +163,9 @@ export const BillingHistoryScreen: React.FC<BillingHistoryScreenProps> = ({ addT
   const downloadAllInvoices = () => {
     addToast('info', "Génération d'une archive ZIP contenant l'intégralité de vos justificatifs d'acier... 📦");
     setTimeout(() => {
-      addToast('success', "Archive des factures téléchargée avec succès !");
+      if (isMounted.current) {
+        addToast('success', "Archive des factures téléchargée avec succès !");
+      }
     }, 1500);
   };
 
@@ -162,13 +173,15 @@ export const BillingHistoryScreen: React.FC<BillingHistoryScreenProps> = ({ addT
   const retryPayment = (id: string) => {
     addToast('info', `Tentative de prélèvement de secours via CMI pour la facture ${id}...`);
     setTimeout(() => {
-      setInvoicesList(prev => prev.map(inv => {
-        if (inv.id === id) {
-          return { ...inv, status: 'paid', errorMessage: undefined };
-        }
-        return inv;
-      }));
-      addToast('success', "Régularisation effectuée ! Le paiement a été validé par la banque marocaine. 🟢");
+      if (isMounted.current) {
+        setInvoicesList(prev => prev.map(inv => {
+          if (inv.id === id) {
+            return { ...inv, status: 'paid', errorMessage: undefined };
+          }
+          return inv;
+        }));
+        addToast('success', "Régularisation effectuée ! Le paiement a été validé par la banque marocaine. 🟢");
+      }
     }, 1500);
   };
 

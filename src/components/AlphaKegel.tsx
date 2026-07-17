@@ -12,6 +12,7 @@ import {
   Pause,
   X,
   Check,
+  AlertCircle,
   Volume2,
   VolumeX,
   ArrowRight,
@@ -59,6 +60,7 @@ import { NutritionScreen } from '../screens/energy/NutritionScreen';
 import { ColdExposureScreen } from '../screens/energy/ColdExposureScreen';
 import { BreathingEngineScreen } from '../screens/energy/BreathingEngineScreen';
 import { VitalityDashboardScreen } from '../screens/energy/VitalityDashboardScreen';
+import { AIEngineScreen } from '../screens/ai/AIEngineScreen';
 
 interface AlphaKegelProps {
   addToast: (type: 'success' | 'warning' | 'error' | 'info', message: string) => void;
@@ -68,12 +70,13 @@ interface AlphaKegelProps {
 export const AlphaKegel: React.FC<AlphaKegelProps> = ({ addToast, onPointsUpdate }) => {
   // Service states
   const [kegelState, setKegelState] = useState(() => kegelService.getState());
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'dashboard_spec' | 'sleep_tracker' | 'sun_protocol' | 'nutrition' | 'cold_exposure' | 'breathing' | 'vitality' | 'biofeedback_spec' | 'physical_spec' | 'photos_spec' | 'splash_spec' | 'onboarding1_spec' | 'onboarding2_spec' | 'onboarding3_spec' | 'onboarding4_spec' | 'onboarding5_spec' | 'levels' | 'history' | 'mobile_blueprint' | 'biofeedback' | 'programme' | 'physical'>('physical_spec');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'dashboard_spec' | 'sleep_tracker' | 'sun_protocol' | 'nutrition' | 'cold_exposure' | 'breathing' | 'vitality' | 'biofeedback_spec' | 'physical_spec' | 'photos_spec' | 'splash_spec' | 'onboarding1_spec' | 'onboarding2_spec' | 'onboarding3_spec' | 'onboarding4_spec' | 'onboarding5_spec' | 'levels' | 'history' | 'mobile_blueprint' | 'biofeedback' | 'programme' | 'physical' | 'ai_engine_spec'>('physical_spec');
 
   // Active workout states
   const [activeLevel, setActiveLevel] = useState<KegelLevel | null>(null);
   const [workoutActive, setWorkoutActive] = useState<boolean>(false);
   const [workoutPaused, setWorkoutPaused] = useState<boolean>(false);
+  const [showAbortConfirm, setShowAbortConfirm] = useState<boolean>(false);
   const [currentSet, setCurrentSet] = useState<number>(1);
   const [currentRep, setCurrentRep] = useState<number>(1);
   const [sessionPhase, setSessionPhase] = useState<'intro' | 'contraction' | 'relaxation' | 'elevator' | 'hold_at_max' | 'reverse_kegel' | 'finished'>('intro');
@@ -98,13 +101,20 @@ export const AlphaKegel: React.FC<AlphaKegelProps> = ({ addToast, onPointsUpdate
   // Workout timers using RAF or precise intervals
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Update component state on custom events
+  // Update component state on custom events and clean up AudioContext on unmount
   useEffect(() => {
     const handleUpdate = () => {
       setKegelState(kegelService.getState());
     };
     window.addEventListener('alphaman_kegel_updated', handleUpdate);
-    return () => window.removeEventListener('alphaman_kegel_updated', handleUpdate);
+    return () => {
+      window.removeEventListener('alphaman_kegel_updated', handleUpdate);
+      if (audioCtxRef.current) {
+        try {
+          audioCtxRef.current.close();
+        } catch (_) {}
+      }
+    };
   }, []);
 
   // Beep synthesis
@@ -335,12 +345,23 @@ export const AlphaKegel: React.FC<AlphaKegelProps> = ({ addToast, onPointsUpdate
 
   // Abort session safely
   const handleAbortWorkout = () => {
-    if (window.confirm("Êtes-vous sûr de vouloir abandonner l'entraînement en cours ? Les progrès de cette séance seront perdus.")) {
-      setWorkoutActive(false);
-      setActiveLevel(null);
-      setSessionPhase('intro');
-      addToast('warning', "Entraînement annulé.");
-    }
+    // Pause current exercise session while confirmation is up
+    setWorkoutPaused(true);
+    setShowAbortConfirm(true);
+  };
+
+  const handleConfirmAbort = () => {
+    setShowAbortConfirm(false);
+    setWorkoutActive(false);
+    setWorkoutPaused(false);
+    setActiveLevel(null);
+    setSessionPhase('intro');
+    addToast('warning', "Entraînement annulé.");
+  };
+
+  const handleCancelAbort = () => {
+    setShowAbortConfirm(false);
+    setWorkoutPaused(false);
   };
 
   const currentLevel = KEGEL_LEVELS.find(l => l.id === kegelState.currentLevelId) || KEGEL_LEVELS[0];
@@ -417,6 +438,37 @@ const styles = StyleSheet.create({
       {workoutActive && activeLevel && (
         <div className="fixed inset-0 z-50 bg-[#0A0A12]/95 flex flex-col items-center justify-center p-6 backdrop-blur-md animate-[fade-in_0.3s_ease-out]">
           
+          {/* Custom Abort Confirmation Modal Overlay */}
+          {showAbortConfirm && (
+            <div className="absolute inset-0 bg-black/90 flex items-center justify-center p-6 z-100 animate-[fade-in_0.2s_ease-out]">
+              <div className="w-full max-w-[320px] bg-[#1A1A2E] border-2 border-red-500/30 rounded-2xl p-6 shadow-2xl flex flex-col items-center">
+                <div className="w-12 h-12 bg-[#E94560]/10 border border-[#E94560]/30 rounded-full flex items-center justify-center text-[#E94560] mb-3 animate-bounce">
+                  <AlertCircle className="w-6 h-6" />
+                </div>
+                <h4 className="text-sm font-headline font-black text-white text-center uppercase tracking-wider">
+                  Abandonner l'entraînement ?
+                </h4>
+                <p className="text-xs text-gray-400 text-center mt-2 leading-relaxed">
+                  Es-tu sûr de vouloir abandonner l'entraînement en cours ? Les progrès de cette séance seront perdus.
+                </p>
+                <div className="flex gap-3 w-full mt-5">
+                  <button
+                    onClick={handleCancelAbort}
+                    className="flex-1 h-10 rounded-xl bg-gray-900 border border-gray-800 text-xs font-headline font-black text-gray-400 active:scale-95 transition-all"
+                  >
+                    CONTINUER
+                  </button>
+                  <button
+                    onClick={handleConfirmAbort}
+                    className="flex-1 h-10 rounded-xl bg-[#E94560] text-xs font-headline font-black text-white active:scale-95 transition-all"
+                  >
+                    ABANDONNER
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* TOP NAVIGATION / HEADER */}
           <div className="w-full max-w-2xl flex justify-between items-center pb-4 border-b border-[#1C1C35] mb-8">
             <div className="flex items-center gap-3">
@@ -915,6 +967,19 @@ const styles = StyleSheet.create({
         </button>
 
         <button
+          onClick={() => setActiveTab('ai_engine_spec')}
+          className={`flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-xl text-xs font-headline font-extrabold uppercase tracking-wider transition-all cursor-pointer whitespace-nowrap
+            ${activeTab === 'ai_engine_spec'
+              ? 'bg-[#E94560] text-white shadow-lg shadow-[#E94560]/15'
+              : 'text-[#8E8E93] hover:text-white hover:bg-[#16213E]/40'
+            }
+          `}
+        >
+          <Brain className="w-3.5 h-3.5 text-[#FF2D55]" />
+          Moteur IA (7.1)
+        </button>
+
+        <button
           onClick={() => setActiveTab('dashboard')}
           className={`flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-xl text-xs font-headline font-extrabold uppercase tracking-wider transition-all cursor-pointer whitespace-nowrap
             ${activeTab === 'dashboard'
@@ -1114,6 +1179,11 @@ const styles = StyleSheet.create({
           onBack={() => setActiveTab('dashboard_spec')} 
           onNavigateToTab={(tab) => setActiveTab(tab)}
         />
+      )}
+
+      {/* 1.08. TAB: AI ENGINE SPEC #7.1 */}
+      {activeTab === 'ai_engine_spec' && (
+        <AIEngineScreen addToast={addToast} onBack={() => setActiveTab('dashboard_spec')} />
       )}
 
       {/* 1. TAB: MAIN DASHBOARD */}

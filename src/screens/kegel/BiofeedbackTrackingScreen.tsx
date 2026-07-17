@@ -121,6 +121,14 @@ export const BiofeedbackTrackingScreen: React.FC<{
   // Real-time biofeedback graph simulation
   const [realtimeReading, setRealtimeReading] = useState<number[]>(Array(20).fill(20));
   const realtimeTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const isMounted = useRef<boolean>(true);
+
+  useEffect(() => {
+    isMounted.current = true;
+    return () => {
+      isMounted.current = false;
+    };
+  }, []);
 
   // Count Up animation simulation
   useEffect(() => {
@@ -141,6 +149,8 @@ export const BiofeedbackTrackingScreen: React.FC<{
 
   // Fetch all endpoints setup on server.ts
   useEffect(() => {
+    let active = true;
+
     const fetchData = async () => {
       try {
         setIsLoading(true);
@@ -173,6 +183,8 @@ export const BiofeedbackTrackingScreen: React.FC<{
               ]
             };
 
+        if (!active) return;
+
         setTargetScore(biofeedbackJson.globalScore);
         setScorePercentile(biofeedbackJson.scorePercentile);
         setScoreTrend(biofeedbackJson.scoreTrend);
@@ -185,10 +197,12 @@ export const BiofeedbackTrackingScreen: React.FC<{
           ? await radarRes.json()
           : {
               radarData: {
-                current: { force: 78, endurance: 72, speed: 80, control: 65, consistency: 85 },
-                previous: { force: 70, endurance: 68, speed: 75, control: 60, consistency: 80 }
+                current: { force: 78, endurance: 72, speed: 80, fill: 65, consistency: 85 },
+                previous: { force: 70, endurance: 68, speed: 75, fill: 60, consistency: 80 }
               }
             };
+
+        if (!active) return;
         setRadarData(radarJson.radarData);
 
         // 3. Fetch Detailed Stats
@@ -211,6 +225,8 @@ export const BiofeedbackTrackingScreen: React.FC<{
                 maxForceDate: "Le 10 Juillet"
               }
             };
+
+        if (!active) return;
         setDetailedStats(statsJson.detailedStats);
 
         // 4. Fetch Weekly Report
@@ -223,18 +239,28 @@ export const BiofeedbackTrackingScreen: React.FC<{
                 suggestion: "💡 Suggestion : Augmente la durée de tenue de 2 secondes la semaine prochaine."
               }
             };
+
+        if (!active) return;
         setWeeklyReport(reportJson.weeklyReport);
 
         setError(null);
       } catch (err: any) {
         console.warn("API fetches failed, falling back to robust offline data structures", err);
-        setError("Impossible de joindre le serveur. Données locales chargées.");
+        if (active) {
+          setError("Impossible de joindre le serveur. Données locales chargées.");
+        }
       } finally {
-        setIsLoading(false);
+        if (active) {
+          setIsLoading(false);
+        }
       }
     };
 
     fetchData();
+
+    return () => {
+      active = false;
+    };
   }, [selectedPeriod]);
 
   // Real-time continuous biofeedback signal stream simulator if device connected
@@ -276,17 +302,21 @@ export const BiofeedbackTrackingScreen: React.FC<{
       const json = await res.json();
       // Simulate real scan latency
       setTimeout(() => {
-        setDevicesList(json.devices);
-        setScanning(false);
-        addToast('success', `${json.devices.length} sondes de biofeedback détectées !`);
+        if (isMounted.current) {
+          setDevicesList(json.devices);
+          setScanning(false);
+          addToast('success', `${json.devices.length} sondes de biofeedback détectées !`);
+        }
       }, 1200);
     } catch (err) {
-      setDevicesList([
-        { id: "dev_1", name: "Perifit Pro", battery: 92, supported: true },
-        { id: "dev_2", name: "kGoal Boost", battery: 74, supported: true },
-        { id: "dev_3", name: "Elvie Trainer", battery: 85, supported: true }
-      ]);
-      setScanning(false);
+      if (isMounted.current) {
+        setDevicesList([
+          { id: "dev_1", name: "Perifit Pro", battery: 92, supported: true },
+          { id: "dev_2", name: "kGoal Boost", battery: 74, supported: true },
+          { id: "dev_3", name: "Elvie Trainer", battery: 85, supported: true }
+        ]);
+        setScanning(false);
+      }
     }
   };
 

@@ -34,9 +34,11 @@ import { AlphaButton } from '../../components/AlphaButton';
 interface ChallengesScreenProps {
   addToast: (type: 'success' | 'warning' | 'error' | 'info', message: string) => void;
   onBack?: () => void;
+  vitalityPoints?: number;
+  onPointsUpdate?: (newPoints: number) => void;
 }
 
-export const ChallengesScreen: React.FC<ChallengesScreenProps> = ({ addToast, onBack }) => {
+export const ChallengesScreen: React.FC<ChallengesScreenProps> = ({ addToast, onBack, vitalityPoints = 2340, onPointsUpdate }) => {
   // Simulator View Settings
   const [showNativeCode, setShowNativeCode] = useState<boolean>(false);
   const [copied, setCopied] = useState<boolean>(false);
@@ -160,6 +162,9 @@ export const ChallengesScreen: React.FC<ChallengesScreenProps> = ({ addToast, on
   // Handle simulations
   const handleClaimReward = (title: string, rewardPoints: number) => {
     addToast('success', `Félicitations ! Tu as réclamé ta récompense "${title}" de +${rewardPoints} PTS ! 🏆`);
+    if (onPointsUpdate) {
+      onPointsUpdate(vitalityPoints + rewardPoints);
+    }
   };
 
   const handleProgressDailyChallenge = (challengeId: string) => {
@@ -170,6 +175,9 @@ export const ChallengesScreen: React.FC<ChallengesScreenProps> = ({ addToast, on
         
         if (isCompleted) {
           addToast('success', `Défi "${ch.title}" accompli ! +${ch.reward} PTS accumulés. 🔥`);
+          if (onPointsUpdate) {
+            onPointsUpdate(vitalityPoints + ch.reward);
+          }
           
           // Propagate to weekly if Thursday is done
           setWeeklyChallenge(w => {

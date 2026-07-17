@@ -48,11 +48,21 @@ export const ProgressPhotosScreen: React.FC<ProgressPhotosScreenProps> = ({
   onBack,
   onPointsUpdate
 }) => {
+  const isMounted = useRef<boolean>(true);
+
+  useEffect(() => {
+    isMounted.current = true;
+    return () => {
+      isMounted.current = false;
+    };
+  }, []);
+
   // Screen and demo configuration
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [showNativeCode, setShowNativeCode] = useState<boolean>(false);
   const [copied, setCopied] = useState<boolean>(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState<boolean>(false);
 
   // Photos State with Initial high-fidelity demo data (so user immediately sees sections 2 & 3)
   const [photos, setPhotos] = useState<Photo[]>([
@@ -281,7 +291,9 @@ export const ProgressPhotosScreen: React.FC<ProgressPhotosScreenProps> = ({
     
     addToast('success', `Transformation enregistrée ! +100 POINTS VITALITÉ ⭐`);
     setTimeout(() => {
-      setConfettiActive(false);
+      if (isMounted.current) {
+        setConfettiActive(false);
+      }
     }, 4000);
   };
 
@@ -296,21 +308,26 @@ export const ProgressPhotosScreen: React.FC<ProgressPhotosScreenProps> = ({
   const exportAllPhotos = () => {
     addToast('info', 'Préparation du paquet de sauvegarde chiffré AES-256... 📦');
     setTimeout(() => {
-      addToast('success', 'Paquet ZIP chiffré généré et téléchargé avec succès ! 💾');
+      if (isMounted.current) {
+        addToast('success', 'Paquet ZIP chiffré généré et téléchargé avec succès ! 💾');
+      }
     }, 1500);
   };
 
   const deleteAllPhotos = async () => {
-    if (window.confirm("🚨 Action irréversible. Es-tu absolument sûr de vouloir supprimer définitivement TOUTES tes photos de progrès et métadonnées ?")) {
-      try {
-        await fetch('/api/photos/ALPHA_SOLDIER_1', { method: 'DELETE' });
-        setPhotos([]);
-        setSelectedBeforePhoto(null);
-        setSelectedAfterPhoto(null);
-        addToast('warning', 'Toutes les photos ont été effacées définitivement de ton coffre fort local.');
-      } catch (err) {
-        addToast('error', 'Erreur de suppression.');
-      }
+    setShowDeleteConfirm(true);
+  };
+
+  const handleConfirmDelete = async () => {
+    setShowDeleteConfirm(false);
+    try {
+      await fetch('/api/photos/ALPHA_SOLDIER_1', { method: 'DELETE' });
+      setPhotos([]);
+      setSelectedBeforePhoto(null);
+      setSelectedAfterPhoto(null);
+      addToast('warning', 'Toutes les photos ont été effacées définitivement de ton coffre fort local.');
+    } catch (err) {
+      addToast('error', 'Erreur de suppression.');
     }
   };
 
@@ -1208,6 +1225,37 @@ const styles = StyleSheet.create({
                 </div>
 
               </div>
+
+              {/* CUSTOM IN-APP DELETE PHOTOS CONFIRMATION OVERLAY */}
+              {showDeleteConfirm && (
+                <div className="absolute inset-0 bg-black/80 flex items-center justify-center p-6 z-50 animate-[fade-in_0.2s_ease-out]">
+                  <div className="w-full max-w-[280px] bg-[#1A1A2E] border border-gray-800 rounded-2xl p-5 shadow-2xl flex flex-col items-center">
+                    <div className="w-12 h-12 bg-red-500/10 border border-red-500/30 rounded-full flex items-center justify-center text-[#FF2D55] mb-3">
+                      <Trash2 className="w-6 h-6 animate-pulse" />
+                    </div>
+                    <h4 className="text-xs font-headline font-black text-white text-center uppercase tracking-wider">
+                      Supprimer toutes les photos ?
+                    </h4>
+                    <p className="text-[10px] text-gray-400 text-center mt-2 leading-relaxed">
+                      Cette action est définitive et irréversible. Toutes tes données de progrès et photos du coffre fort chiffré seront perdues.
+                    </p>
+                    <div className="flex gap-2.5 w-full mt-4">
+                      <button
+                        onClick={() => setShowDeleteConfirm(false)}
+                        className="flex-1 h-9 rounded-lg bg-gray-900 border border-gray-800 text-[10px] font-headline font-black text-gray-400 active:scale-95 transition-transform"
+                      >
+                        ANNULER
+                      </button>
+                      <button
+                        onClick={handleConfirmDelete}
+                        className="flex-1 h-9 rounded-lg bg-[#FF2D55] text-[10px] font-headline font-black text-white active:scale-95 transition-transform"
+                      >
+                        SUPPRIMER
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {/* MOCKUP TAB BAR FOOTER */}
               <div className="absolute bottom-0 inset-x-0 h-20 bg-[#0F0F1A] border-t border-gray-800/10 px-6 flex justify-around items-center z-10 select-none">

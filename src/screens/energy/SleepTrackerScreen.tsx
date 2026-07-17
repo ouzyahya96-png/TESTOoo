@@ -46,7 +46,7 @@ export const SleepTrackerScreen: React.FC<SleepTrackerScreenProps> = ({ addToast
 
   // Core Sleep Parameters State
   const [sleepScore, setSleepScore] = useState<number>(85);
-  const [personalBest, setPersonalBest] = useState<number>(84);
+  const [personalBest, setPersonalBest] = useState<number>(91);
   const [sleepDuration, setSleepDuration] = useState<string>("7h 42m");
   const [sleepDurationMinutes, setSleepDurationMinutes] = useState<number>(462);
   const [targetDuration] = useState<number>(480); // 8h

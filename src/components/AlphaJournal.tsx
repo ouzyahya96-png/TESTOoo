@@ -29,6 +29,8 @@ import {
   DEEP_JOURNAL_PROMPTS 
 } from '../pattern_killer/journalService';
 
+import { progressService } from '../pattern_killer/progressService';
+
 import { AlphaCard } from './AlphaCard';
 import { AlphaButton } from './AlphaButton';
 import { AlphaBadge } from './AlphaBadge';
@@ -114,8 +116,9 @@ export const AlphaJournal: React.FC<AlphaJournalProps> = ({ addToast, onPointsUp
     // Reward points through host app context
     if (onPointsUpdate) {
       // Award 15 points for completing daily journal
-      const currentPoints = journalService.getState().totalGratitudesCount + 100; // rough baseline
-      onPointsUpdate(currentPoints);
+      const currentPts = progressService.getState().totalPoints + 15;
+      progressService.saveState({ ...progressService.getState(), totalPoints: currentPts });
+      onPointsUpdate(currentPts);
     }
 
     addToast('success', 'Journal d\'aujourd\'hui enregistré ! +15 Points d\'Esprit Souverain.');

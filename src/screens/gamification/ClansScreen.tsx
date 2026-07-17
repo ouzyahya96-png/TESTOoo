@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   ArrowLeft,
   Share2,
@@ -38,6 +38,15 @@ interface ClansScreenProps {
 }
 
 export const ClansScreen: React.FC<ClansScreenProps> = ({ addToast, onBack }) => {
+  const isMounted = useRef<boolean>(true);
+
+  useEffect(() => {
+    isMounted.current = true;
+    return () => {
+      isMounted.current = false;
+    };
+  }, []);
+
   // Simulator state to allow toggling between "Has Clan" and "No Clan"
   const [hasClan, setHasClan] = useState<boolean>(true);
   const [showNativeCode, setShowNativeCode] = useState<boolean>(false);
@@ -180,24 +189,26 @@ export const ClansScreen: React.FC<ClansScreenProps> = ({ addToast, onBack }) =>
   const handleRequestJoin = (clanName: string) => {
     addToast('info', `Demande d'intégration soumise au clan "${clanName}". En attente de validation du Leader... ⏳`);
     setTimeout(() => {
-      setMyClan({
-        id: `clan-joined`,
-        name: clanName.toUpperCase(),
-        tagline: "Prêt à en découdre.",
-        initials: clanName.substring(0, 2).toUpperCase(),
-        color: "#00D9A5",
-        membersCount: 15,
-        maxMembers: 20,
-        totalScore: 48000 + 2340,
-        averagePerMember: 3150,
-        streakDays: 5,
-        wins: 1,
-        rank: 5,
-        progressPercent: 65,
-        myRole: 'Recrue'
-      });
-      setHasClan(true);
-      addToast('success', `Félicitations ! Le Leader a accepté ta candidature. Bienvenue dans ${clanName.toUpperCase()} ! 🛡️`);
+      if (isMounted.current) {
+        setMyClan({
+          id: `clan-joined`,
+          name: clanName.toUpperCase(),
+          tagline: "Prêt à en découdre.",
+          initials: clanName.substring(0, 2).toUpperCase(),
+          color: "#00D9A5",
+          membersCount: 15,
+          maxMembers: 20,
+          totalScore: 48000 + 2340,
+          averagePerMember: 3150,
+          streakDays: 5,
+          wins: 1,
+          rank: 5,
+          progressPercent: 65,
+          myRole: 'Recrue'
+        });
+        setHasClan(true);
+        addToast('success', `Félicitations ! Le Leader a accepté ta candidature. Bienvenue dans ${clanName.toUpperCase()} ! 🛡️`);
+      }
     }, 2000);
   };
 

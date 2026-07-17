@@ -76,6 +76,7 @@ export const BreathingEngineScreen: React.FC<BreathingEngineScreenProps> = ({ ad
   const [timerSeconds, setTimerSeconds] = useState<number>(0);
   const [timerStarted, setTimerStarted] = useState<boolean>(false);
   const [timerPaused, setTimerPaused] = useState<boolean>(false);
+  const [showStopConfirm, setShowStopConfirm] = useState<boolean>(false);
   const [currentPhase, setCurrentPhase] = useState<'inhale' | 'hold' | 'exhale' | 'relax'>('inhale');
   const [currentCycle, setCurrentCycle] = useState<number>(1);
   const [totalCycles, setTotalCycles] = useState<number>(10);
@@ -290,9 +291,7 @@ export const BreathingEngineScreen: React.FC<BreathingEngineScreenProps> = ({ ad
         // Handle breathing phase duration progress
         setPhaseSecondsRemaining(prev => {
           if (prev <= 1) {
-            // Move to next phase in the cycle
-            advanceBreathingPhase();
-            return 1; // Temporary placeholder, actual new value is set in advanceBreathingPhase
+            return 0; // Trigger phase advancement via separate effect
           }
           return prev - 1;
         });
@@ -302,7 +301,14 @@ export const BreathingEngineScreen: React.FC<BreathingEngineScreenProps> = ({ ad
     }
 
     return () => clearInterval(interval);
-  }, [timerStarted, timerPaused, currentPhase, selectedTechnique]);
+  }, [timerStarted, timerPaused]);
+
+  // Handle phase transitions when countdown hits 0
+  useEffect(() => {
+    if (timerStarted && !timerPaused && phaseSecondsRemaining === 0) {
+      advanceBreathingPhase();
+    }
+  }, [phaseSecondsRemaining, timerStarted, timerPaused]);
 
   const advanceBreathingPhase = () => {
     const tech = techniques[selectedTechnique];
@@ -371,13 +377,22 @@ export const BreathingEngineScreen: React.FC<BreathingEngineScreenProps> = ({ ad
 
   const handleStopSession = () => {
     triggerHaptic('heavy');
-    const confirmStop = window.confirm("Souhaitez-vous vraiment arrêter la séance de respiration guidée ?");
-    if (confirmStop) {
-      setTimerStarted(false);
-      setTimerPaused(false);
-      setTimerSeconds(0);
-      addToast('warning', "Séance de respiration interrompue.");
-    }
+    // Pause session while modal is up
+    setTimerPaused(true);
+    setShowStopConfirm(true);
+  };
+
+  const handleConfirmStop = () => {
+    setShowStopConfirm(false);
+    setTimerStarted(false);
+    setTimerPaused(false);
+    setTimerSeconds(0);
+    addToast('warning', "Séance de respiration interrompue.");
+  };
+
+  const handleCancelStop = () => {
+    setShowStopConfirm(false);
+    setTimerPaused(false);
   };
 
   const handleSessionComplete = () => {
@@ -1094,6 +1109,35 @@ const styles = StyleSheet.create({
                         <Square className="w-5 h-5 fill-[#FF2D55]/20" />
                       </button>
                     </div>
+
+                    {/* Custom stop confirmation sub-modal inside active panel */}
+                    {showStopConfirm && (
+                      <div className="absolute inset-0 bg-black/90 rounded-3xl flex flex-col items-center justify-center p-5 z-25 animate-[fade-in_0.2s_ease-out]">
+                        <div className="w-10 h-10 bg-[#FF2D55]/10 border border-[#FF2D55]/30 rounded-full flex items-center justify-center text-[#FF2D55] mb-3">
+                          <Square className="w-4 h-4 fill-[#FF2D55]/20" />
+                        </div>
+                        <h5 className="text-xs font-headline font-black text-white text-center uppercase tracking-wider">
+                          Interrompre la séance ?
+                        </h5>
+                        <p className="text-[10px] text-gray-400 text-center mt-2 leading-relaxed max-w-[200px]">
+                          Es-tu sûr de vouloir arrêter définitivement ta session de respiration guidée ?
+                        </p>
+                        <div className="flex gap-2.5 w-full mt-4 max-w-[220px]">
+                          <button
+                            onClick={handleCancelStop}
+                            className="flex-1 h-8 rounded-lg bg-gray-900 border border-gray-800 text-[10px] font-headline font-black text-gray-400 active:scale-95 transition-transform"
+                          >
+                            REPRENDRE
+                          </button>
+                          <button
+                            onClick={handleConfirmStop}
+                            className="flex-1 h-8 rounded-lg bg-[#FF2D55] text-[10px] font-headline font-black text-white active:scale-95 transition-transform"
+                          >
+                            ARRÊTER
+                          </button>
+                        </div>
+                      </div>
+                    )}
 
                   </motion.div>
                 )}
