@@ -74,6 +74,7 @@ import { SubscriptionScreen } from './screens/subscription/SubscriptionScreen';
 import { SubscriptionManagementScreen } from './screens/subscription/SubscriptionManagementScreen';
 import { BillingHistoryScreen } from './screens/subscription/BillingHistoryScreen';
 import { CancelRenewScreen } from './screens/subscription/CancelRenewScreen';
+import { AIEngineScreen } from './screens/ai/AIEngineScreen';
 
 import { TokensTab } from './screens/dashboard/TokensTab';
 import { PlaygroundTab } from './screens/dashboard/PlaygroundTab';
@@ -96,21 +97,21 @@ export default function App() {
     setToasts((prev) => prev.filter((t) => t.id !== id));
   };
 
-  const getInitialTabFromUrl = (): 'tokens' | 'playground' | 'dashboard' | 'architecture' | 'nutrition' | 'cold' | 'rewards' | 'points' | 'clans' | 'challenges' | 'badges' | 'leaderboard' | 'subscription' | 'subscription_mgmt' | 'billing_history' | 'cancel_renew' => {
+  const getInitialTabFromUrl = (): 'tokens' | 'playground' | 'dashboard' | 'architecture' | 'nutrition' | 'cold' | 'rewards' | 'points' | 'clans' | 'challenges' | 'badges' | 'leaderboard' | 'subscription' | 'subscription_mgmt' | 'billing_history' | 'cancel_renew' | 'ai_engine' => {
     const path = window.location.pathname.replace(/^\//, '');
-    const validTabs = ['tokens', 'playground', 'dashboard', 'architecture', 'nutrition', 'cold', 'rewards', 'points', 'clans', 'challenges', 'badges', 'leaderboard', 'subscription', 'subscription_mgmt', 'billing_history', 'cancel_renew'];
+    const validTabs = ['tokens', 'playground', 'dashboard', 'architecture', 'nutrition', 'cold', 'rewards', 'points', 'clans', 'challenges', 'badges', 'leaderboard', 'subscription', 'subscription_mgmt', 'billing_history', 'cancel_renew', 'ai_engine'];
     if (validTabs.includes(path)) {
       return path as any;
     }
     return 'tokens';
   };
 
-  const [activeTab, setActiveTab] = useState<'tokens' | 'playground' | 'dashboard' | 'architecture' | 'nutrition' | 'cold' | 'rewards' | 'points' | 'clans' | 'challenges' | 'badges' | 'leaderboard' | 'subscription' | 'subscription_mgmt' | 'billing_history' | 'cancel_renew'>(getInitialTabFromUrl);
+  const [activeTab, setActiveTab] = useState<'tokens' | 'playground' | 'dashboard' | 'architecture' | 'nutrition' | 'cold' | 'rewards' | 'points' | 'clans' | 'challenges' | 'badges' | 'leaderboard' | 'subscription' | 'subscription_mgmt' | 'billing_history' | 'cancel_renew' | 'ai_engine'>(getInitialTabFromUrl);
 
   useEffect(() => {
     const handlePopState = () => {
       const path = window.location.pathname.replace(/^\//, '');
-      const validTabs = ['tokens', 'playground', 'dashboard', 'architecture', 'nutrition', 'cold', 'rewards', 'points', 'clans', 'challenges', 'badges', 'leaderboard', 'subscription', 'subscription_mgmt', 'billing_history', 'cancel_renew'];
+      const validTabs = ['tokens', 'playground', 'dashboard', 'architecture', 'nutrition', 'cold', 'rewards', 'points', 'clans', 'challenges', 'badges', 'leaderboard', 'subscription', 'subscription_mgmt', 'billing_history', 'cancel_renew', 'ai_engine'];
       if (validTabs.includes(path)) {
         setActiveTab(path as any);
       } else {
@@ -165,6 +166,7 @@ export default function App() {
         { id: 'dashboard', label: 'Tableau de Bord 📱' },
         { id: 'nutrition', label: 'Nutrition & Recettes 🍎' },
         { id: 'cold', label: 'Froid & Douches ❄️' },
+        { id: 'ai_engine', label: 'Alpha AI Engine 🧠' },
       ]
     },
     {
@@ -917,6 +919,13 @@ export default function App() {
             addToast={addToast} 
             onBack={() => setActiveTab('dashboard')}
             onNavigateToDashboard={() => setActiveTab('dashboard')}
+          />
+        )}
+
+        {activeTab === 'ai_engine' && (
+          <AIEngineScreen 
+            addToast={addToast} 
+            onBack={() => setActiveTab('dashboard')}
           />
         )}
 
