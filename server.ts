@@ -627,6 +627,133 @@ app.delete('/api/photos/:userId', (req, res) => {
 // API Endpoints for AI Engine (Specification 7.1)
 let activatedRecommendations: Record<string, boolean> = {};
 
+let serverSettings: Record<string, any> = {
+  'ALPHA_SOLDIER_1': {
+    coachTone: 'spartan',
+    notificationFrequency: 'smart',
+    sensitivity: 'moderate',
+    urgeSurfDuration: 10,
+    permissions: {
+      contractile: true,
+      sleep: true,
+      stress: true,
+      screenTime: true,
+      urges: true,
+      coldExposure: true
+    }
+  }
+};
+
+app.get('/api/ai-engine/:userId/settings', (req, res) => {
+  try {
+    const userId = req.params.userId || 'ALPHA_SOLDIER_1';
+    const settings = serverSettings[userId] || {
+      coachTone: 'spartan',
+      notificationFrequency: 'smart',
+      sensitivity: 'moderate',
+      urgeSurfDuration: 10,
+      permissions: {
+        contractile: true,
+        sleep: true,
+        stress: true,
+        screenTime: true,
+        urges: true,
+        coldExposure: true
+      }
+    };
+    res.json({ success: true, settings });
+  } catch (error: any) {
+    res.status(500).json({ error: 'Failed to retrieve settings', message: error.message });
+  }
+});
+
+app.put('/api/ai-engine/:userId/settings', (req, res) => {
+  try {
+    const userId = req.params.userId || 'ALPHA_SOLDIER_1';
+    const { settings } = req.body;
+    if (settings) {
+      serverSettings[userId] = settings;
+      
+      // Dynamic weight modulation: if permission is disabled, set its weight to 0 and normalize remaining weights
+      const defaultWeights = {
+        timeOfDay: 0.25,
+        dayOfWeek: 0.15,
+        sleepQuality: 0.15,
+        stressLevel: 0.20,
+        mood: 0.10,
+        streak: 0.05,
+        socialMedia: 0.05,
+        location: 0.05,
+      };
+
+      const activeWeights = { ...defaultWeights };
+      
+      // Adjust weights based on permissions toggled in AISettingsScreen
+      if (!settings.permissions.sleep) activeWeights.sleepQuality = 0;
+      if (!settings.permissions.stress) {
+        activeWeights.stressLevel = 0;
+        activeWeights.mood = 0;
+      }
+      if (!settings.permissions.screenTime) activeWeights.socialMedia = 0;
+      
+      // Normalize remaining weights
+      const totalActive = Object.values(activeWeights).reduce((a, b) => a + b, 0);
+      if (totalActive > 0) {
+        Object.keys(activeWeights).forEach((key) => {
+          serverWeights[key] = Math.round((activeWeights[key as keyof typeof activeWeights] / totalActive) * 1000) / 1000;
+        });
+      }
+    }
+    res.json({ success: true, settings: serverSettings[userId] });
+  } catch (error: any) {
+    res.status(500).json({ error: 'Failed to update settings', message: error.message });
+  }
+});
+
+app.post('/api/ai-engine/:userId/reset', (req, res) => {
+  try {
+    const userId = req.params.userId || 'ALPHA_SOLDIER_1';
+    
+    // Reset weights
+    serverWeights = {
+      timeOfDay: 0.25,
+      dayOfWeek: 0.15,
+      sleepQuality: 0.15,
+      stressLevel: 0.20,
+      mood: 0.10,
+      streak: 0.05,
+      socialMedia: 0.05,
+      location: 0.05,
+    };
+
+    // Clear photos
+    progressPhotosStore[userId] = [];
+
+    // Reset recommendations
+    activatedRecommendations = {};
+
+    // Reset settings
+    serverSettings[userId] = {
+      coachTone: 'spartan',
+      notificationFrequency: 'smart',
+      sensitivity: 'moderate',
+      urgeSurfDuration: 10,
+      permissions: {
+        contractile: true,
+        sleep: true,
+        stress: true,
+        screenTime: true,
+        urges: true,
+        coldExposure: true
+      }
+    };
+
+    res.json({ success: true, message: 'Confidentiality reset completed. Sovereign state restored.' });
+  } catch (error: any) {
+    res.status(500).json({ error: 'Failed to reset sovereign state', message: error.message });
+  }
+});
+
 app.get('/api/ai-engine/:userId', (req, res) => {
   try {
     const userId = req.params.userId || 'ALPHA_SOLDIER_1';

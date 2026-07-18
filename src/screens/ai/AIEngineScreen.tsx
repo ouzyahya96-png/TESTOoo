@@ -29,6 +29,7 @@ import { AlphaButton } from '../../components/AlphaButton';
 interface AIEngineScreenProps {
   addToast: (type: 'success' | 'warning' | 'error' | 'info', message: string) => void;
   onBack?: () => void;
+  onNavigateToSettings?: () => void;
 }
 
 interface DataPoint {
@@ -87,7 +88,7 @@ interface ChatMessage {
   timestamp: Date;
 }
 
-export const AIEngineScreen: React.FC<AIEngineScreenProps> = ({ addToast, onBack }) => {
+export const AIEngineScreen: React.FC<AIEngineScreenProps> = ({ addToast, onBack, onNavigateToSettings }) => {
   // UI and Inspector view states
   const [showNativeCode, setShowNativeCode] = useState<boolean>(false);
   const [copied, setCopied] = useState<boolean>(false);
@@ -263,6 +264,13 @@ export const AIEngineScreen: React.FC<AIEngineScreenProps> = ({ addToast, onBack
             <AlphaButton variant="ghost" size="sm" onClick={onBack}>
               <ArrowLeft className="w-4 h-4 mr-1.5" />
               Retour
+            </AlphaButton>
+          )}
+
+          {onNavigateToSettings && (
+            <AlphaButton variant="secondary" size="sm" onClick={onNavigateToSettings} className="flex items-center gap-1.5">
+              <Sliders className="w-4 h-4" />
+              Configuration IA ⚙️
             </AlphaButton>
           )}
 
@@ -561,7 +569,10 @@ export const AIEngineScreen: React.FC<AIEngineScreenProps> = ({ addToast, onBack
                   </div>
                 </div>
                 <div className="flex items-center gap-1.5 text-gray-400">
-                  <Sliders className="w-4 h-4 hover:text-white cursor-pointer transition-colors" onClick={() => addToast('info', "Option de calibrage neuronale")} />
+                  <Sliders 
+                    className="w-4 h-4 hover:text-white cursor-pointer transition-colors" 
+                    onClick={onNavigateToSettings || (() => addToast('info', "Option de calibrage neuronale"))} 
+                  />
                 </div>
               </div>
 
