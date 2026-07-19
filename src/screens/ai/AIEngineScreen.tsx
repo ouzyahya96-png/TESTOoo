@@ -25,6 +25,7 @@ import {
 import { motion, AnimatePresence } from 'motion/react';
 import { AlphaCard } from '../../components/AlphaCard';
 import { AlphaButton } from '../../components/AlphaButton';
+import { CircuitObserverDiagram } from '../../components/CircuitObserverDiagram';
 
 interface AIEngineScreenProps {
   addToast: (type: 'success' | 'warning' | 'error' | 'info', message: string) => void;
@@ -71,6 +72,14 @@ interface ModelTransparency {
   version: string;
 }
 
+interface AISettings {
+  coachTone: 'spartan' | 'fraternal' | 'clinical';
+  notificationFrequency: 'none' | 'critical' | 'smart' | 'daily';
+  sensitivity: 'low' | 'moderate' | 'high';
+  urgeSurfDurationSeconds: number;
+  permissions: any;
+}
+
 interface AIEngineData {
   userId: string;
   globalScore: number;
@@ -109,6 +118,30 @@ export const AIEngineScreen: React.FC<AIEngineScreenProps> = ({ addToast, onBack
   ]);
   const [chatMessage, setChatMessage] = useState<string>('');
   const [isSending, setIsSending] = useState<boolean>(false);
+  const [settings, setSettings] = useState<AISettings | null>(null);
+
+  const fetchSettings = async () => {
+    try {
+      const response = await fetch('/api/ai-engine/ALPHA_SOLDIER_1/settings');
+      if (response.ok) {
+        const json = await response.json();
+        if (json.settings) {
+          setSettings(json.settings);
+          return;
+        }
+      }
+      const localSettings = localStorage.getItem('alpha-ai-settings');
+      if (localSettings) {
+        setSettings(JSON.parse(localSettings));
+      }
+    } catch (error) {
+      console.error('Error fetching settings:', error);
+      const localSettings = localStorage.getItem('alpha-ai-settings');
+      if (localSettings) {
+        setSettings(JSON.parse(localSettings));
+      }
+    }
+  };
 
   // Fetch AI report data
   const fetchReport = async (quiet: boolean = false) => {
@@ -131,6 +164,7 @@ export const AIEngineScreen: React.FC<AIEngineScreenProps> = ({ addToast, onBack
 
   useEffect(() => {
     fetchReport();
+    fetchSettings();
   }, []);
 
   // Activate recommendation action
@@ -496,6 +530,26 @@ export const AIEngineScreen: React.FC<AIEngineScreenProps> = ({ addToast, onBack
                 </div>
               </div>
             </AlphaCard>
+
+            {/* DIAGRAMME CIRCUIT VS OBSERVATEUR */}
+            {report && (
+              <CircuitObserverDiagram
+                mode="personal"
+                context="dashboard"
+                embedded={true}
+                addToast={addToast}
+                urgeSurfDurationSeconds={settings?.urgeSurfDurationSeconds || 90}
+                userStats={{
+                  resistCount: report.weeklyReport.activeUrgesResisted || 0,
+                  relapseCount: 2
+                }}
+                topTrigger="Fatigue tardive + Temps d'écran"
+                onRequestCoachChat={() => {
+                  addToast('info', "Redirection vers le Moteur Alpha IA...");
+                  setChatMessage("Coach, aide-moi à analyser mon envie actuelle.");
+                }}
+              />
+            )}
 
             {/* MODEL TRANSPARENCY BLOCK */}
             <AlphaCard variant="elevated" className="p-6 border border-[#1C1C35] relative bg-gradient-to-b from-[#0F0F1D] to-[#0A0A14]">

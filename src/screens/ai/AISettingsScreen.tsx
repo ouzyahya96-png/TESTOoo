@@ -42,7 +42,7 @@ interface AISettings {
   coachTone: 'spartan' | 'fraternal' | 'clinical';
   notificationFrequency: 'none' | 'critical' | 'smart' | 'daily';
   sensitivity: 'low' | 'moderate' | 'high';
-  urgeSurfDuration: number; // in minutes
+  urgeSurfDurationSeconds: number; // in seconds
   permissions: DataPermissions;
 }
 
@@ -60,7 +60,7 @@ export const AISettingsScreen: React.FC<AISettingsScreenProps> = ({ addToast, on
     coachTone: 'spartan',
     notificationFrequency: 'smart',
     sensitivity: 'moderate',
-    urgeSurfDuration: 10,
+    urgeSurfDurationSeconds: 90,
     permissions: {
       contractile: true,
       sleep: true,
@@ -153,7 +153,7 @@ export const AISettingsScreen: React.FC<AISettingsScreenProps> = ({ addToast, on
     settings.coachTone,
     settings.notificationFrequency,
     settings.sensitivity,
-    settings.urgeSurfDuration,
+    settings.urgeSurfDurationSeconds,
     settings.permissions.contractile,
     settings.permissions.sleep,
     settings.permissions.stress,
@@ -203,7 +203,7 @@ export const AISettingsScreen: React.FC<AISettingsScreenProps> = ({ addToast, on
           coachTone: 'spartan',
           notificationFrequency: 'smart',
           sensitivity: 'moderate',
-          urgeSurfDuration: 10,
+          urgeSurfDurationSeconds: 90,
           permissions: {
             contractile: true,
             sleep: true,
@@ -460,13 +460,15 @@ export const AISettingsScreen: React.FC<AISettingsScreenProps> = ({ addToast, on
               <div className="flex flex-col gap-3">
                 <div className="flex justify-between items-baseline select-none">
                   <span className="text-[11px] font-headline font-extrabold uppercase text-[#8E8E93] tracking-wider">Durée du minuteur respiratoire</span>
-                  <span className="font-mono text-xl font-black text-white">{settings.urgeSurfDuration} minutes</span>
+                  <span className="font-mono text-xl font-black text-white">
+                    {Math.floor(settings.urgeSurfDurationSeconds / 60)} min {settings.urgeSurfDurationSeconds % 60 !== 0 ? `${settings.urgeSurfDurationSeconds % 60}s` : ''}
+                  </span>
                 </div>
 
                 <div className="flex items-center gap-2">
                   <button
-                    onClick={() => updateSetting('urgeSurfDuration', Math.max(3, settings.urgeSurfDuration - 1))}
-                    disabled={settings.urgeSurfDuration <= 3}
+                    onClick={() => updateSetting('urgeSurfDurationSeconds', Math.max(60, settings.urgeSurfDurationSeconds - 15))}
+                    disabled={settings.urgeSurfDurationSeconds <= 60}
                     className="w-10 h-10 rounded-xl bg-[#111124] border border-[#1C1C3A] hover:bg-[#1C1C3A] disabled:opacity-40 flex items-center justify-center text-white font-bold text-lg cursor-pointer"
                   >
                     -
@@ -474,20 +476,20 @@ export const AISettingsScreen: React.FC<AISettingsScreenProps> = ({ addToast, on
                   <div className="flex-1 bg-[#111124] h-2 rounded-full overflow-hidden relative">
                     <div
                       className="bg-sky-400 h-full transition-all duration-300"
-                      style={{ width: `${((settings.urgeSurfDuration - 3) / 17) * 100}%` }}
+                      style={{ width: `${((settings.urgeSurfDurationSeconds - 60) / 240) * 100}%` }}
                     />
                   </div>
                   <button
-                    onClick={() => updateSetting('urgeSurfDuration', Math.min(20, settings.urgeSurfDuration + 1))}
-                    disabled={settings.urgeSurfDuration >= 20}
+                    onClick={() => updateSetting('urgeSurfDurationSeconds', Math.min(300, settings.urgeSurfDurationSeconds + 15))}
+                    disabled={settings.urgeSurfDurationSeconds >= 300}
                     className="w-10 h-10 rounded-xl bg-[#111124] border border-[#1C1C3A] hover:bg-[#1C1C3A] disabled:opacity-40 flex items-center justify-center text-white font-bold text-lg cursor-pointer"
                   >
                     +
                   </button>
                 </div>
                 <div className="flex justify-between text-[9px] font-mono text-gray-500">
-                  <span>3 MIN (MINIMUM)</span>
-                  <span>20 MIN (ELITE)</span>
+                  <span>60 SEC (1 MIN)</span>
+                  <span>300 SEC (5 MIN)</span>
                 </div>
               </div>
             </AlphaCard>

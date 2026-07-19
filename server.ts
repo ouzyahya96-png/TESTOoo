@@ -632,7 +632,7 @@ let serverSettings: Record<string, any> = {
     coachTone: 'spartan',
     notificationFrequency: 'smart',
     sensitivity: 'moderate',
-    urgeSurfDuration: 10,
+    urgeSurfDurationSeconds: 90,
     permissions: {
       contractile: true,
       sleep: true,
@@ -651,7 +651,7 @@ app.get('/api/ai-engine/:userId/settings', (req, res) => {
       coachTone: 'spartan',
       notificationFrequency: 'smart',
       sensitivity: 'moderate',
-      urgeSurfDuration: 10,
+      urgeSurfDurationSeconds: 90,
       permissions: {
         contractile: true,
         sleep: true,
@@ -737,7 +737,7 @@ app.post('/api/ai-engine/:userId/reset', (req, res) => {
       coachTone: 'spartan',
       notificationFrequency: 'smart',
       sensitivity: 'moderate',
-      urgeSurfDuration: 10,
+      urgeSurfDurationSeconds: 90,
       permissions: {
         contractile: true,
         sleep: true,

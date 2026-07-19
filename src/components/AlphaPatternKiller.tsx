@@ -30,6 +30,7 @@ import { AlphaButton } from './AlphaButton';
 import { AlphaBadge } from './AlphaBadge';
 import { AlphaProgress } from './AlphaProgress';
 import { AlphaSlider } from './AlphaSlider';
+import { CircuitObserverDiagram } from './CircuitObserverDiagram';
 
 interface AlphaPatternKillerProps {
   addToast: (type: 'success' | 'warning' | 'error' | 'info', message: string) => void;
@@ -81,6 +82,7 @@ export const AlphaPatternKiller: React.FC<AlphaPatternKillerProps> = ({ addToast
   const [crisisTakeover, setCrisisTakeover] = useState<boolean>(false);
   const [crisisTimer, setCrisisTimer] = useState<number>(600); // 10 minutes countdown
   const [isCrisisTimerActive, setIsCrisisTimerActive] = useState<boolean>(false);
+  const [showCrisisDiagram, setShowCrisisDiagram] = useState<boolean>(false);
 
   // Confetti particles state
   const [confetti, setConfetti] = useState<Array<{ id: number; x: number; y: number; color: string; size: number; delay: number }>>([]);
@@ -504,6 +506,18 @@ export const AlphaPatternKiller: React.FC<AlphaPatternKillerProps> = ({ addToast
               </div>
             </div>
 
+            {/* Direct high-priority link to Urge Surfing diagram */}
+            <div className="flex justify-center my-1">
+              <button
+                type="button"
+                onClick={() => setShowCrisisDiagram(true)}
+                className="px-6 py-3.5 bg-gradient-to-r from-sky-500 to-blue-500 hover:from-sky-600 hover:to-blue-600 text-white font-black text-xs uppercase tracking-wider rounded-2xl flex items-center gap-2.5 shadow-[0_4px_20px_rgba(14,165,233,0.3)] transition-all cursor-pointer scale-105"
+              >
+                <Compass className="w-4.5 h-4.5 animate-[spin_10s_linear_infinite]" />
+                Observer cette envie maintenant (Surfing Respiratoire)
+              </button>
+            </div>
+
             {/* Quick emergency action row */}
             <div className="flex flex-col sm:flex-row gap-3 justify-center">
               <AlphaButton variant="danger" onClick={completeEmergencyProtocol}>
@@ -513,6 +527,41 @@ export const AlphaPatternKiller: React.FC<AlphaPatternKillerProps> = ({ addToast
                 Abandonner (Recommencer demain)
               </AlphaButton>
             </div>
+          </div>
+        </div>
+      )}
+
+      {crisisTakeover && showCrisisDiagram && (
+        <div className="fixed inset-0 bg-[#0F0F1A] z-50 flex flex-col justify-center items-center p-4 md:p-6 border-4 border-sky-500/40 animate-[fade-in_0.3s_ease-out]">
+          <div className="w-full max-w-3xl relative">
+            <button
+              type="button"
+              onClick={() => setShowCrisisDiagram(false)}
+              className="absolute top-4 right-4 z-50 px-3 py-1.5 text-xs text-gray-400 hover:text-white bg-white/5 rounded-xl cursor-pointer border border-white/10"
+            >
+              Retour à la crise
+            </button>
+            <CircuitObserverDiagram
+              mode="personal"
+              context="crisis"
+              embedded={true}
+              addToast={addToast}
+              urgeSurfDurationSeconds={90}
+              onUrgeSurfComplete={(outcome, durationHeld) => {
+                if (outcome === 'resisted') {
+                  addToast('success', "Succès critique ! Tu as surfé l'envie avec brio 🌊");
+                  completeEmergencyProtocol();
+                  setShowCrisisDiagram(false);
+                } else {
+                  addToast('warning', "Chaque seconde d'observation affaiblit le pattern d'habitude.");
+                  setShowCrisisDiagram(false);
+                }
+              }}
+              onRequestCoachChat={() => {
+                addToast('info', "Analyse neuronale en cours avec le Coach...");
+                setShowCrisisDiagram(false);
+              }}
+            />
           </div>
         </div>
       )}
@@ -650,6 +699,16 @@ export const AlphaPatternKiller: React.FC<AlphaPatternKillerProps> = ({ addToast
                     <AlphaButton variant="danger" className="w-full font-bold text-xs py-3" onClick={triggerCrisisMode}>
                       ⚠️ ACTIVER CRISIS TAKEOVER MODE
                     </AlphaButton>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        triggerCrisisMode();
+                        setShowCrisisDiagram(true);
+                      }}
+                      className="w-full bg-sky-500/20 hover:bg-sky-500/30 border border-sky-500/30 text-sky-300 font-extrabold text-xs py-3 rounded-2xl cursor-pointer transition-colors"
+                    >
+                      🌊 OBSERVER CETTE ENVIE MAINTENANT (SURFING)
+                    </button>
                     <AlphaButton variant="secondary" className="w-full text-xs" onClick={() => setActiveSubTab('protocol')}>
                       Amorcer Protocole d'Urgence (5 mins)
                     </AlphaButton>
