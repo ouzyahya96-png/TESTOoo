@@ -1308,6 +1308,811 @@ app.post('/api/ai-engine/:userId/chat', async (req, res) => {
 });
 
 
+// --- Stories & Community Module ---
+
+interface StoryCardData {
+  id: string;
+  authorPseudo: string;
+  authorLevel: number;
+  milestoneDay: number;
+  milestoneLabel: string;
+  answers: { hardest: string; whatChanged: string; advice: string };
+  helpedCount: number;
+  userHasReactedHelped: boolean;
+  commentCount: number;
+  status: 'pending' | 'approved' | 'featured' | 'needs_review';
+  createdAt: string;
+  clanId: string;
+}
+
+interface CommentData {
+  id: string;
+  storyId: string;
+  authorPseudo: string;
+  authorLevel: number;
+  text: string;
+  createdAt: string;
+}
+
+let storiesDb: StoryCardData[] = [
+  {
+    id: 'story-1',
+    authorPseudo: 'Souverain77',
+    authorLevel: 14,
+    milestoneDay: 30,
+    milestoneLabel: '🏆 JOUR 30',
+    answers: {
+      hardest: "Le plus dur, c'est de casser la routine mécanique d'allumer l'écran tard le soir quand la fatigue diminue notre volonté.",
+      whatChanged: "J'ai retrouvé une énergie incroyable au réveil, mes yeux ne sont plus cernés et ma voix a gagné en assurance physique.",
+      advice: "Coupe ton smartphone dès 21h, mets-le dans une autre pièce et remplace-le par un rituel de lecture ou d'étirements."
+    },
+    helpedCount: 38,
+    userHasReactedHelped: false,
+    commentCount: 4,
+    status: 'featured',
+    createdAt: new Date(Date.now() - 3 * 24 * 3600 * 1000).toISOString(),
+    clanId: 'clan-1'
+  },
+  {
+    id: 'story-2',
+    authorPseudo: 'GuerrierDeLumiere',
+    authorLevel: 19,
+    milestoneDay: 90,
+    milestoneLabel: '🏆 JOUR 90',
+    answers: {
+      hardest: "Le cap des 7 jours puis des 21 jours, où l'énergie accumulée est si forte qu'on a l'impression de saturer neurologiquement.",
+      whatChanged: "Une concentration au laser. Je peux travailler 4 heures d'affilée sans aucune distraction mentale ou baisse de régime.",
+      advice: "Oriente cette tension brute immédiatement dans le sport ou un projet créatif. Ne la laisse pas stagner de manière oisive."
+    },
+    helpedCount: 64,
+    userHasReactedHelped: false,
+    commentCount: 2,
+    status: 'approved',
+    createdAt: new Date(Date.now() - 5 * 24 * 3600 * 1000).toISOString(),
+    clanId: 'clan-1'
+  },
+  {
+    id: 'story-3',
+    authorPseudo: 'IronWill',
+    authorLevel: 8,
+    milestoneDay: 7,
+    milestoneLabel: '🏆 JOUR 7',
+    answers: {
+      hardest: "Gérer l'insomnie des trois premières nuits quand le cerveau réclame sa dose habituelle de dopamine rapide.",
+      whatChanged: "Une sensation de clarté dans le regard et une motivation renouvelée pour reprendre l'entraînement physique.",
+      advice: "Les 3 premiers jours sont une tempête, mais n'oublie pas : une impulsion dure moins de 10 minutes si tu ne la nourris pas de pensées."
+    },
+    helpedCount: 19,
+    userHasReactedHelped: false,
+    commentCount: 0,
+    status: 'approved',
+    createdAt: new Date(Date.now() - 1 * 24 * 3600 * 1000).toISOString(),
+    clanId: 'clan-1'
+  },
+  {
+    id: 'story-4',
+    authorPseudo: 'SpartanShield',
+    authorLevel: 12,
+    milestoneDay: 30,
+    milestoneLabel: '🏆 JOUR 30',
+    answers: {
+      hardest: "Le sentiment d'isolement social quand on décide de rompre avec les habitudes faciles de ses anciens cercles.",
+      whatChanged: "J'ai rejoint un clan d'élite et je ressens enfin la force d'une fraternité d'hommes qui partagent le même idéal.",
+      advice: "Ne combats pas seul dans l'ombre. Rends des comptes à tes frères d'armes et sois transparent lors de tes moments de doute."
+    },
+    helpedCount: 27,
+    userHasReactedHelped: false,
+    commentCount: 1,
+    status: 'approved',
+    createdAt: new Date(Date.now() - 6 * 24 * 3600 * 1000).toISOString(),
+    clanId: 'clan-2'
+  }
+];
+
+let commentsDb: CommentData[] = [
+  {
+    id: 'comment-1',
+    storyId: 'story-1',
+    authorPseudo: 'VikingSpirit',
+    authorLevel: 9,
+    text: "Exactement frère ! Le rituel du soir est le plus redoutable. Merci pour le rappel.",
+    createdAt: new Date(Date.now() - 2 * 24 * 3600 * 1000).toISOString()
+  },
+  {
+    id: 'comment-2',
+    storyId: 'story-1',
+    authorPseudo: 'AlphaMind',
+    authorLevel: 11,
+    text: "Le coup du téléphone hors de la chambre a littéralement sauvé mon streak de 45 jours.",
+    createdAt: new Date(Date.now() - 1.5 * 24 * 3600 * 1000).toISOString()
+  },
+  {
+    id: 'comment-3',
+    storyId: 'story-2',
+    authorPseudo: 'Souverain77',
+    authorLevel: 14,
+    text: "Respect pour les 90 jours ! Tu es un phare pour nous tous qui débutons.",
+    createdAt: new Date(Date.now() - 4 * 24 * 3600 * 1000).toISOString()
+  }
+];
+
+// Helper to filter words for acute distress
+function detectAcuteDistress(text: string): boolean {
+  if (!text) return false;
+  const distressKeywords = [
+    'suicide', 'suicider', 'mutiler', 'mutilation', 'finir mes jours', 'en finir', 'mourir',
+    'veux crever', 'veux mourir', 'auto-mutiler', 'tuer moi', 'me tuer', 'plus envie de vivre'
+  ];
+  const normalized = text.toLowerCase();
+  return distressKeywords.some(keyword => normalized.includes(keyword));
+}
+
+// GET all stories
+app.get('/api/community/:userId/stories', (req, res) => {
+  try {
+    const { scope, clanId } = req.query;
+    let filtered = [...storiesDb];
+
+    if (scope === 'discover') {
+      // Discover tab: only approved/featured stories cross-clan
+      filtered = filtered.filter(s => s.status === 'featured' || s.status === 'approved');
+    } else {
+      // Clan tab: stories of user's clan that are approved or featured
+      // (For this mock/prototype, let's filter by the clanId provided)
+      const targetClanId = clanId && clanId !== 'undefined' ? clanId : 'clan-1';
+      filtered = filtered.filter(s => s.clanId === targetClanId && (s.status === 'approved' || s.status === 'featured'));
+    }
+
+    // Sort by creation date (newest first)
+    filtered.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
+    res.json(filtered);
+  } catch (error: any) {
+    res.status(500).json({ error: 'Failed to fetch stories', message: error.message });
+  }
+});
+
+// GET user's pending story
+app.get('/api/community/:userId/stories/mine/pending', (req, res) => {
+  try {
+    // Return a pending story if exists (hardcoded check or match)
+    const pending = storiesDb.find(s => s.authorPseudo === 'Moi' && (s.status === 'pending' || s.status === 'needs_review'));
+    res.json(pending || null);
+  } catch (error: any) {
+    res.status(500).json({ error: 'Failed to fetch pending story', message: error.message });
+  }
+});
+
+// GET story of the week
+app.get('/api/community/:userId/stories/featured', (req, res) => {
+  try {
+    const featured = storiesDb.find(s => s.status === 'featured') || storiesDb[0];
+    res.json(featured);
+  } catch (error: any) {
+    res.status(500).json({ error: 'Failed to fetch featured story', message: error.message });
+  }
+});
+
+// POST a new story
+app.post('/api/community/:userId/stories', (req, res) => {
+  try {
+    const { userId } = req.params;
+    const { milestoneDay, answers, clientSafetyFlag } = req.body;
+
+    if (!answers || !answers.hardest || !answers.whatChanged || !answers.advice) {
+      return res.status(400).json({ error: 'Missing story content fields' });
+    }
+
+    // Server-side safety filter
+    const distressInHardest = detectAcuteDistress(answers.hardest);
+    const distressInChanged = detectAcuteDistress(answers.whatChanged);
+    const distressInAdvice = detectAcuteDistress(answers.advice);
+    const hasDistress = distressInHardest || distressInChanged || distressInAdvice || !!clientSafetyFlag;
+
+    const newStory: StoryCardData = {
+      id: `story-${Date.now()}`,
+      authorPseudo: 'Moi',
+      authorLevel: 12, // default simulated level
+      milestoneDay: parseInt(milestoneDay) || 30,
+      milestoneLabel: `🏆 JOUR ${milestoneDay || 30}`,
+      answers: {
+        hardest: answers.hardest,
+        whatChanged: answers.whatChanged,
+        advice: answers.advice
+      },
+      helpedCount: 0,
+      userHasReactedHelped: false,
+      commentCount: 0,
+      status: hasDistress ? 'needs_review' : 'pending',
+      createdAt: new Date().toISOString(),
+      clanId: 'clan-1'
+    };
+
+    storiesDb.push(newStory);
+
+    res.json({
+      success: true,
+      story: newStory,
+      safetyTriggered: hasDistress
+    });
+  } catch (error: any) {
+    res.status(500).json({ error: 'Failed to create story', message: error.message });
+  }
+});
+
+// POST toggle helped reaction
+app.post('/api/community/:userId/stories/:storyId/react', (req, res) => {
+  try {
+    const { storyId } = req.params;
+    const story = storiesDb.find(s => s.id === storyId);
+    if (!story) {
+      return res.status(404).json({ error: 'Story not found' });
+    }
+
+    story.userHasReactedHelped = !story.userHasReactedHelped;
+    story.helpedCount += story.userHasReactedHelped ? 1 : -1;
+
+    res.json({
+      success: true,
+      helpedCount: story.helpedCount,
+      userHasReactedHelped: story.userHasReactedHelped
+    });
+  } catch (error: any) {
+    res.status(500).json({ error: 'Failed to react to story', message: error.message });
+  }
+});
+
+// GET comments for story
+app.get('/api/community/:userId/stories/:storyId/comments', (req, res) => {
+  try {
+    const { storyId } = req.params;
+    const comments = commentsDb.filter(c => c.storyId === storyId);
+    res.json(comments);
+  } catch (error: any) {
+    res.status(500).json({ error: 'Failed to fetch comments', message: error.message });
+  }
+});
+
+// POST comment
+app.post('/api/community/:userId/stories/:storyId/comments', (req, res) => {
+  try {
+    const { storyId } = req.params;
+    const { text } = req.body;
+
+    if (!text || text.trim().length < 20) {
+      return res.status(400).json({ error: 'Le commentaire doit faire au moins 20 caractères.' });
+    }
+
+    const hasDistress = detectAcuteDistress(text);
+
+    const newComment: CommentData = {
+      id: `comment-${Date.now()}`,
+      storyId,
+      authorPseudo: 'Moi',
+      authorLevel: 12,
+      text,
+      createdAt: new Date().toISOString()
+    };
+
+    commentsDb.push(newComment);
+
+    // Increment comment count on the story if found
+    const story = storiesDb.find(s => s.id === storyId);
+    if (story) {
+      story.commentCount += 1;
+    }
+
+    res.json({
+      success: true,
+      comment: newComment,
+      safetyTriggered: hasDistress
+    });
+  } catch (error: any) {
+    res.status(500).json({ error: 'Failed to add comment', message: error.message });
+  }
+});
+
+// POST report story
+app.post('/api/community/:userId/stories/:storyId/report', (req, res) => {
+  try {
+    const { storyId } = req.params;
+    const { reason } = req.body;
+
+    // Simulate reporting by flagging status
+    const story = storiesDb.find(s => s.id === storyId);
+    if (story) {
+      story.status = 'needs_review';
+    }
+
+    res.json({
+      success: true,
+      message: 'Contenu signalé avec succès pour vérification humaine.'
+    });
+  } catch (error: any) {
+    res.status(500).json({ error: 'Failed to report story', message: error.message });
+  }
+});
+
+
+// --- ChatClan Module ---
+
+interface ClanMessage {
+  id: string;
+  senderId: string;
+  senderPseudo: string;
+  senderLevel: number;
+  text: string;
+  isSystemMessage: boolean;
+  createdAt: string;
+}
+
+let clanMessagesDb: { [clanId: string]: ClanMessage[] } = {
+  'clan-1': [
+    {
+      id: 'msg-1',
+      senderId: 'user-888',
+      senderPseudo: 'Rachid',
+      senderLevel: 15,
+      text: 'Bonne chance à tous ce soir 💪 La tentation était forte en rentrant du boulot mais la douche froide m\'a totalement sauvé.',
+      isSystemMessage: false,
+      createdAt: new Date(Date.now() - 4 * 3600 * 1000).toISOString()
+    },
+    {
+      id: 'msg-2',
+      senderId: 'user-system-1',
+      senderPseudo: 'Système',
+      senderLevel: 0,
+      text: 'Rachid a franchi le palier exceptionnel de 30 jours de souveraineté ! 🏆',
+      isSystemMessage: true,
+      createdAt: new Date(Date.now() - 4 * 3600 * 1000 + 1000).toISOString()
+    },
+    {
+      id: 'msg-3',
+      senderId: 'user-999',
+      senderPseudo: 'Thomas',
+      senderLevel: 8,
+      text: 'Franchement merci pour le partage Rachid, j\'allais flancher en scrollant oisivement. Je ferme tout et je sors faire 50 pompes ! 🔥',
+      isSystemMessage: false,
+      createdAt: new Date(Date.now() - 3 * 3600 * 1000).toISOString()
+    },
+    {
+      id: 'msg-4',
+      senderId: 'user-444',
+      senderPseudo: 'Karim',
+      senderLevel: 22,
+      text: 'Rappelez-vous les frères : la douleur de la discipline est temporaire, celle du regret dure éternellement. On reste soudés.',
+      isSystemMessage: false,
+      createdAt: new Date(Date.now() - 2 * 3600 * 1000).toISOString()
+    },
+    {
+      id: 'msg-5',
+      senderId: 'user-333',
+      senderPseudo: 'Sébastien',
+      senderLevel: 11,
+      text: 'Qui est chaud pour qu\'on termine à 100% notre défi de clan de cette semaine ? Il ne reste plus que quelques entraînements à valider ! ⚡',
+      isSystemMessage: false,
+      createdAt: new Date(Date.now() - 30 * 60 * 1000).toISOString()
+    }
+  ],
+  'clan-2': [
+    {
+      id: 'msg-b1',
+      senderId: 'user-555',
+      senderPseudo: 'Spartiate12',
+      senderLevel: 9,
+      text: 'Bienvenue dans le clan des Lions de l\'Atlas ! Ici pas de compromis, on s\'entraide chaque jour.',
+      isSystemMessage: false,
+      createdAt: new Date(Date.now() - 5 * 3600 * 1000).toISOString()
+    }
+  ]
+};
+
+// GET messages
+app.get('/api/community/:userId/clan/:clanId/messages', (req, res) => {
+  try {
+    const { clanId } = req.params;
+    const { before } = req.query;
+    const targetClanId = clanId && clanId !== 'undefined' ? clanId : 'clan-1';
+    
+    let messages = clanMessagesDb[targetClanId] || [];
+    
+    // Sort by creation date (newest first for cursor/pagination, though client renders in scroll)
+    let sorted = [...messages].sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+
+    if (before) {
+      const beforeTime = new Date(before as string).getTime();
+      sorted = sorted.filter(m => new Date(m.createdAt).getTime() < beforeTime);
+    }
+
+    // Paginate: take last 30 messages
+    const paginated = sorted.slice(-30);
+
+    res.json(paginated);
+  } catch (error: any) {
+    res.status(500).json({ error: 'Failed to fetch clan messages', message: error.message });
+  }
+});
+
+// POST a message
+app.post('/api/community/:userId/clan/:clanId/messages', (req, res) => {
+  try {
+    const { clanId, userId } = req.params;
+    const { text, clientSafetyFlag } = req.body;
+    const targetClanId = clanId && clanId !== 'undefined' ? clanId : 'clan-1';
+
+    if (!text || text.trim().length === 0) {
+      return res.status(400).json({ error: 'Message content cannot be empty' });
+    }
+
+    const hasDistress = detectAcuteDistress(text) || !!clientSafetyFlag;
+
+    // Default sender info
+    let senderPseudo = 'Moi';
+    let senderLevel = 12;
+
+    // Try to matches user info if known (simulated)
+    if (userId === 'user-777') {
+      senderPseudo = 'Moi';
+      senderLevel = 12;
+    }
+
+    const newMessage: ClanMessage = {
+      id: `msg-${Date.now()}`,
+      senderId: userId,
+      senderPseudo,
+      senderLevel,
+      text,
+      isSystemMessage: false,
+      createdAt: new Date().toISOString()
+    };
+
+    if (!clanMessagesDb[targetClanId]) {
+      clanMessagesDb[targetClanId] = [];
+    }
+
+    clanMessagesDb[targetClanId].push(newMessage);
+
+    res.json({
+      success: true,
+      message: newMessage,
+      safetyTriggered: hasDistress
+    });
+  } catch (error: any) {
+    res.status(500).json({ error: 'Failed to send clan message', message: error.message });
+  }
+});
+
+// GET active members count today
+app.get('/api/community/:userId/clan/:clanId/active-count', (req, res) => {
+  try {
+    // Return a realistic, dynamic simulated member count (e.g. between 8 and 14)
+    const baseHour = new Date().getHours();
+    const activeCount = Math.max(4, 6 + (baseHour % 7));
+    res.json({ activeCount });
+  } catch (error: any) {
+    res.status(500).json({ error: 'Failed to fetch active member count', message: error.message });
+  }
+});
+
+// POST report clan message
+app.post('/api/community/:userId/clan/:clanId/messages/:messageId/report', (req, res) => {
+  try {
+    const { clanId, messageId } = req.params;
+    const targetClanId = clanId && clanId !== 'undefined' ? clanId : 'clan-1';
+
+    const messages = clanMessagesDb[targetClanId] || [];
+    const index = messages.findIndex(m => m.id === messageId);
+    if (index !== -1) {
+      // Simulate moderation by keeping the message but attaching a flag, or removing it
+      // Let's remove it from history for visual feedback on successful report
+      messages.splice(index, 1);
+    }
+
+    res.json({
+      success: true,
+      message: 'Message signalé et retiré pour vérification immédiate.'
+    });
+  } catch (error: any) {
+    res.status(500).json({ error: 'Failed to report clan message', message: error.message });
+  }
+});
+
+
+// --- Mentorship Module ---
+
+interface MentorProfile {
+  id: string;
+  pseudo: string;
+  level: number;
+  streak: number;
+  sharedTriggers: string[];
+  allTriggers: string[];
+  menteesHelpedCount: number;
+  storyExcerpt: string | null;
+}
+
+interface MenteeProfile {
+  id: string;
+  pseudo: string;
+  level: number;
+  streak: number;
+  sharedTriggers: string[];
+  allTriggers: string[];
+  lastActive: string;
+}
+
+// Global state in-memory for mentorship (seeded for userId: user-777)
+let userMentorshipStatus = {
+  currentMentor: null as MentorProfile | null,
+  isMentorActive: false,
+  isEligibleToMentor: true,
+  currentStreak: 65,
+  threshold: 60,
+  selectedTriggers: [] as string[]
+};
+
+let suggestedMentorsDb: MentorProfile[] = [
+  {
+    id: 'mentor-1',
+    pseudo: 'Kader',
+    level: 25,
+    streak: 342,
+    sharedTriggers: ['Stress', 'Soir seul'],
+    allTriggers: ['Stress', 'Soir seul', 'Fatigue'],
+    menteesHelpedCount: 14,
+    storyExcerpt: "La douche froide m'a sauvé du gouffre, j'aide aujourd'hui mes frères à tenir bon."
+  },
+  {
+    id: 'mentor-2',
+    pseudo: 'Julien',
+    level: 18,
+    streak: 124,
+    sharedTriggers: ['Ennui', 'Réseaux sociaux'],
+    allTriggers: ['Ennui', 'Réseaux sociaux', 'Frustration'],
+    menteesHelpedCount: 5,
+    storyExcerpt: "Remplacer le doom-scrolling par la musculation à haute intensité."
+  },
+  {
+    id: 'mentor-3',
+    pseudo: 'Yassine',
+    level: 30,
+    streak: 412,
+    sharedTriggers: ['Stress', 'Fatigue'],
+    allTriggers: ['Stress', 'Fatigue', 'Soir seul'],
+    menteesHelpedCount: 22,
+    storyExcerpt: "Chaque respiration est un combat conscient. Ne plie jamais l'échine face à l'illusion."
+  }
+];
+
+let pendingRequestsDb = [
+  {
+    requestId: 'req-1',
+    requesterId: 'user-101',
+    pseudo: 'Sofiane',
+    level: 7,
+    sharedTriggers: ['Soir seul', 'Stress']
+  },
+  {
+    requestId: 'req-2',
+    requesterId: 'user-102',
+    pseudo: 'Maxime',
+    level: 4,
+    sharedTriggers: ['Ennui']
+  }
+];
+
+let currentMenteesDb: MenteeProfile[] = [
+  {
+    id: 'mentee-sub-1',
+    pseudo: 'Lucas',
+    level: 9,
+    streak: 18,
+    sharedTriggers: ['Stress'],
+    allTriggers: ['Stress', 'Fatigue'],
+    lastActive: 'Actif il y a 2h'
+  }
+];
+
+let mentorshipChatsDb: { 
+  [convId: string]: Array<{ 
+    id: string; 
+    senderId: string; 
+    senderPseudo: string; 
+    senderLevel: number; 
+    text: string; 
+    isSystemMessage: boolean; 
+    createdAt: string; 
+  }> 
+} = {
+  'chat-mentor-1': [
+    {
+      id: 'm-msg-1',
+      senderId: 'mentor-1',
+      senderPseudo: 'Kader',
+      senderLevel: 25,
+      text: "Salut mon frère ! Félicitations pour ton engagement. Je suis là pour t'épauler au quotidien. Quel a été ton plus grand défi aujourd'hui ?",
+      isSystemMessage: false,
+      createdAt: new Date(Date.now() - 24 * 3600 * 1000).toISOString()
+    },
+    {
+      id: 'm-msg-2',
+      senderId: 'user-777',
+      senderPseudo: 'Moi',
+      senderLevel: 12,
+      text: "Salut Kader, merci de m'accompagner ! Surtout le soir quand je me retrouve seul face à mes écrans, c'est là que la tension monte.",
+      isSystemMessage: false,
+      createdAt: new Date(Date.now() - 23 * 3600 * 1000).toISOString()
+    },
+    {
+      id: 'm-msg-3',
+      senderId: 'mentor-1',
+      senderPseudo: 'Kader',
+      senderLevel: 25,
+      text: "Je connais ça par cœur. Règle numéro 1 : aucun écran dans la chambre après 22h. Laisse ton téléphone au salon. Qu'en penses-tu ?",
+      isSystemMessage: false,
+      createdAt: new Date(Date.now() - 22 * 3600 * 1000).toISOString()
+    }
+  ]
+};
+
+// GET mentorship status
+app.get('/api/community/:userId/mentorship/status', (req, res) => {
+  res.json({
+    currentMentor: userMentorshipStatus.currentMentor,
+    isMentorActive: userMentorshipStatus.isMentorActive,
+    isEligibleToMentor: userMentorshipStatus.isEligibleToMentor,
+    currentStreak: userMentorshipStatus.currentStreak,
+    threshold: userMentorshipStatus.threshold
+  });
+});
+
+// GET suggested mentors
+app.get('/api/community/:userId/mentorship/suggested', (req, res) => {
+  // If user already has a mentor, return empty list or mock list
+  res.json(suggestedMentorsDb);
+});
+
+// POST request a mentor
+app.post('/api/community/:userId/mentorship/request', (req, res) => {
+  const { mentorId } = req.body;
+  const selectedMentor = suggestedMentorsDb.find(m => m.id === mentorId);
+  if (!selectedMentor) {
+    return res.status(404).json({ error: 'Mentor not found' });
+  }
+
+  // Simulate accepting after 3 seconds, or set as current mentor directly for instant feedback
+  userMentorshipStatus.currentMentor = selectedMentor;
+  
+  res.json({ 
+    success: true, 
+    message: `Demande envoyée avec succès à ${selectedMentor.pseudo}.`,
+    currentMentor: selectedMentor
+  });
+});
+
+// POST activate mentor status
+app.post('/api/community/:userId/mentorship/activate', (req, res) => {
+  const { triggers } = req.body;
+  userMentorshipStatus.isMentorActive = true;
+  userMentorshipStatus.selectedTriggers = triggers || [];
+  res.json({ 
+    success: true, 
+    message: "Félicitations, vous êtes désormais actif en tant que Mentor officiel ! 🎖️",
+    isMentorActive: true 
+  });
+});
+
+// GET pending requests for current mentor user
+app.get('/api/community/:userId/mentorship/requests', (req, res) => {
+  res.json(pendingRequestsDb);
+});
+
+// POST accept a request
+app.post('/api/community/:userId/mentorship/requests/:requestId/accept', (req, res) => {
+  const { requestId } = req.params;
+  const foundReq = pendingRequestsDb.find(r => r.requestId === requestId);
+  if (foundReq) {
+    // Add to current mentees
+    const newMentee: MenteeProfile = {
+      id: foundReq.requesterId,
+      pseudo: foundReq.pseudo,
+      level: foundReq.level,
+      streak: 5, // starting
+      sharedTriggers: foundReq.sharedTriggers,
+      allTriggers: foundReq.sharedTriggers,
+      lastActive: 'Actif à l\'instant'
+    };
+    currentMenteesDb.push(newMentee);
+    
+    // Create custom welcome message for their chat
+    const convId = `chat-${foundReq.requesterId}`;
+    mentorshipChatsDb[convId] = [
+      {
+        id: `m-msg-sys-${Date.now()}`,
+        senderId: 'system',
+        senderPseudo: 'Système',
+        senderLevel: 0,
+        text: `Félicitations ! Vous accompagnez désormais ${foundReq.pseudo} dans son parcours de souveraineté.`,
+        isSystemMessage: true,
+        createdAt: new Date().toISOString()
+      },
+      {
+        id: `m-msg-first-${Date.now()}`,
+        senderId: 'user-777',
+        senderPseudo: 'Moi (Mentor)',
+        senderLevel: 12,
+        text: `Salut ${foundReq.pseudo} ! Ravi d'être ton mentor. N'hésite pas à m'écrire dès que tu ressens le moindre déclencheur. Ensemble on est invincibles ! 💪`,
+        isSystemMessage: false,
+        createdAt: new Date().toISOString()
+      }
+    ];
+
+    // Remove from pending
+    pendingRequestsDb = pendingRequestsDb.filter(r => r.requestId !== requestId);
+  }
+  res.json({ success: true, mentees: currentMenteesDb });
+});
+
+// POST decline a request (discreet, never notifies the requester directly)
+app.post('/api/community/:userId/mentorship/requests/:requestId/decline', (req, res) => {
+  const { requestId } = req.params;
+  pendingRequestsDb = pendingRequestsDb.filter(r => r.requestId !== requestId);
+  res.json({ success: true, message: "Demande déclinée discrètement." });
+});
+
+// POST end mentorship relationship
+app.post('/api/community/:userId/mentorship/end', (req, res) => {
+  userMentorshipStatus.currentMentor = null;
+  res.json({ success: true, message: "Relation de mentorat terminée." });
+});
+
+// GET current mentees
+app.get('/api/community/:userId/mentorship/mentees', (req, res) => {
+  res.json(currentMenteesDb);
+});
+
+// GET 1-to-1 mentorship chat messages
+app.get('/api/community/:userId/mentorship/chat/:conversationId/messages', (req, res) => {
+  const { conversationId } = req.params;
+  const messages = mentorshipChatsDb[conversationId] || [];
+  res.json(messages);
+});
+
+// POST 1-to-1 mentorship chat message
+app.post('/api/community/:userId/mentorship/chat/:conversationId/messages', (req, res) => {
+  const { conversationId, userId } = req.params;
+  const { text, clientSafetyFlag } = req.body;
+
+  if (!text || text.trim().length === 0) {
+    return res.status(400).json({ error: 'Message cannot be empty' });
+  }
+
+  const hasDistress = detectAcuteDistress(text) || !!clientSafetyFlag;
+
+  const newMessage = {
+    id: `m-msg-${Date.now()}`,
+    senderId: userId,
+    senderPseudo: userId === 'user-777' ? 'Moi' : 'Partenaire',
+    senderLevel: 12,
+    text,
+    isSystemMessage: false,
+    createdAt: new Date().toISOString()
+  };
+
+  if (!mentorshipChatsDb[conversationId]) {
+    mentorshipChatsDb[conversationId] = [];
+  }
+
+  mentorshipChatsDb[conversationId].push(newMessage);
+
+  res.json({
+    success: true,
+    message: newMessage,
+    safetyTriggered: hasDistress
+  });
+});
+
+
 // API Endpoint 3: Proxy secure Gemini API calls
 app.post('/api/chat', async (req, res) => {
   try {

@@ -15,8 +15,12 @@ import {
   Dimensions,
   Vibration,
   Alert,
-  Platform
+  Platform,
+  Modal,
+  SafeAreaView
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { CircuitObserverDiagram } from '../components/CircuitObserverDiagram';
 
 // Dimensions for responsive UI
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
@@ -58,6 +62,7 @@ export default function PatternKillerScreen() {
   ]);
   const [chatInput, setChatInput] = useState<string>('');
   const [hasResisted, setHasResisted] = useState<boolean>(false);
+  const [showCrisisDiagram, setShowCrisisDiagram] = useState<boolean>(false);
 
   // 3. Animations refs
   const shakeAnimation = useRef(new Animated.Value(0)).current;
@@ -265,9 +270,16 @@ export default function PatternKillerScreen() {
         </Text>
 
         {riskScore >= 61 && (
-          <TouchableOpacity style={styles.actionBtn} onPress={startProtocol}>
-            <Text style={styles.actionBtnText}>DÉCLENCHER LE PROTOCOLE D'URGENCE (5 MIN)</Text>
-          </TouchableOpacity>
+          <View style={{ gap: 10 }}>
+            <TouchableOpacity style={styles.actionBtn} onPress={startProtocol}>
+              <Text style={styles.actionBtnText}>DÉCLENCHER LE PROTOCOLE D'URGENCE (5 MIN)</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity style={styles.observeBtn} onPress={() => setShowCrisisDiagram(true)}>
+              <Ionicons name="compass" size={16} color="#00D9A5" />
+              <Text style={styles.observeBtnText}>Observer cette envie maintenant (Surfing Respiratoire)</Text>
+            </TouchableOpacity>
+          </View>
         )}
       </Animated.View>
 
@@ -374,6 +386,41 @@ export default function PatternKillerScreen() {
         </View>
       </View>
     </ScrollView>
+
+    {showCrisisDiagram && (
+      <Modal visible={showCrisisDiagram} animationType="fade" transparent={false}>
+        <SafeAreaView style={{ flex: 1, backgroundColor: '#0F0F1A' }}>
+          <TouchableOpacity
+            onPress={() => setShowCrisisDiagram(false)}
+            style={{ padding: 16, alignSelf: 'flex-end' }}
+          >
+            <Text style={{ color: '#8E8E93', fontSize: 12 }}>Retour à la crise</Text>
+          </TouchableOpacity>
+          <CircuitObserverDiagram
+            mode="personal"
+            context="crisis"
+            embedded={true}
+            urgeSurfDurationSeconds={90}
+            onUrgeSurfComplete={(outcome) => {
+              if (outcome === 'resisted') {
+                handleResisted();
+                setShowCrisisDiagram(false);
+              } else {
+                setShowCrisisDiagram(false);
+              }
+            }}
+            onRequestCoachChat={() => {
+              setShowCrisisDiagram(false);
+              Alert.alert(
+                "💬 COACH D'URGENCE",
+                "Utilisez la section 'Coach d'urgence intégré' en bas de l'écran pour discuter avec l'IA.",
+                [{ text: "OK" }]
+              );
+            }}
+          />
+        </SafeAreaView>
+      </Modal>
+    )}
   );
 }
 
@@ -481,6 +528,24 @@ const styles = StyleSheet.create({
   },
   actionBtnText: {
     color: '#FFFFFF',
+    fontSize: 11,
+    fontWeight: 'bold',
+    letterSpacing: 1,
+  },
+  observeBtn: {
+    backgroundColor: '#1F4068',
+    borderColor: '#00D9A5',
+    borderWidth: 1,
+    paddingVertical: 14,
+    borderRadius: 12,
+    alignItems: 'center',
+    marginTop: 10,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  observeBtnText: {
+    color: '#00D9A5',
     fontSize: 11,
     fontWeight: 'bold',
     letterSpacing: 1,

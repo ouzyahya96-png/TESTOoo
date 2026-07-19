@@ -35,9 +35,10 @@ import { AlphaButton } from '../../components/AlphaButton';
 interface ClansScreenProps {
   addToast: (type: 'success' | 'warning' | 'error' | 'info', message: string) => void;
   onBack?: () => void;
+  onOpenChat?: () => void;
 }
 
-export const ClansScreen: React.FC<ClansScreenProps> = ({ addToast, onBack }) => {
+export const ClansScreen: React.FC<ClansScreenProps> = ({ addToast, onBack, onOpenChat }) => {
   const isMounted = useRef<boolean>(true);
 
   useEffect(() => {
@@ -601,7 +602,13 @@ const styles = StyleSheet.create({
                         INVITER
                       </button>
                       <button 
-                        onClick={() => addToast('info', "Entrée dans le salon de chat privé de la Warrior Squad...")}
+                        onClick={() => {
+                          if (onOpenChat) {
+                            onOpenChat();
+                          } else {
+                            addToast('info', "Entrée dans le salon de chat privé de la Warrior Squad...");
+                          }
+                        }}
                         className="flex-1 h-9 bg-[#16213E] border border-gray-600 text-white rounded-xl text-[10px] font-headline font-black uppercase tracking-wider flex items-center justify-center gap-1 cursor-pointer relative"
                       >
                         <MessageSquare className="w-3.5 h-3.5" />

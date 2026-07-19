@@ -67,6 +67,8 @@ import { ColdExposureScreen } from './screens/energy/ColdExposureScreen';
 import { AdRewardsScreen } from './screens/gamification/AdRewardsScreen';
 import { PointsLevelsScreen } from './screens/gamification/PointsLevelsScreen';
 import { ClansScreen } from './screens/gamification/ClansScreen';
+import { StoriesScreen } from './screens/community/StoriesScreen';
+import { ChatClanScreen } from './screens/community/ChatClanScreen';
 import { ChallengesScreen } from './screens/gamification/ChallengesScreen';
 import { BadgesScreen } from './screens/gamification/BadgesScreen';
 import { LeaderboardScreen } from './screens/gamification/LeaderboardScreen';
@@ -78,6 +80,7 @@ import { AIEngineScreen } from './screens/ai/AIEngineScreen';
 import { AISettingsScreen } from './screens/ai/AISettingsScreen';
 import { WeeklyReportDetailScreen } from './screens/ai/WeeklyReportDetailScreen';
 import { AIPredictionsScreen } from './screens/ai/AIPredictionsScreen';
+import { MentorshipScreen } from './screens/community/MentorshipScreen';
 
 import { TokensTab } from './screens/dashboard/TokensTab';
 import { PlaygroundTab } from './screens/dashboard/PlaygroundTab';
@@ -100,21 +103,21 @@ export default function App() {
     setToasts((prev) => prev.filter((t) => t.id !== id));
   };
 
-  const getInitialTabFromUrl = (): 'tokens' | 'playground' | 'dashboard' | 'architecture' | 'nutrition' | 'cold' | 'rewards' | 'points' | 'clans' | 'challenges' | 'badges' | 'leaderboard' | 'subscription' | 'subscription_mgmt' | 'billing_history' | 'cancel_renew' | 'ai_engine' | 'ai_settings' | 'ai_weekly_report' | 'ai_predictions' => {
+  const getInitialTabFromUrl = (): 'tokens' | 'playground' | 'dashboard' | 'architecture' | 'nutrition' | 'cold' | 'rewards' | 'points' | 'clans' | 'stories' | 'chat_clan' | 'mentorship' | 'challenges' | 'badges' | 'leaderboard' | 'subscription' | 'subscription_mgmt' | 'billing_history' | 'cancel_renew' | 'ai_engine' | 'ai_settings' | 'ai_weekly_report' | 'ai_predictions' => {
     const path = window.location.pathname.replace(/^\//, '');
-    const validTabs = ['tokens', 'playground', 'dashboard', 'architecture', 'nutrition', 'cold', 'rewards', 'points', 'clans', 'challenges', 'badges', 'leaderboard', 'subscription', 'subscription_mgmt', 'billing_history', 'cancel_renew', 'ai_engine', 'ai_settings', 'ai_weekly_report', 'ai_predictions'];
+    const validTabs = ['tokens', 'playground', 'dashboard', 'architecture', 'nutrition', 'cold', 'rewards', 'points', 'clans', 'stories', 'chat_clan', 'mentorship', 'challenges', 'badges', 'leaderboard', 'subscription', 'subscription_mgmt', 'billing_history', 'cancel_renew', 'ai_engine', 'ai_settings', 'ai_weekly_report', 'ai_predictions'];
     if (validTabs.includes(path)) {
       return path as any;
     }
     return 'tokens';
   };
 
-  const [activeTab, setActiveTab] = useState<'tokens' | 'playground' | 'dashboard' | 'architecture' | 'nutrition' | 'cold' | 'rewards' | 'points' | 'clans' | 'challenges' | 'badges' | 'leaderboard' | 'subscription' | 'subscription_mgmt' | 'billing_history' | 'cancel_renew' | 'ai_engine' | 'ai_settings' | 'ai_weekly_report' | 'ai_predictions'>(getInitialTabFromUrl);
+  const [activeTab, setActiveTab] = useState<'tokens' | 'playground' | 'dashboard' | 'architecture' | 'nutrition' | 'cold' | 'rewards' | 'points' | 'clans' | 'stories' | 'chat_clan' | 'mentorship' | 'challenges' | 'badges' | 'leaderboard' | 'subscription' | 'subscription_mgmt' | 'billing_history' | 'cancel_renew' | 'ai_engine' | 'ai_settings' | 'ai_weekly_report' | 'ai_predictions'>(getInitialTabFromUrl);
 
   useEffect(() => {
     const handlePopState = () => {
       const path = window.location.pathname.replace(/^\//, '');
-      const validTabs = ['tokens', 'playground', 'dashboard', 'architecture', 'nutrition', 'cold', 'rewards', 'points', 'clans', 'challenges', 'badges', 'leaderboard', 'subscription', 'subscription_mgmt', 'billing_history', 'cancel_renew', 'ai_engine', 'ai_settings', 'ai_weekly_report', 'ai_predictions'];
+      const validTabs = ['tokens', 'playground', 'dashboard', 'architecture', 'nutrition', 'cold', 'rewards', 'points', 'clans', 'stories', 'chat_clan', 'mentorship', 'challenges', 'badges', 'leaderboard', 'subscription', 'subscription_mgmt', 'billing_history', 'cancel_renew', 'ai_engine', 'ai_settings', 'ai_weekly_report', 'ai_predictions'];
       if (validTabs.includes(path)) {
         setActiveTab(path as any);
       } else {
@@ -181,6 +184,9 @@ export default function App() {
         { id: 'points', label: 'Points & Niveaux 📈' },
         { id: 'rewards', label: 'Pubs & Récompenses 🪙' },
         { id: 'clans', label: 'Clans & Fraternité 🛡️' },
+        { id: 'chat_clan', label: 'Chat du Clan 💬' },
+        { id: 'mentorship', label: 'Mentorat Élite 🎖️' },
+        { id: 'stories', label: 'Récits & Paliers 🏆' },
         { id: 'challenges', label: 'Défis & Quêtes ⚡' },
         { id: 'badges', label: 'Badges d\'Honneur 🎖️' },
         { id: 'leaderboard', label: 'Classement Général 🏆' },
@@ -884,7 +890,31 @@ export default function App() {
         )}
 
         {activeTab === 'clans' && (
-          <ClansScreen addToast={addToast} onBack={() => setActiveTab('dashboard')} />
+          <ClansScreen 
+            addToast={addToast} 
+            onBack={() => setActiveTab('dashboard')} 
+            onOpenChat={() => setActiveTab('chat_clan')}
+          />
+        )}
+
+        {activeTab === 'stories' && (
+          <StoriesScreen addToast={addToast} onBack={() => setActiveTab('dashboard')} />
+        )}
+
+        {activeTab === 'chat_clan' && (
+          <ChatClanScreen 
+            addToast={addToast} 
+            onBack={() => setActiveTab('dashboard')} 
+            onOpenClansInfo={() => setActiveTab('clans')}
+            onOpenChallenges={() => setActiveTab('challenges')}
+          />
+        )}
+
+        {activeTab === 'mentorship' && (
+          <MentorshipScreen 
+            addToast={addToast} 
+            onBack={() => setActiveTab('dashboard')} 
+          />
         )}
 
         {activeTab === 'challenges' && (
