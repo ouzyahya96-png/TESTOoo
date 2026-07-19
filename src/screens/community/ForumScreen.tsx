@@ -16,8 +16,12 @@ import {
   Clock, 
   Code, 
   Copy,
-  ChevronDown
+  ChevronDown,
+  Search,
+  CheckCircle,
+  Check
 } from 'lucide-react';
+import { motion } from 'motion/react';
 import { AlphaButton } from '../../components/AlphaButton';
 
 interface ForumScreenProps {
@@ -33,6 +37,7 @@ export interface ThreadData {
   scope: 'clan' | 'all';
   authorPseudo: string;
   authorLevel: number;
+  authorReputationPoints: number;
   title: string;
   bodyPreview: string;
   body: string;
@@ -41,6 +46,9 @@ export interface ThreadData {
   userHasVoted: boolean;
   replyCount: number;
   isPinned: boolean;
+  hasSolution?: boolean;
+  solutionReplyId?: string | null;
+  hasExpertReply?: boolean;
 }
 
 export interface ReplyData {
@@ -48,11 +56,75 @@ export interface ReplyData {
   threadId: string;
   authorPseudo: string;
   authorLevel: number;
+  authorReputationPoints: number;
   text: string;
   createdAt: string;
   voteCount: number;
   userHasVoted: boolean;
+  isExpertReply?: boolean;
+  expertName?: string;
+  expertSpecialty?: 'urologie' | 'sexologie' | 'andrologie' | 'psychiatrie' | 'nutrition' | null;
+  isMarkedBest?: boolean;
 }
+
+// Function to calculate the reputation tier from cumulative points
+export const getReputationTier = (points: number) => {
+  if (points >= 500) {
+    return { label: 'Légende du Forum', icon: '💎', color: '#4A90D9' };
+  }
+  if (points >= 200) {
+    return { label: 'Pilier du Forum', icon: '🥇', color: '#FFD700' };
+  }
+  if (points >= 50) {
+    return { label: 'Contributeur', icon: '🥈', color: '#C0C0C0' };
+  }
+  return { label: 'Nouveau', icon: '🌱', color: '#8E8E93' };
+};
+
+// Reputation Badge helper component
+const ReputationBadge: React.FC<{ points: number; compact?: boolean }> = ({ points, compact = false }) => {
+  const tier = getReputationTier(points || 0);
+  if (compact) {
+    return (
+      <span className="ml-1 cursor-help inline-block select-none" title={`${tier.label} (${points || 0} pts)`}>
+        {tier.icon}
+      </span>
+    );
+  }
+  return (
+    <div 
+      className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full border text-[9px] font-sans font-semibold select-none ml-1.5"
+      style={{ borderColor: `${tier.color}30`, backgroundColor: `${tier.color}10`, color: tier.color }}
+      title={`Points de réputation forum : ${points || 0}`}
+    >
+      <span>{tier.icon}</span>
+      <span>{tier.label}</span>
+    </div>
+  );
+};
+
+// Trending Thread Card component
+const TrendingCard: React.FC<{ thread: ThreadData; onClick: () => void }> = ({ thread, onClick }) => {
+  const catInfo = categoryMap[thread.category] || categoryMap.general;
+  return (
+    <button
+      onClick={onClick}
+      className="w-[200px] bg-[#16213E] rounded-[14px] p-3 border border-[#FF9500]/25 text-left shrink-0 hover:border-[#FF9500]/50 transition-all transform hover:scale-[1.02] active:scale-[0.98] focus:outline-none flex flex-col justify-between h-[115px]"
+    >
+      <div>
+        <span className={`${catInfo.bg} ${catInfo.color} border px-1.5 py-0.5 rounded text-[7px] font-bold uppercase tracking-wide`}>
+          {catInfo.icon} {catInfo.label.toUpperCase()}
+        </span>
+        <h5 className="text-[11px] font-semibold text-white mt-2 leading-snug line-clamp-2 font-headline">
+          {thread.title}
+        </h5>
+      </div>
+      <div className="text-[8px] text-[#FF9500] font-mono flex items-center gap-1 mt-1 shrink-0 select-none">
+        <span>🔥 {thread.voteCount} votes · {thread.replyCount} {thread.replyCount > 1 ? 'réponses' : 'réponse'}</span>
+      </div>
+    </button>
+  );
+};
 
 // Category details mapping
 export const categoryMap: { [key: string]: { label: string; color: string; bg: string; icon: string } } = {
@@ -76,6 +148,17 @@ export const ForumScreen: React.FC<ForumScreenProps> = ({
   const [scopeFilter, setScopeFilter] = useState<'clan' | 'all'>('clan');
   const [activeCategory, setActiveCategory] = useState<string>('all');
   const [sortBy, setSortBy] = useState<'recent' | 'popular' | 'unanswered'>('recent');
+
+  // Search variables
+  const [isSearchActive, setIsSearchActive] = useState<boolean>(false);
+  const [searchQuery, setSearchQuery] = useState<string>('');
+  const [searchResults, setSearchResults] = useState<ThreadData[] | null>(null);
+
+  // Trending & Solutions state
+  const [trendingThreads, setTrendingThreads] = useState<ThreadData[]>([]);
+  const [confirmingBestAnswerFor, setConfirmingBestAnswerFor] = useState<string | null>(null);
+  const [confirmCountdown, setConfirmCountdown] = useState<number>(0);
+  const countdownTimer = useRef<NodeJS.Timeout | null>(null);
 
   // Threads list & selected thread details
   const [pinnedThreads, setPinnedThreads] = useState<ThreadData[]>([]);
@@ -124,6 +207,13 @@ export const ForumScreen: React.FC<ForumScreenProps> = ({
         const data = await pinnedRes.json();
         setPinnedThreads(data);
       }
+
+      // 3. Fetch trending threads
+      const trendingRes = await fetch(`/api/community/${userId}/forum/trending?scope=${scopeFilter}`);
+      if (trendingRes.ok) {
+        const data = await trendingRes.json();
+        setTrendingThreads(data);
+      }
     } catch (err) {
       console.error("Failed to load forum threads:", err);
       addToast('error', "Erreur de chargement des fils.");
@@ -167,6 +257,28 @@ export const ForumScreen: React.FC<ForumScreenProps> = ({
       isMounted.current = false;
     };
   }, [fetchThreads]);
+
+  // Search trigger with 300ms debounce
+  useEffect(() => {
+    if (!isSearchActive || searchQuery.trim() === '') {
+      setSearchResults(null);
+      return;
+    }
+
+    const delayDebounceFn = setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/community/${userId}/forum/search?scope=${scopeFilter}&q=${encodeURIComponent(searchQuery)}`);
+        if (res.ok) {
+          const data = await res.json();
+          setSearchResults(data);
+        }
+      } catch (err) {
+        console.error("Error searching forum:", err);
+      }
+    }, 300);
+
+    return () => clearTimeout(delayDebounceFn);
+  }, [searchQuery, scopeFilter, isSearchActive, userId]);
 
   // Trigger vote on thread
   const handleVoteThread = async (e: React.MouseEvent, threadId: string, isPinnedList: boolean) => {
@@ -256,6 +368,7 @@ export const ForumScreen: React.FC<ForumScreenProps> = ({
       threadId: selectedThreadId,
       authorPseudo: 'Guerrier_Novice',
       authorLevel: 3,
+      authorReputationPoints: 12,
       text: trimmed,
       createdAt: new Date().toISOString(),
       voteCount: 0,
@@ -287,6 +400,82 @@ export const ForumScreen: React.FC<ForumScreenProps> = ({
       }
     } catch (err) {
       console.error(err);
+      addToast('error', "Erreur de connexion.");
+    }
+  };
+
+  // Mark Best Answer countdown logic
+  const startMarkBestCountdown = (replyId: string) => {
+    if (countdownTimer.current) {
+      clearInterval(countdownTimer.current);
+    }
+    setConfirmingBestAnswerFor(replyId);
+    setConfirmCountdown(3);
+    
+    countdownTimer.current = setInterval(() => {
+      setConfirmCountdown(prev => {
+        if (prev <= 1) {
+          if (countdownTimer.current) {
+            clearInterval(countdownTimer.current);
+            countdownTimer.current = null;
+          }
+          // Trigger the marking action!
+          executeMarkBestAnswer(replyId);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+  };
+
+  const cancelMarkBestCountdown = () => {
+    if (countdownTimer.current) {
+      clearInterval(countdownTimer.current);
+      countdownTimer.current = null;
+    }
+    setConfirmingBestAnswerFor(null);
+    setConfirmCountdown(0);
+  };
+
+  const executeMarkBestAnswer = async (replyId: string) => {
+    if (!selectedThreadId) return;
+    try {
+      const res = await fetch(`/api/community/${userId}/forum/threads/${selectedThreadId}/replies/${replyId}/mark-best`, {
+        method: 'POST'
+      });
+      if (res.ok) {
+        addToast('success', "🏆 Réponse désignée comme la meilleure solution !");
+        await fetchThreadReplies(selectedThreadId);
+        await fetchThreads();
+      } else {
+        const errData = await res.json();
+        addToast('error', errData.error || "Erreur de marquage.");
+      }
+    } catch (err) {
+      console.error("Error marking best answer:", err);
+      addToast('error', "Erreur de connexion.");
+    } finally {
+      setConfirmingBestAnswerFor(null);
+      setConfirmCountdown(0);
+    }
+  };
+
+  // Simulate an expert reply on the active thread
+  const handleSimulateExpert = async () => {
+    if (!selectedThreadId) return;
+    try {
+      const res = await fetch(`/api/community/${userId}/forum/threads/${selectedThreadId}/simulate-expert`, {
+        method: 'POST'
+      });
+      if (res.ok) {
+        addToast('success', "👨‍⚕️ Une réponse d'expert a été générée sur ce fil !");
+        await fetchThreadReplies(selectedThreadId);
+        await fetchThreads();
+      } else {
+        addToast('error', "Erreur lors de la simulation.");
+      }
+    } catch (err) {
+      console.error("Error simulating expert:", err);
       addToast('error', "Erreur de connexion.");
     }
   };
@@ -662,6 +851,7 @@ const styles = StyleSheet.create({
                   scope: scopeFilter,
                   authorPseudo: 'Souverain_D_Élite',
                   authorLevel: 15,
+                  authorReputationPoints: 450,
                   title: '🚀 Comment j\'ai retrouvé un sommeil profond de 8h grâce aux rituels du soir',
                   bodyPreview: 'Pas d\'écrans après 21h, tisane de camomille, et séance d\'étirements musculaires profonds...',
                   body: 'Frères, mon sommeil était catastrophique. En combinant la sobriété numérique avec un rituel rigoureux d\'étirements et de respiration à 21h, j\'ai réactivé mon système parasympathique. Les résultats sont mesurables scientifiquement.',
@@ -688,6 +878,7 @@ const styles = StyleSheet.create({
                   scope: 'clan',
                   authorPseudo: 'Guerrier_En_Danger',
                   authorLevel: 1,
+                  authorReputationPoints: 2,
                   title: '🛑 SOS : Grosse envie de céder après une dure journée',
                   bodyPreview: 'Je suis fatigué, j\'ai envie de relâcher la pression. S\'il vous plaît, rappelez-moi pourquoi je fais ça.',
                   body: 'Je suis fatigué, j\'ai envie de relâcher la pression. S\'il vous plaît, rappelez-moi pourquoi je fais ça.',
@@ -743,7 +934,6 @@ const styles = StyleSheet.create({
                 <div className="w-4 h-2 bg-emerald-500 rounded-sm" />
               </div>
             </div>
-
             {/* PHONE HEADER */}
             <div className="px-4 py-3 flex items-center justify-between border-b border-[#1A1A2E] bg-[#0F0F1A] shrink-0">
               <button 
@@ -762,14 +952,30 @@ const styles = StyleSheet.create({
                 </span>
               </div>
 
-              {/* PLUS BUTTON */}
-              <button 
-                onClick={() => setIsComposerOpen(true)}
-                className="w-9 h-9 flex items-center justify-center rounded-full bg-[#FFD700] text-[#0F0F1A] hover:bg-yellow-500 transition-all shadow-md shrink-0"
-                title="Nouveau fil"
-              >
-                <Plus className="w-5 h-5 font-black" />
-              </button>
+              {/* SEARCH & PLUS BUTTON ROW */}
+              <div className="flex items-center gap-1.5 shrink-0">
+                <button
+                  onClick={() => {
+                    setIsSearchActive(prev => !prev);
+                    if (!isSearchActive) {
+                      setSearchQuery('');
+                      setSearchResults(null);
+                    }
+                  }}
+                  className={`w-9 h-9 flex items-center justify-center rounded-full transition-all ${isSearchActive ? 'bg-gray-800 text-white' : 'hover:bg-[#16213E]/60 text-[#8E8E93]'}`}
+                  title="Rechercher"
+                >
+                  <Search className="w-5 h-5" />
+                </button>
+
+                <button 
+                  onClick={() => setIsComposerOpen(true)}
+                  className="w-9 h-9 flex items-center justify-center rounded-full bg-[#FFD700] text-[#0F0F1A] hover:bg-yellow-500 transition-all shadow-md shrink-0"
+                  title="Nouveau fil"
+                >
+                  <Plus className="w-5 h-5 font-black" />
+                </button>
+              </div>
             </div>
 
             {/* TOUGLE SCOPE: CLAN / TOUS LES CLANS */}
@@ -799,27 +1005,60 @@ const styles = StyleSheet.create({
             {/* SCROLLABLE VIEWPORT CONTENT */}
             <div className="flex-1 overflow-y-auto px-4 py-3 space-y-4 custom-scrollbar text-left pb-16">
               
-              {/* CATEGORIES HORIZONTALES (CHIPS) */}
-              <div className="overflow-x-auto flex gap-2 pb-1 scrollbar-none shrink-0">
-                {categoriesList.map((cat) => {
-                  const isActive = activeCategory === cat.id;
-                  return (
-                    <button
-                      key={cat.id}
+              {/* CATEGORIES HORIZONTALES (CHIPS) / RECHERCHE INPUT */}
+              <div className="shrink-0 min-h-[40px] flex items-center justify-between">
+                {isSearchActive ? (
+                  <div className="flex items-center gap-2 w-full animate-[fade-in_0.2s_ease-out]">
+                    <div className="flex-1 bg-[#1A1A2E] rounded-[10px] py-1.5 px-3 flex items-center gap-2 border border-gray-800">
+                      <Search className="w-4 h-4 text-[#5A5A5A] shrink-0" />
+                      <input
+                        type="text"
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        placeholder="Rechercher dans le forum..."
+                        className="bg-transparent text-xs text-white placeholder-gray-500 focus:outline-none w-full"
+                        autoFocus
+                      />
+                      {searchQuery && (
+                        <button onClick={() => setSearchQuery('')} className="text-gray-500 hover:text-white">
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                    </div>
+                    <button 
                       onClick={() => {
-                        setActiveCategory(cat.id);
-                        if (navigator.vibrate) navigator.vibrate(20);
+                        setIsSearchActive(false);
+                        setSearchQuery('');
+                        setSearchResults(null);
                       }}
-                      className={`px-3 py-1.5 rounded-full text-[10px] font-black font-headline transition-all whitespace-nowrap shrink-0 border ${
-                        isActive 
-                          ? 'bg-[#FFD700] text-[#0F0F1A] border-[#FFD700]' 
-                          : 'bg-[#1A1A2E] text-[#8E8E93] border-gray-800 hover:text-white'
-                      }`}
+                      className="text-[12px] text-[#8E8E93] hover:text-[#FFD700] transition-colors py-1 pl-1 shrink-0 font-sans"
                     >
-                      {cat.icon} {cat.label}
+                      Annuler
                     </button>
-                  );
-                })}
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto flex gap-2 pb-1 scrollbar-none shrink-0 w-full animate-[fade-in_0.2s_ease-out]">
+                    {categoriesList.map((cat) => {
+                      const isActive = activeCategory === cat.id;
+                      return (
+                        <button
+                          key={cat.id}
+                          onClick={() => {
+                            setActiveCategory(cat.id);
+                            if (navigator.vibrate) navigator.vibrate(20);
+                          }}
+                          className={`px-3 py-1.5 rounded-full text-[10px] font-black font-headline transition-all whitespace-nowrap shrink-0 border ${
+                            isActive 
+                              ? 'bg-[#FFD700] text-[#0F0F1A] border-[#FFD700]' 
+                              : 'bg-[#1A1A2E] text-[#8E8E93] border-gray-800 hover:text-white'
+                          }`}
+                        >
+                          {cat.icon} {cat.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
 
               {/* BARRE DE TRI */}
@@ -850,7 +1089,7 @@ const styles = StyleSheet.create({
               </div>
 
               {/* FILS ÉPINGLÉS SECTION */}
-              {pinnedThreads.length > 0 && (
+              {!isSearchActive && pinnedThreads.length > 0 && (
                 <div className="space-y-2">
                   <span className="text-[9px] text-gray-500 font-mono tracking-widest block uppercase pl-1">📌 Messages Épinglés</span>
                   <div className="space-y-2">
@@ -865,16 +1104,26 @@ const styles = StyleSheet.create({
                             isSelected ? 'border-[#FFD700] ring-1 ring-[#FFD700]/30' : 'border-[#FFD700]/30 hover:border-gray-700'
                           }`}
                         >
-                          <div className="flex items-center justify-between text-[8px] font-bold text-gray-400 pb-2 border-b border-gray-800/40">
-                            <span className="bg-[#FFD700]/15 text-[#FFD700] px-1.5 py-0.5 rounded uppercase flex items-center gap-1">
+                          <div className="flex flex-wrap items-center gap-1.5 text-[8px] font-bold text-gray-400 pb-2 border-b border-gray-800/40">
+                            <span className="bg-[#FFD700]/15 text-[#FFD700] px-1.5 py-0.5 rounded uppercase flex items-center gap-1 select-none">
                               <span>📌 ÉPINGLÉ</span>
                               <span>·</span>
                               <span>{catInfo.icon} {catInfo.label.toUpperCase()}</span>
                             </span>
-                            <span>il y a 3j</span>
+                            {item.hasExpertReply && (
+                              <span className="bg-[#4A90D9]/12 text-[#4A90D9] text-[8px] font-black uppercase px-1.5 py-0.5 rounded border border-[#4A90D9]/20 select-none">
+                                👨‍⚕️ Expert
+                              </span>
+                            )}
+                            {item.hasSolution && (
+                              <span className="bg-[#00D9A5]/12 text-[#00D9A5] text-[8px] font-black uppercase px-1.5 py-0.5 rounded border border-[#00D9A5]/20 select-none">
+                                🏆 Solution
+                              </span>
+                            )}
+                            <span className="ml-auto font-normal text-gray-500 font-sans">il y a 3j</span>
                           </div>
                           
-                          <h4 className="text-xs font-bold text-white mt-2 leading-snug line-clamp-2">
+                          <h4 className="text-xs font-bold text-white mt-2 leading-snug line-clamp-2 font-headline">
                             {item.title}
                           </h4>
                           <p className="text-[11px] text-gray-400 mt-1 line-clamp-1">
@@ -895,8 +1144,8 @@ const styles = StyleSheet.create({
                                 💬 {item.replyCount} réponses
                               </span>
                             </div>
-                            <span className="text-[9px] text-gray-500 italic">
-                              par {item.authorPseudo} (Lvl {item.authorLevel})
+                            <span className="text-[9px] text-gray-500 italic flex items-center font-sans">
+                              par {item.authorPseudo} <ReputationBadge points={item.authorReputationPoints} compact={true} /> (Lvl {item.authorLevel})
                             </span>
                           </div>
                         </div>
@@ -906,80 +1155,191 @@ const styles = StyleSheet.create({
                 </div>
               )}
 
-              {/* LISTE DES FILS CLASSIQUES */}
+              {/* FILS TENDANCE SECTION */}
+              {!isSearchActive && trendingThreads && trendingThreads.length > 0 && (
+                <div className="space-y-2 mt-4">
+                  <span className="text-[11px] font-bold text-[#FF9500] tracking-wider uppercase block px-1">🔥 TENDANCES</span>
+                  <div className="overflow-x-auto flex gap-3 pb-2 scrollbar-none">
+                    {trendingThreads.map((trend) => (
+                      <TrendingCard 
+                        key={trend.id} 
+                        thread={trend} 
+                        onClick={() => handleOpenThread(trend.id)} 
+                      />
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* LISTE DES FILS CLASSIQUES / RÉSULTATS RECHERCHE */}
               <div className="space-y-3 pt-1">
-                <span className="text-[9px] text-gray-500 font-mono tracking-widest block uppercase pl-1">💬 Flux de discussion</span>
-
-                {isLoading ? (
-                  <div className="text-center py-10 text-gray-500 font-mono text-xs animate-pulse">
-                    Synchronisation de la confrérie...
-                  </div>
-                ) : threads.length === 0 ? (
-                  <div className="text-center py-12 bg-[#16213E]/30 rounded-2xl p-4 text-gray-500">
-                    <MessageSquare className="w-8 h-8 text-gray-600 mx-auto mb-2" />
-                    <p className="text-xs">Aucun fil trouvé dans cette section.</p>
-                  </div>
-                ) : (
-                  threads.map((item) => {
-                    const catInfo = categoryMap[item.category] || categoryMap.general;
-                    const isSelected = selectedThreadId === item.id;
-                    const timeText = "il y a 2h";
-
-                    return (
-                      <div
-                        key={item.id}
-                        onClick={() => handleOpenThread(item.id)}
-                        className={`bg-[#16213E] hover:bg-[#1E2E56] border rounded-2xl p-4 transition-all cursor-pointer text-left ${
-                          isSelected ? 'border-[#FFD700] ring-1 ring-[#FFD700]/30' : 'border-gray-800/80 hover:border-gray-700'
-                        }`}
-                      >
-                        {/* Thread Card Header */}
-                        <div className="flex items-center justify-between text-[8px] font-mono text-gray-500">
-                          <span className={`${catInfo.bg} ${catInfo.color} border px-2 py-0.5 rounded font-black uppercase`}>
-                            {catInfo.icon} {catInfo.label}
-                          </span>
-                          <span className="text-gray-500 font-sans">{item.authorPseudo} · Lvl {item.authorLevel}</span>
-                          <span className="text-gray-600 font-sans ml-auto">{timeText}</span>
-                        </div>
-
-                        {/* Title & Preview */}
-                        <h4 className="text-xs font-bold text-white mt-2 leading-normal line-clamp-2">
-                          {item.title}
-                        </h4>
-                        <p className="text-[11px] text-gray-400 mt-1 line-clamp-2 leading-relaxed">
-                          {item.bodyPreview}
-                        </p>
-
-                        {/* Thread Card Footer */}
-                        <div className="flex items-center justify-between mt-3 pt-2.5 border-t border-gray-800/60 text-[10px]">
-                          <div className="flex items-center gap-3">
-                            {/* Vote trigger */}
-                            <button
-                              onClick={(e) => handleVoteThread(e, item.id, false)}
-                              className="flex items-center gap-1 group"
-                            >
-                              <ChevronUp className={`w-4 h-4 transition-transform group-hover:scale-125 ${item.userHasVoted ? 'text-[#00D9A5] font-black' : 'text-gray-500'}`} />
-                              <span className={`font-black ${item.userHasVoted ? 'text-[#00D9A5]' : 'text-gray-400'}`}>{item.voteCount}</span>
-                            </button>
-
-                            {/* Reply count */}
-                            <span className="text-gray-400 font-sans flex items-center gap-1">
-                              <MessageCircle className="w-3.5 h-3.5 text-gray-500" />
-                              {item.replyCount} {item.replyCount > 1 ? 'réponses' : 'réponse'}
-                            </span>
-                          </div>
-
-                          {/* Unanswered badge */}
-                          {item.replyCount === 0 && (
-                            <span className="bg-[#FFD700]/12 text-[#FFD700] text-[8px] font-black uppercase px-2 py-0.5 rounded-md animate-pulse">
-                              Sans réponse ⏳
-                            </span>
-                          )}
-                        </div>
-
+                {isSearchActive && searchQuery.trim() !== '' ? (
+                  <>
+                    <span className="text-[9px] text-gray-500 font-mono tracking-widest block uppercase pl-1">🔎 Résultats de recherche</span>
+                    
+                    {searchResults === null ? (
+                      <div className="text-center py-10 text-gray-500 font-mono text-xs animate-pulse">
+                        Recherche en cours dans la confrérie...
                       </div>
-                    );
-                  })
+                    ) : searchResults.length === 0 ? (
+                      <div className="text-center py-12 bg-[#16213E]/10 rounded-2xl p-4 text-gray-500 space-y-2">
+                        <Search className="w-8 h-8 text-[#5A5A5A] mx-auto" />
+                        <p className="text-xs font-sans text-[#8E8E93]">
+                          Aucun résultat pour "{searchQuery}". Essaie d'autres mots.
+                        </p>
+                      </div>
+                    ) : (
+                      <>
+                        <p className="text-xs text-[#8E8E93] px-1 font-sans font-medium select-none">
+                          {searchResults.length} {searchResults.length > 1 ? 'résultats' : 'résultat'} pour "{searchQuery}"
+                        </p>
+                        {searchResults.map((item) => {
+                          const catInfo = categoryMap[item.category] || categoryMap.general;
+                          const isSelected = selectedThreadId === item.id;
+                          return (
+                            <div
+                              key={item.id}
+                              onClick={() => handleOpenThread(item.id)}
+                              className={`bg-[#16213E] hover:bg-[#1E2E56] border rounded-2xl p-4 transition-all cursor-pointer text-left ${
+                                isSelected ? 'border-[#FFD700] ring-1 ring-[#FFD700]/30' : 'border-gray-800/80 hover:border-gray-700'
+                              }`}
+                            >
+                              <div className="flex flex-wrap items-center gap-1.5 text-[8px] font-mono text-gray-500">
+                                <span className={`${catInfo.bg} ${catInfo.color} border px-2 py-0.5 rounded font-black uppercase whitespace-nowrap`}>
+                                  {catInfo.icon} {catInfo.label}
+                                </span>
+                                {item.hasExpertReply && (
+                                  <span className="bg-[#4A90D9]/12 text-[#4A90D9] text-[8px] font-black uppercase px-2 py-0.5 rounded border border-[#4A90D9]/20 whitespace-nowrap select-none">
+                                    👨‍⚕️ Expert a répondu
+                                  </span>
+                                )}
+                                {item.hasSolution && (
+                                  <span className="bg-[#00D9A5]/12 text-[#00D9A5] text-[8px] font-black uppercase px-2 py-0.5 rounded border border-[#00D9A5]/20 whitespace-nowrap select-none">
+                                    🏆 Résolu
+                                  </span>
+                                )}
+                                <span className="text-gray-500 font-sans ml-auto flex items-center shrink-0">
+                                  {item.authorPseudo} <ReputationBadge points={item.authorReputationPoints} compact={true} /> · Lvl {item.authorLevel}
+                                </span>
+                              </div>
+
+                              <h4 className="text-xs font-bold text-white mt-2 leading-normal line-clamp-2 font-headline">
+                                {item.title}
+                              </h4>
+                              <p className="text-[11px] text-gray-400 mt-1 line-clamp-2 leading-relaxed">
+                                {item.bodyPreview}
+                              </p>
+
+                              <div className="flex items-center justify-between mt-3 pt-2.5 border-t border-gray-800/60 text-[10px]">
+                                <div className="flex items-center gap-3">
+                                  <button
+                                    onClick={(e) => handleVoteThread(e, item.id, false)}
+                                    className="flex items-center gap-1 group"
+                                  >
+                                    <ChevronUp className={`w-4 h-4 transition-transform group-hover:scale-125 ${item.userHasVoted ? 'text-[#00D9A5] font-black' : 'text-gray-500'}`} />
+                                    <span className={`font-black ${item.userHasVoted ? 'text-[#00D9A5]' : 'text-gray-400'}`}>{item.voteCount}</span>
+                                  </button>
+
+                                  <span className="text-gray-400 font-sans flex items-center gap-1">
+                                    <MessageCircle className="w-3.5 h-3.5 text-gray-500" />
+                                    {item.replyCount} {item.replyCount > 1 ? 'réponses' : 'réponse'}
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </>
+                    )}
+                  </>
+                ) : (
+                  <>
+                    <span className="text-[9px] text-gray-500 font-mono tracking-widest block uppercase pl-1">💬 Flux de discussion</span>
+
+                    {isLoading ? (
+                      <div className="text-center py-10 text-gray-500 font-mono text-xs animate-pulse">
+                        Synchronisation de la confrérie...
+                      </div>
+                    ) : threads.length === 0 ? (
+                      <div className="text-center py-12 bg-[#16213E]/30 rounded-2xl p-4 text-gray-500">
+                        <MessageSquare className="w-8 h-8 text-gray-600 mx-auto mb-2" />
+                        <p className="text-xs">Aucun fil trouvé dans cette section.</p>
+                      </div>
+                    ) : (
+                      threads.map((item) => {
+                        const catInfo = categoryMap[item.category] || categoryMap.general;
+                        const isSelected = selectedThreadId === item.id;
+                        const timeText = "il y a 2h";
+
+                        return (
+                          <div
+                            key={item.id}
+                            onClick={() => handleOpenThread(item.id)}
+                            className={`bg-[#16213E] hover:bg-[#1E2E56] border rounded-2xl p-4 transition-all cursor-pointer text-left ${
+                              isSelected ? 'border-[#FFD700] ring-1 ring-[#FFD700]/30' : 'border-gray-800/80 hover:border-gray-700'
+                            }`}
+                          >
+                            {/* Thread Card Header */}
+                            <div className="flex flex-wrap items-center gap-1.5 text-[8px] font-mono text-gray-500">
+                              <span className={`${catInfo.bg} ${catInfo.color} border px-2 py-0.5 rounded font-black uppercase whitespace-nowrap`}>
+                                {catInfo.icon} {catInfo.label}
+                              </span>
+                              {item.hasExpertReply && (
+                                <span className="bg-[#4A90D9]/12 text-[#4A90D9] text-[8px] font-black uppercase px-2 py-0.5 rounded border border-[#4A90D9]/20 whitespace-nowrap select-none">
+                                  👨‍⚕️ Expert a répondu
+                                </span>
+                              )}
+                              {item.hasSolution && (
+                                <span className="bg-[#00D9A5]/12 text-[#00D9A5] text-[8px] font-black uppercase px-2 py-0.5 rounded border border-[#00D9A5]/20 whitespace-nowrap select-none">
+                                  🏆 Résolu
+                                </span>
+                              )}
+                              <span className="text-gray-500 font-sans ml-auto flex items-center shrink-0">
+                                {item.authorPseudo} <ReputationBadge points={item.authorReputationPoints} compact={true} /> · Lvl {item.authorLevel}
+                              </span>
+                              <span className="text-gray-600 font-sans font-normal">{timeText}</span>
+                            </div>
+
+                            {/* Title & Preview */}
+                            <h4 className="text-xs font-bold text-white mt-2 leading-normal line-clamp-2 font-headline">
+                              {item.title}
+                            </h4>
+                            <p className="text-[11px] text-gray-400 mt-1 line-clamp-2 leading-relaxed">
+                              {item.bodyPreview}
+                            </p>
+
+                            {/* Thread Card Footer */}
+                            <div className="flex items-center justify-between mt-3 pt-2.5 border-t border-gray-800/60 text-[10px]">
+                              <div className="flex items-center gap-3">
+                                {/* Vote trigger */}
+                                <button
+                                  onClick={(e) => handleVoteThread(e, item.id, false)}
+                                  className="flex items-center gap-1 group"
+                                >
+                                  <ChevronUp className={`w-4 h-4 transition-transform group-hover:scale-125 ${item.userHasVoted ? 'text-[#00D9A5] font-black' : 'text-gray-500'}`} />
+                                  <span className={`font-black ${item.userHasVoted ? 'text-[#00D9A5]' : 'text-gray-400'}`}>{item.voteCount}</span>
+                                </button>
+
+                                {/* Reply count */}
+                                <span className="text-gray-400 font-sans flex items-center gap-1">
+                                  <MessageCircle className="w-3.5 h-3.5 text-gray-500" />
+                                  {item.replyCount} {item.replyCount > 1 ? 'réponses' : 'réponse'}
+                                </span>
+                              </div>
+
+                              {/* Unanswered badge */}
+                              {item.replyCount === 0 && (
+                                <span className="bg-[#FFD700]/12 text-[#FFD700] text-[8px] font-black uppercase px-2 py-0.5 rounded-md animate-pulse select-none">
+                                  Sans réponse ⏳
+                                </span>
+                              )}
+                            </div>
+
+                          </div>
+                        );
+                      })
+                    )}
+                  </>
                 )}
               </div>
 
@@ -1010,12 +1370,15 @@ const styles = StyleSheet.create({
                       {threadDetail.authorPseudo[0]}
                     </div>
                     <div>
-                      <span className="text-xs font-bold text-white block">{threadDetail.authorPseudo}</span>
+                      <div className="flex items-center">
+                        <span className="text-xs font-bold text-white block">{threadDetail.authorPseudo}</span>
+                        <ReputationBadge points={threadDetail.authorReputationPoints} compact={false} />
+                      </div>
                       <span className="text-[9px] text-[#00D9A5] block font-mono">Niveau {threadDetail.authorLevel} d'Honneur</span>
                     </div>
                   </div>
                   
-                  <span className="text-[9px] text-gray-500">il y a quelques jours</span>
+                  <span className="text-[9px] text-gray-500 font-mono">il y a quelques jours</span>
                 </div>
 
                 {/* ORIGINAL BODY */}
@@ -1056,37 +1419,100 @@ const styles = StyleSheet.create({
                     </div>
                   ) : (
                     <div className="space-y-3.5">
-                      {threadReplies.map((reply) => (
-                        <div 
-                          key={reply.id}
-                          className="bg-[#1A1A2E] border border-gray-800/80 rounded-2xl p-3.5 text-left space-y-2 relative"
-                        >
-                          <div className="flex items-center justify-between text-[10px] border-b border-gray-800/40 pb-1.5">
-                            <span className="font-bold text-[#FFD700] block">
-                              {reply.authorPseudo} <span className="text-[8px] text-gray-500 font-mono pl-1">(Lvl {reply.authorLevel})</span>
-                            </span>
-                            <span className="text-[9px] text-gray-500 font-sans">à l'instant</span>
-                          </div>
+                      {threadReplies.map((reply) => {
+                        const isExpert = !!reply.isExpertReply;
+                        const isBest = !!reply.isMarkedBest;
+                        
+                        let cardStyle = "bg-[#1A1A2E] border border-gray-800/80";
+                        if (isExpert) {
+                          cardStyle = "bg-[rgba(74,144,217,0.08)] border-[1.5px] border-[#4A90D9]";
+                        } else if (isBest) {
+                          cardStyle = "bg-[rgba(0,217,165,0.06)] border-[1.5px] border-[#00D9A5] shadow-[0_0_12px_rgba(0,217,165,0.15)]";
+                        }
 
-                          <p className="text-xs text-white leading-relaxed font-sans">
-                            {reply.text}
-                          </p>
+                        return (
+                          <div 
+                            key={reply.id}
+                            className={`${cardStyle} rounded-2xl p-4 text-left space-y-2 relative transition-all duration-300`}
+                          >
+                            {/* Badges at the top if Expert or Best */}
+                            <div className="flex flex-wrap gap-2 pb-1">
+                              {isBest && (
+                                <span className="bg-[#00D9A5]/15 text-[#00D9A5] text-[9px] font-bold uppercase px-2.5 py-1 rounded-md tracking-wider flex items-center gap-1 select-none">
+                                  🏆 SOLUTION
+                                </span>
+                              )}
+                              {isExpert && (
+                                <span className="bg-[#4A90D9]/15 text-[#4A90D9] text-[9px] font-bold uppercase px-2.5 py-1 rounded-md tracking-wider flex items-center gap-1 select-none font-sans">
+                                  ✓ RÉPONSE D'EXPERT {reply.expertSpecialty && `· ${reply.expertSpecialty.charAt(0).toUpperCase() + reply.expertSpecialty.slice(1)}`}
+                                </span>
+                              )}
+                            </div>
 
-                          {/* Reply Vote Up */}
-                          <div className="flex justify-between items-center pt-1 border-t border-gray-800/40">
-                            <button
-                              onClick={() => handleVoteReply(reply.id)}
-                              className="flex items-center gap-1 group"
-                            >
-                              <ChevronUp className={`w-3.5 h-3.5 group-hover:scale-125 transition-transform ${reply.userHasVoted ? 'text-[#00D9A5] font-black' : 'text-gray-500'}`} />
-                              <span className={`text-[10px] ${reply.userHasVoted ? 'text-[#00D9A5] font-bold' : 'text-gray-400'}`}>
-                                {reply.voteCount}
-                              </span>
-                            </button>
-                            <span className="text-[9px] text-gray-600 font-mono">Réponse constructive</span>
+                            <div className="flex flex-wrap items-center justify-between text-[10px] border-b border-gray-800/40 pb-1.5 gap-2">
+                              <div className="flex flex-wrap items-center gap-1">
+                                <span className="font-bold text-[#FFD700]">
+                                  {reply.authorPseudo}
+                                </span>
+                                <span className="text-[8px] text-gray-500 font-mono">(Lvl {reply.authorLevel})</span>
+                                <ReputationBadge points={reply.authorReputationPoints} compact={false} />
+                              </div>
+                              <span className="text-[9px] text-gray-500 font-sans">à l'instant</span>
+                            </div>
+
+                            <p className="text-xs text-white leading-relaxed font-sans whitespace-pre-wrap">
+                              {reply.text}
+                            </p>
+
+                            {/* Reply Action Footer */}
+                            <div className="flex justify-between items-center pt-2 border-t border-gray-800/40">
+                              <button
+                                onClick={() => handleVoteReply(reply.id)}
+                                className="flex items-center gap-1 group"
+                              >
+                                <ChevronUp className={`w-3.5 h-3.5 group-hover:scale-125 transition-transform ${reply.userHasVoted ? 'text-[#00D9A5] font-black' : 'text-gray-500'}`} />
+                                <span className={`text-[10px] ${reply.userHasVoted ? 'text-[#00D9A5] font-bold' : 'text-gray-400'}`}>
+                                  {reply.voteCount}
+                                </span>
+                              </button>
+
+                              {/* Mark as Best / Solution button */}
+                              {!threadDetail.hasSolution && !isExpert && (
+                                <div className="flex items-center gap-1.5 shrink-0">
+                                  {confirmingBestAnswerFor === reply.id ? (
+                                    <div className="flex items-center gap-1">
+                                      <button
+                                        onClick={cancelMarkBestCountdown}
+                                        className="text-[8px] font-sans text-gray-400 hover:text-white bg-gray-800/80 px-2 py-0.5 rounded transition-colors"
+                                      >
+                                        Annuler
+                                      </button>
+                                      <button
+                                        className="bg-[#FF9500] text-white text-[9px] font-black uppercase px-2 py-0.5 rounded flex items-center gap-1 animate-pulse"
+                                      >
+                                        <span>Confirmer ({confirmCountdown}s)</span>
+                                      </button>
+                                    </div>
+                                  ) : (
+                                    <button
+                                      onClick={() => startMarkBestCountdown(reply.id)}
+                                      className="text-[9px] font-bold text-gray-500 hover:text-[#00D9A5] transition-colors flex items-center gap-1"
+                                      title="Désigner comme meilleure réponse"
+                                    >
+                                      <Check className="w-3.5 h-3.5" />
+                                      <span>Meilleure réponse</span>
+                                    </button>
+                                  )}
+                                </div>
+                              )}
+
+                              {!isExpert && !isBest && (
+                                <span className="text-[9px] text-gray-600 font-mono">Réponse constructive</span>
+                              )}
+                            </div>
                           </div>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   )}
                 </div>

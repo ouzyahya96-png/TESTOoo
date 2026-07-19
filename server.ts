@@ -2344,6 +2344,7 @@ interface ThreadData {
   scope: 'clan' | 'all';
   authorPseudo: string;
   authorLevel: number;
+  authorReputationPoints: number;
   title: string;
   bodyPreview: string;
   body: string;
@@ -2352,6 +2353,8 @@ interface ThreadData {
   userHasVoted: boolean;
   replyCount: number;
   isPinned: boolean;
+  hasSolution?: boolean;
+  solutionReplyId?: string | null;
 }
 
 interface ReplyData {
@@ -2359,10 +2362,29 @@ interface ReplyData {
   threadId: string;
   authorPseudo: string;
   authorLevel: number;
+  authorReputationPoints: number;
   text: string;
   createdAt: string;
   voteCount: number;
   userHasVoted: boolean;
+  isExpertReply?: boolean;
+  expertName?: string;
+  expertSpecialty?: 'urologie' | 'sexologie' | 'andrologie' | 'psychiatrie' | 'nutrition' | null;
+  isMarkedBest?: boolean;
+}
+
+// Global reputation updating helper
+function updateAuthorReputation(pseudo: string, pointsToAdd: number) {
+  threadsDb.forEach(t => {
+    if (t.authorPseudo === pseudo) {
+      t.authorReputationPoints = (t.authorReputationPoints || 0) + pointsToAdd;
+    }
+  });
+  repliesDb.forEach(r => {
+    if (r.authorPseudo === pseudo) {
+      r.authorReputationPoints = (r.authorReputationPoints || 0) + pointsToAdd;
+    }
+  });
 }
 
 let threadsDb: ThreadData[] = [
@@ -2372,6 +2394,7 @@ let threadsDb: ThreadData[] = [
     scope: 'all',
     authorPseudo: 'Guerrier_Souverain',
     authorLevel: 14,
+    authorReputationPoints: 350,
     title: '👑 Guide de la Souveraineté : Atteindre les 90 jours sans faillir',
     bodyPreview: 'Ce protocole récapitule les habitudes fondamentales à installer dès le premier jour : douches froides, méditation, suppression des triggers...',
     body: 'Frères d\'armes, ce protocole récapitule les habitudes fondamentales à installer dès le premier jour de votre renaissance :\n\n1. Douches froides quotidiennes pour dompter l\'esprit.\n2. Journaling tous les matins pour clarifier ses intentions.\n3. Exercices Kegel et respiration pelvienne pour faire circuler l\'énergie sexuelle.\n4. Bannissement absolu des réseaux déclencheurs.\n\nSuivez ce guide et votre vie sera transfigurée.',
@@ -2379,7 +2402,9 @@ let threadsDb: ThreadData[] = [
     voteCount: 154,
     userHasVoted: true,
     replyCount: 3,
-    isPinned: true
+    isPinned: true,
+    hasSolution: false,
+    solutionReplyId: null
   },
   {
     id: 'thread-pinned-2',
@@ -2387,6 +2412,7 @@ let threadsDb: ThreadData[] = [
     scope: 'clan',
     authorPseudo: 'Modérateur_Alpha',
     authorLevel: 18,
+    authorReputationPoints: 580,
     title: '📌 Règles d\'Or du Clan : Soutien radical, Zéro jugement',
     bodyPreview: 'Ici, chaque rechute est un apprentissage. Pas de culpabilisation, nous sommes là pour nous relever...',
     body: 'Frères, rappelez-vous que ce canal de clan est sacré. Nous ne tolérons aucun jugement ni rabaissement. Nous sommes des bâtisseurs d\'hommes. Si vous trébuchez, avouez-le dignement, et laissez la fraternité vous hisser.',
@@ -2394,7 +2420,9 @@ let threadsDb: ThreadData[] = [
     voteCount: 88,
     userHasVoted: false,
     replyCount: 0,
-    isPinned: true
+    isPinned: true,
+    hasSolution: false,
+    solutionReplyId: null
   },
   {
     id: 'thread-1',
@@ -2402,6 +2430,7 @@ let threadsDb: ThreadData[] = [
     scope: 'clan',
     authorPseudo: 'Max_La_Force',
     authorLevel: 6,
+    authorReputationPoints: 25,
     title: '⚠️ Crise intense au jour 12 : besoin de soutien immédiat !',
     bodyPreview: 'Le dimanche après-midi est toujours mon plus grand piège. L\'ennui s\'installe et mon cerveau commence à négocier...',
     body: 'Le dimanche après-midi est toujours mon plus grand piège. L\'ennui s\'installe et mon cerveau commence à négocier. Il me dit "juste un coup d\'œil, ça ne fera rien". J\'ai besoin de votre force pour ne pas fléchir.',
@@ -2409,7 +2438,9 @@ let threadsDb: ThreadData[] = [
     voteCount: 18,
     userHasVoted: false,
     replyCount: 2,
-    isPinned: false
+    isPinned: false,
+    hasSolution: false,
+    solutionReplyId: null
   },
   {
     id: 'thread-2',
@@ -2417,6 +2448,7 @@ let threadsDb: ThreadData[] = [
     scope: 'all',
     authorPseudo: 'Alpha_Pro_kegel',
     authorLevel: 10,
+    authorReputationPoints: 120,
     title: '💪 Entraînement Kegel : Quels résultats après 30 jours de pratique régulière ?',
     bodyPreview: 'Je voulais partager mon retour d\'expérience sur les entraînements Alpha Kegel quotidiens. Mon contrôle s\'est incroyablement amélioré...',
     body: 'Je voulais partager mon retour d\'expérience sur les entraînements Alpha Kegel quotidiens. Mon contrôle s\'est incroyablement amélioré, ainsi que ma posture et mon énergie physique générale. Ne négligez pas cette routine !',
@@ -2424,7 +2456,9 @@ let threadsDb: ThreadData[] = [
     voteCount: 42,
     userHasVoted: false,
     replyCount: 1,
-    isPinned: false
+    isPinned: false,
+    hasSolution: false,
+    solutionReplyId: null
   },
   {
     id: 'thread-3',
@@ -2432,6 +2466,7 @@ let threadsDb: ThreadData[] = [
     scope: 'clan',
     authorPseudo: 'Vital_Nourish',
     authorLevel: 4,
+    authorReputationPoints: 45,
     title: '⚡ Le jeûne intermittent et son effet sur la clarté mentale',
     bodyPreview: 'Est-ce que certains d\'entre vous ont combiné la rétention séminale avec le jeûne de 16h ? J\'ai l\'impression que l\'effet est décuplé...',
     body: 'Est-ce que certains d\'entre vous ont combiné la rétention séminale avec le jeûne de 16h ? J\'ai l\'impression que l\'effet de focalisation mentale est décuplé de manière spectaculaire.',
@@ -2439,7 +2474,9 @@ let threadsDb: ThreadData[] = [
     voteCount: 23,
     userHasVoted: false,
     replyCount: 0, // unanswered!
-    isPinned: false
+    isPinned: false,
+    hasSolution: false,
+    solutionReplyId: null
   },
   {
     id: 'thread-4',
@@ -2447,6 +2484,7 @@ let threadsDb: ThreadData[] = [
     scope: 'all',
     authorPseudo: 'Phoenix_Arise',
     authorLevel: 8,
+    authorReputationPoints: 210,
     title: '🧠 Comment reconstruire une relation saine après l\'addiction ?',
     bodyPreview: 'Le plus dur n\'est pas seulement d\'arrêter, c\'est de réapprendre à aimer et à se connecter authentiquement sans fantasme...',
     body: 'Le plus dur n\'est pas seulement d\'arrêter, c\'est de réapprendre à aimer et à se connecter authentiquement sans fantasme artificiel. Partageons nos victoires et nos doutes ici.',
@@ -2454,7 +2492,9 @@ let threadsDb: ThreadData[] = [
     voteCount: 37,
     userHasVoted: false,
     replyCount: 4,
-    isPinned: false
+    isPinned: false,
+    hasSolution: true,
+    solutionReplyId: 'reply-4-1'
   }
 ];
 
@@ -2464,62 +2504,126 @@ let repliesDb: ReplyData[] = [
     threadId: 'thread-pinned-1',
     authorPseudo: 'Viktor_Nord',
     authorLevel: 11,
+    authorReputationPoints: 75,
     text: 'C\'est exactement le socle qu\'il me manquait. Les douches froides ont changé ma réactivité au stress.',
     createdAt: new Date(Date.now() - 2.5 * 24 * 3600 * 1000).toISOString(),
     voteCount: 15,
-    userHasVoted: false
+    userHasVoted: false,
+    isExpertReply: false,
+    isMarkedBest: false
   },
   {
     id: 'reply-1-2',
     threadId: 'thread-pinned-1',
     authorPseudo: 'Yannick_K',
     authorLevel: 7,
+    authorReputationPoints: 15,
     text: 'Merci pour ce guide, je l\'imprime pour le coller sur mon miroir !',
     createdAt: new Date(Date.now() - 2 * 24 * 3600 * 1000).toISOString(),
     voteCount: 8,
-    userHasVoted: false
+    userHasVoted: false,
+    isExpertReply: false,
+    isMarkedBest: false
   },
   {
     id: 'reply-1-3',
     threadId: 'thread-pinned-1',
     authorPseudo: 'Coach_Alpha',
     authorLevel: 25,
+    authorReputationPoints: 620,
     text: 'Excellent travail de synthèse Guerrier_Souverain. La rigueur engendre la souveraineté.',
     createdAt: new Date(Date.now() - 1.5 * 24 * 3600 * 1000).toISOString(),
     voteCount: 22,
-    userHasVoted: true
+    userHasVoted: true,
+    isExpertReply: true,
+    expertName: 'Coach Alpha',
+    expertSpecialty: 'psychiatrie',
+    isMarkedBest: false
   },
   {
     id: 'reply-2-1',
     threadId: 'thread-1',
     authorPseudo: 'Alex_Vigilant',
     authorLevel: 5,
+    authorReputationPoints: 35,
     text: 'Pose ton téléphone immédiatement ! Fais 30 pompes ou sors marcher sans aucun écran. Ne reste pas seul dans ta chambre ! On est avec toi.',
     createdAt: new Date(Date.now() - 1.8 * 3600 * 1000).toISOString(),
     voteCount: 9,
-    userHasVoted: true
+    userHasVoted: true,
+    isExpertReply: false,
+    isMarkedBest: false
   },
   {
     id: 'reply-2-2',
     threadId: 'thread-1',
     authorPseudo: 'Loup_Solitaire',
     authorLevel: 9,
+    authorReputationPoints: 90,
     text: 'Je traverse la même chose en ce moment frère. J\'ai mis mes baskets et je cours. Fais de même, canalise cette force brute !',
     createdAt: new Date(Date.now() - 1.5 * 3600 * 1000).toISOString(),
     voteCount: 6,
-    userHasVoted: false
+    userHasVoted: false,
+    isExpertReply: false,
+    isMarkedBest: false
   },
   {
     id: 'reply-3-1',
     threadId: 'thread-2',
     authorPseudo: 'Socrates_Mind',
     authorLevel: 12,
+    authorReputationPoints: 140,
     text: 'Je confirme, l\'effet sur le fascia pelvien est énorme. Meilleure endurance et sensation de plénitude physique.',
     createdAt: new Date(Date.now() - 18 * 3600 * 1000).toISOString(),
     voteCount: 12,
-    userHasVoted: false
+    userHasVoted: false,
+    isExpertReply: false,
+    isMarkedBest: false
+  },
+  {
+    id: 'reply-4-1',
+    threadId: 'thread-4',
+    authorPseudo: 'Coach_Alpha',
+    authorLevel: 25,
+    authorReputationPoints: 620,
+    text: 'C\'est l\'une des questions les plus profondes. Reconstruire une relation exige de passer d\'une sexualité de consommation mentale à une présence de coeur, de souffle et d\'écoute authentique. Ralentissez vos rapports, privilégiez le regard et la respiration partagée.',
+    createdAt: new Date(Date.now() - 4 * 24 * 3600 * 1000).toISOString(),
+    voteCount: 45,
+    userHasVoted: true,
+    isExpertReply: true,
+    expertName: 'Dr. Marc-Antoine Perrin',
+    expertSpecialty: 'sexologie',
+    isMarkedBest: true
   }
 ];
+
+// Helper to calculate trending score based on activity in the last 48 hours
+function getTrendingScore(thread: ThreadData): number {
+  let score = 0;
+  const now = Date.now();
+  const threadAgeHrs = (now - new Date(thread.createdAt).getTime()) / (3600 * 1000);
+
+  // If thread is less than 48 hours old, all its upvotes contribute points
+  if (threadAgeHrs <= 48) {
+    score += thread.voteCount * 2;
+  } else {
+    // A smaller fraction of its upvotes are simulated as recent for older threads
+    score += Math.floor(thread.voteCount * 0.15) * 2;
+  }
+
+  // Count recent replies in the last 48 hours
+  const recentRepliesCount = repliesDb.filter(r => r.threadId === thread.id && (now - new Date(r.createdAt).getTime()) / (3600 * 1000) <= 48).length;
+  score += recentRepliesCount * 5;
+
+  return score;
+}
+
+// Helper to enrich thread with extra calculated fields like hasExpertReply
+function enrichThread(t: ThreadData) {
+  return {
+    ...t,
+    hasExpertReply: repliesDb.some(r => r.threadId === t.id && r.isExpertReply)
+  };
+}
 
 // GET list of unpinned threads, scoped, filtered, sorted
 app.get('/api/community/:userId/forum/threads', (req, res) => {
@@ -2530,10 +2634,6 @@ app.get('/api/community/:userId/forum/threads', (req, res) => {
   // Filter by scope
   if (scope === 'clan') {
     result = result.filter(t => t.scope === 'clan');
-  } else if (scope === 'all') {
-    // Return all or just 'all' scope threads? Normally 'all' means all threads (both global and clan-specific if global view shows everything)
-    // The instructions say: "le forum reste scopé au clan de l'utilisateur par défaut, avec un onglet global optionnel"
-    // So 'all' returns all threads, or threads scoped to 'all'. Let's include everything when scope='all' to make it a true global view!
   }
 
   // Filter by category
@@ -2552,7 +2652,7 @@ app.get('/api/community/:userId/forum/threads', (req, res) => {
     result.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
   }
 
-  res.json(result);
+  res.json(result.map(enrichThread));
 });
 
 // GET pinned threads for specific scope
@@ -2562,7 +2662,48 @@ app.get('/api/community/:userId/forum/threads/pinned', (req, res) => {
   if (scope === 'clan') {
     result = result.filter(t => t.scope === 'clan');
   }
-  res.json(result);
+  res.json(result.map(enrichThread));
+});
+
+// GET list of trending threads
+app.get('/api/community/:userId/forum/trending', (req, res) => {
+  const { scope } = req.query;
+  let result = threadsDb.filter(t => !t.isPinned);
+
+  if (scope === 'clan') {
+    result = result.filter(t => t.scope === 'clan');
+  }
+
+  // Calculate trending scores, filter and sort
+  const scored = result.map(t => ({
+    thread: t,
+    score: getTrendingScore(t)
+  }))
+  .filter(item => item.score >= 3) // Threshold for trending
+  .sort((a, b) => b.score - a.score);
+
+  const topTrending = scored.slice(0, 5).map(item => item.thread);
+  res.json(topTrending.map(enrichThread));
+});
+
+// GET search threads
+app.get('/api/community/:userId/forum/search', (req, res) => {
+  const { scope, q } = req.query;
+  const term = typeof q === 'string' ? q.toLowerCase().trim() : '';
+
+  if (!term) {
+    return res.json([]);
+  }
+
+  let result = threadsDb.filter(t => {
+    const matchTerm = t.title.toLowerCase().includes(term) || t.body.toLowerCase().includes(term);
+    if (scope === 'clan') {
+      return matchTerm && t.scope === 'clan';
+    }
+    return matchTerm;
+  });
+
+  res.json(result.map(enrichThread));
 });
 
 // GET single thread detail
@@ -2570,7 +2711,7 @@ app.get('/api/community/:userId/forum/threads/:threadId', (req, res) => {
   const { threadId } = req.params;
   const thread = threadsDb.find(t => t.id === threadId);
   if (thread) {
-    res.json(thread);
+    res.json(enrichThread(thread));
   } else {
     res.status(404).json({ error: 'Thread not found' });
   }
@@ -2580,8 +2721,24 @@ app.get('/api/community/:userId/forum/threads/:threadId', (req, res) => {
 app.get('/api/community/:userId/forum/threads/:threadId/replies', (req, res) => {
   const { threadId } = req.params;
   const filteredReplies = repliesDb.filter(r => r.threadId === threadId);
-  // Sort by createdAt ascending or popularity
-  filteredReplies.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+  
+  // Sort replies using the required logic:
+  // 1. Solution/Best Answer first
+  // 2. Expert replies next
+  // 3. Normal replies sorted by voteCount desc, then createdAt desc
+  filteredReplies.sort((a, b) => {
+    if (a.isMarkedBest && !b.isMarkedBest) return -1;
+    if (!a.isMarkedBest && b.isMarkedBest) return 1;
+
+    if (a.isExpertReply && !b.isExpertReply) return -1;
+    if (!a.isExpertReply && b.isExpertReply) return 1;
+
+    if (b.voteCount !== a.voteCount) {
+      return b.voteCount - a.voteCount;
+    }
+    return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+  });
+
   res.json(filteredReplies);
 });
 
@@ -2599,6 +2756,7 @@ app.post('/api/community/:userId/forum/threads', (req, res) => {
     scope: scope || 'all',
     authorPseudo: 'Guerrier_Novice',
     authorLevel: 3,
+    authorReputationPoints: 8,
     title,
     bodyPreview: body.length > 100 ? body.substring(0, 100) + '...' : body,
     body,
@@ -2606,7 +2764,9 @@ app.post('/api/community/:userId/forum/threads', (req, res) => {
     voteCount: 1,
     userHasVoted: true,
     replyCount: 0,
-    isPinned: false
+    isPinned: false,
+    hasSolution: false,
+    solutionReplyId: null
   };
 
   threadsDb.unshift(newThread);
@@ -2616,7 +2776,7 @@ app.post('/api/community/:userId/forum/threads', (req, res) => {
 // POST post a reply to a thread
 app.post('/api/community/:userId/forum/threads/:threadId/replies', (req, res) => {
   const { threadId } = req.params;
-  const { text } = req.body;
+  const { text, isExpert, expertName, expertSpecialty } = req.body;
 
   if (!text || text.trim().length === 0) {
     return res.status(400).json({ error: 'Le texte de la réponse ne peut pas être vide' });
@@ -2630,16 +2790,26 @@ app.post('/api/community/:userId/forum/threads/:threadId/replies', (req, res) =>
   const newReply: ReplyData = {
     id: `reply-${Date.now()}`,
     threadId,
-    authorPseudo: 'Guerrier_Novice',
-    authorLevel: 3,
+    authorPseudo: isExpert ? (expertName || 'Expert_Souverain') : 'Guerrier_Novice',
+    authorLevel: isExpert ? 25 : 3,
+    authorReputationPoints: isExpert ? 650 : 8,
     text,
     createdAt: new Date().toISOString(),
     voteCount: 0,
-    userHasVoted: false
+    userHasVoted: false,
+    isExpertReply: !!isExpert,
+    expertName: isExpert ? (expertName || 'Expert_Souverain') : undefined,
+    expertSpecialty: isExpert ? (expertSpecialty || 'urologie') : undefined,
+    isMarkedBest: false
   };
 
   repliesDb.push(newReply);
   thread.replyCount += 1;
+
+  // Rule: +5 bonus points to the thread author if thread replyCount reaches exactly 3
+  if (thread.replyCount === 3) {
+    updateAuthorReputation(thread.authorPseudo, 5);
+  }
 
   res.status(201).json(newReply);
 });
@@ -2655,11 +2825,19 @@ app.post('/api/community/:userId/forum/threads/:threadId/vote', (req, res) => {
   thread.userHasVoted = !thread.userHasVoted;
   if (thread.userHasVoted) {
     thread.voteCount += 1;
+    // Rule: +3 points on thread upvote
+    updateAuthorReputation(thread.authorPseudo, 3);
   } else {
     thread.voteCount -= 1;
+    updateAuthorReputation(thread.authorPseudo, -3);
   }
 
-  res.json({ success: true, voteCount: thread.voteCount, userHasVoted: thread.userHasVoted });
+  res.json({ 
+    success: true, 
+    voteCount: thread.voteCount, 
+    userHasVoted: thread.userHasVoted,
+    authorReputationPoints: thread.authorReputationPoints
+  });
 });
 
 // POST upvote a reply
@@ -2673,11 +2851,104 @@ app.post('/api/community/:userId/forum/replies/:replyId/vote', (req, res) => {
   reply.userHasVoted = !reply.userHasVoted;
   if (reply.userHasVoted) {
     reply.voteCount += 1;
+    // Rule: +2 points on reply upvote
+    updateAuthorReputation(reply.authorPseudo, 2);
   } else {
     reply.voteCount -= 1;
+    updateAuthorReputation(reply.authorPseudo, -2);
   }
 
-  res.json({ success: true, voteCount: reply.voteCount, userHasVoted: reply.userHasVoted });
+  res.json({ 
+    success: true, 
+    voteCount: reply.voteCount, 
+    userHasVoted: reply.userHasVoted,
+    authorReputationPoints: reply.authorReputationPoints
+  });
+});
+
+// POST mark best answer
+app.post('/api/community/:userId/forum/threads/:threadId/replies/:replyId/mark-best', (req, res) => {
+  const { threadId, replyId } = req.params;
+  const thread = threadsDb.find(t => t.id === threadId);
+  const reply = repliesDb.find(r => r.id === replyId);
+
+  if (!thread || !reply) {
+    return res.status(404).json({ error: 'Sujet ou réponse introuvable' });
+  }
+
+  if (thread.hasSolution) {
+    return res.status(400).json({ error: 'Ce sujet a déjà une meilleure réponse' });
+  }
+
+  thread.hasSolution = true;
+  thread.solutionReplyId = replyId;
+  reply.isMarkedBest = true;
+
+  // Rule: +15 points on Best Answer marked
+  updateAuthorReputation(reply.authorPseudo, 15);
+
+  res.json({ 
+    success: true, 
+    thread, 
+    reply 
+  });
+});
+
+// POST simulate expert reply on thread
+app.post('/api/community/:userId/forum/threads/:threadId/simulate-expert', (req, res) => {
+  const { threadId } = req.params;
+  const thread = threadsDb.find(t => t.id === threadId);
+  if (!thread) return res.status(404).json({ error: 'Thread not found' });
+  
+  const experts = [
+    { name: 'Dr. Amine El Mansouri', specialty: 'urologie' },
+    { name: 'Dr. Marc-Antoine Perrin', specialty: 'sexologie' },
+    { name: 'Pr. Karim Benyahia', specialty: 'psychiatrie' },
+    { name: 'Jean-Laurent Clavier', specialty: 'nutrition' }
+  ];
+  
+  const randomExpert = experts[Math.floor(Math.random() * experts.length)];
+  
+  // Find last reply of this thread
+  const threadReplies = repliesDb.filter(r => r.threadId === threadId);
+  let replyToTransform;
+  if (threadReplies.length > 0) {
+    // Find the latest one created
+    threadReplies.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    const lastReply = threadReplies[0];
+    replyToTransform = repliesDb.find(r => r.id === lastReply.id);
+  }
+  
+  if (replyToTransform) {
+    replyToTransform.isExpertReply = true;
+    replyToTransform.expertName = randomExpert.name;
+    replyToTransform.expertSpecialty = randomExpert.specialty as any;
+    replyToTransform.authorPseudo = randomExpert.name;
+    replyToTransform.authorLevel = 25;
+    replyToTransform.authorReputationPoints = 650;
+  } else {
+    // Create a new expert reply
+    const newReply: ReplyData = {
+      id: `reply-${Date.now()}`,
+      threadId,
+      authorPseudo: randomExpert.name,
+      authorLevel: 25,
+      authorReputationPoints: 650,
+      text: `En tant qu'expert en ${randomExpert.specialty}, je vous conseille de rester rigoureux sur vos habitudes de vie. C'est la clé de voûte de votre transformation physique et mentale.`,
+      createdAt: new Date().toISOString(),
+      voteCount: 5,
+      userHasVoted: false,
+      isExpertReply: true,
+      expertName: randomExpert.name,
+      expertSpecialty: randomExpert.specialty as any,
+      isMarkedBest: false
+    };
+    repliesDb.push(newReply);
+    thread.replyCount += 1;
+    replyToTransform = newReply;
+  }
+  
+  res.json({ success: true, reply: replyToTransform });
 });
 
 
