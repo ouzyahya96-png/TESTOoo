@@ -2113,6 +2113,574 @@ app.post('/api/community/:userId/mentorship/chat/:conversationId/messages', (req
 });
 
 
+// --- Experts Live Module ---
+
+interface SessionData {
+  id: string;
+  expertName: string;
+  expertTitle: string;
+  expertSpecialty: 'urologie' | 'sexologie' | 'andrologie' | 'psychiatrie' | 'nutrition';
+  topic: string;
+  scheduledAt: string;
+  requiredTier: string | null;
+  registeredCount: number;
+  isUserRegistered: boolean;
+  isLiveNow: boolean;
+  streamUrl: string | null;
+}
+
+interface ReplayData {
+  id: string;
+  expertName: string;
+  topic: string;
+  category: string;
+  durationSeconds: number;
+  videoUrl: string;
+  thumbnailUrl: string;
+  viewCount: number;
+  publishedAt: string;
+  requiredTier: string | null;
+  submittedQuestions: Array<{ question: string; isAnonymous: boolean; answer: string | null }>;
+}
+
+let liveSessionNowDb: SessionData | null = {
+  id: 'session-live-1',
+  expertName: 'Dr. Marc-Antoine Perrin',
+  expertTitle: 'Sexologue clinicien & Andrologue',
+  expertSpecialty: 'sexologie',
+  topic: 'Maîtriser la réactivité sexuelle : l\'art d\'entraîner l\'esprit et le corps',
+  scheduledAt: new Date().toISOString(),
+  requiredTier: null,
+  registeredCount: 342,
+  isUserRegistered: true,
+  isLiveNow: true,
+  streamUrl: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ' // placeholder URL
+};
+
+let upcomingSessionsDb: SessionData[] = [
+  {
+    id: 'session-up-1',
+    expertName: 'Dr. Amine El Mansouri',
+    expertTitle: 'Chirurgien Urologue',
+    expertSpecialty: 'urologie',
+    topic: 'Congestion pelvienne et abstinence active : Les vérités médicales',
+    scheduledAt: new Date(Date.now() + 2 * 24 * 3600 * 1000).toISOString(), // 2 days later
+    requiredTier: 'ELITE',
+    registeredCount: 184,
+    isUserRegistered: false,
+    isLiveNow: false,
+    streamUrl: null
+  },
+  {
+    id: 'session-up-2',
+    expertName: 'Pr. Karim Benyahia',
+    expertTitle: 'Neuro-Psychiatre',
+    expertSpecialty: 'psychiatrie',
+    topic: 'Le circuit de la dopamine : Reconfigurer son cerveau après l\'addiction aux écrans',
+    scheduledAt: new Date(Date.now() + 5 * 24 * 3600 * 1000).toISOString(), // 5 days later
+    requiredTier: null,
+    registeredCount: 512,
+    isUserRegistered: true,
+    isLiveNow: false,
+    streamUrl: null
+  },
+  {
+    id: 'session-up-3',
+    expertName: 'Jean-Laurent Clavier',
+    expertTitle: 'Nutritionniste & Expert en endocrinologie comportementale',
+    expertSpecialty: 'nutrition',
+    topic: 'Optimiser sa testostérone naturelle : Nutrition sacrée et micronutriments de force',
+    scheduledAt: new Date(Date.now() + 8 * 24 * 3600 * 1000).toISOString(), // 8 days later
+    requiredTier: 'ELITE',
+    registeredCount: 295,
+    isUserRegistered: false,
+    isLiveNow: false,
+    streamUrl: null
+  }
+];
+
+let replaysDb: ReplayData[] = [
+  {
+    id: 'replay-1',
+    expertName: 'Dr. Marc-Antoine Perrin',
+    topic: 'Le redémarrage neurologique complet (Reset Phase) : Ce qui se passe en 90 jours',
+    category: 'sexologie',
+    durationSeconds: 2535, // 42:15
+    videoUrl: 'https://assets.mixkit.co/videos/preview/mixkit-man-holding-a-smartphone-in-his-hand-40557-large.mp4', // beautiful high quality stock video placeholder
+    thumbnailUrl: 'https://images.unsplash.com/photo-1506126613408-eca07ce68773?q=80&w=600&auto=format&fit=crop',
+    viewCount: 2340,
+    publishedAt: 'Il y a 2 semaines',
+    requiredTier: null,
+    submittedQuestions: [
+      {
+        question: "La baisse de libido au jour 15 est-elle normale ?",
+        isAnonymous: true,
+        answer: "Absolument. C'est la phase de flatline neurologique. Le cerveau s'habitue à l'absence de stimuli artificiels extrêmes. Elle dure en général de 10 à 30 jours, puis l'énergie sexuelle saine revient multipliée."
+      },
+      {
+        question: "Combien de temps faut-il pour rétablir la sensibilité à la dopamine ?",
+        isAnonymous: false,
+        answer: "Le pic de sensibilité commence à remonter dès le 21ème jour, mais le reset complet des récepteurs D2 prend environ 90 jours de sobriété absolue."
+      }
+    ]
+  },
+  {
+    id: 'replay-2',
+    expertName: 'Dr. Amine El Mansouri',
+    topic: 'La santé prostatique chez l\'homme jeune et l\'impact de la rétention séminale',
+    category: 'urologie',
+    durationSeconds: 3120, // 52:00
+    videoUrl: 'https://assets.mixkit.co/videos/preview/mixkit-hands-of-a-man-writing-on-a-notebook-40556-large.mp4',
+    thumbnailUrl: 'https://images.unsplash.com/photo-1559757175-5700dde675bc?q=80&w=600&auto=format&fit=crop',
+    viewCount: 1890,
+    publishedAt: 'Il y a 1 mois',
+    requiredTier: 'ELITE',
+    submittedQuestions: [
+      {
+        question: "La rétention séminale prolongée présente-t-elle des risques ?",
+        isAnonymous: true,
+        answer: "Médicalement, le corps recycle naturellement le liquide séminal non évacué. Il n'y a aucun risque de congestion si vous pratiquez l'exercice physique de haute intensité et les respirations pelviennes."
+      }
+    ]
+  },
+  {
+    id: 'replay-3',
+    expertName: 'Pr. Karim Benyahia',
+    topic: 'La gestion de la solitude émotionnelle lors des premiers jalons de rupture',
+    category: 'psychiatrie',
+    durationSeconds: 1980, // 33:00
+    videoUrl: 'https://assets.mixkit.co/videos/preview/mixkit-young-man-sitting-by-the-window-staring-outside-40559-large.mp4',
+    thumbnailUrl: 'https://images.unsplash.com/photo-1488521787991-ed7bbaae773c?q=80&w=600&auto=format&fit=crop',
+    viewCount: 3410,
+    publishedAt: 'Il y a 3 semaines',
+    requiredTier: null,
+    submittedQuestions: [
+      {
+        question: "Comment lutter contre le déclencheur du dimanche soir seul ?",
+        isAnonymous: false,
+        answer: "Le dimanche soir est un pic d'anxiété de transition. Planifiez une séance de sport ou un appel de clan à 18h en amont. Ne laissez jamais ce créneau vide."
+      }
+    ]
+  }
+];
+
+// GET status of live session currently happening
+app.get('/api/community/:userId/experts/live-now', (req, res) => {
+  res.json(liveSessionNowDb);
+});
+
+// GET list of upcoming sessions, optionally filtered by category
+app.get('/api/community/:userId/experts/upcoming', (req, res) => {
+  const { category } = req.query;
+  if (!category || category === 'all') {
+    return res.json(upcomingSessionsDb);
+  }
+  const filtered = upcomingSessionsDb.filter(s => s.expertSpecialty === category);
+  res.json(filtered);
+});
+
+// GET list of replays, optionally filtered by category
+app.get('/api/community/:userId/experts/replays', (req, res) => {
+  const { category } = req.query;
+  if (!category || category === 'all') {
+    return res.json(replaysDb);
+  }
+  const filtered = replaysDb.filter(r => r.category === category);
+  res.json(filtered);
+});
+
+// POST register for upcoming session
+app.post('/api/community/:userId/experts/sessions/:sessionId/register', (req, res) => {
+  const { sessionId } = req.params;
+  const session = upcomingSessionsDb.find(s => s.id === sessionId);
+  if (session) {
+    session.isUserRegistered = !session.isUserRegistered;
+    if (session.isUserRegistered) {
+      session.registeredCount += 1;
+    } else {
+      session.registeredCount -= 1;
+    }
+    return res.json({ success: true, session });
+  }
+  res.status(404).json({ error: 'Session not found' });
+});
+
+// POST submit a question for upcoming session
+app.post('/api/community/:userId/experts/sessions/:sessionId/questions', (req, res) => {
+  const { sessionId } = req.params;
+  const { text, isAnonymous, safetyFlag } = req.body;
+
+  if (!text || text.trim().length === 0) {
+    return res.status(400).json({ error: 'Question content cannot be empty' });
+  }
+
+  // We can push to submittedQuestions of a simulated replay or session detail
+  // For simplicity and immediate testing, let's log the submitted question and return success.
+  console.log(`[EXPERT QUESTION] Session: ${sessionId}, text: "${text}", Anonymous: ${isAnonymous}, Distress Safety Flag: ${safetyFlag}`);
+
+  res.json({
+    success: true,
+    message: "Votre question a été soumise avec succès au comité de l'expert 🎖️",
+    safetyTriggered: !!safetyFlag
+  });
+});
+
+// GET replay detail by ID with questions/answers
+app.get('/api/community/:userId/experts/replays/:replayId', (req, res) => {
+  const { replayId } = req.params;
+  const replay = replaysDb.find(r => r.id === replayId);
+  if (replay) {
+    return res.json(replay);
+  }
+  res.status(404).json({ error: 'Replay not found' });
+});
+
+
+// --- Forum Module ---
+
+interface ThreadData {
+  id: string;
+  category: string;
+  scope: 'clan' | 'all';
+  authorPseudo: string;
+  authorLevel: number;
+  title: string;
+  bodyPreview: string;
+  body: string;
+  createdAt: string;
+  voteCount: number;
+  userHasVoted: boolean;
+  replyCount: number;
+  isPinned: boolean;
+}
+
+interface ReplyData {
+  id: string;
+  threadId: string;
+  authorPseudo: string;
+  authorLevel: number;
+  text: string;
+  createdAt: string;
+  voteCount: number;
+  userHasVoted: boolean;
+}
+
+let threadsDb: ThreadData[] = [
+  {
+    id: 'thread-pinned-1',
+    category: 'victoires', // "Victoires & Paliers"
+    scope: 'all',
+    authorPseudo: 'Guerrier_Souverain',
+    authorLevel: 14,
+    title: '👑 Guide de la Souveraineté : Atteindre les 90 jours sans faillir',
+    bodyPreview: 'Ce protocole récapitule les habitudes fondamentales à installer dès le premier jour : douches froides, méditation, suppression des triggers...',
+    body: 'Frères d\'armes, ce protocole récapitule les habitudes fondamentales à installer dès le premier jour de votre renaissance :\n\n1. Douches froides quotidiennes pour dompter l\'esprit.\n2. Journaling tous les matins pour clarifier ses intentions.\n3. Exercices Kegel et respiration pelvienne pour faire circuler l\'énergie sexuelle.\n4. Bannissement absolu des réseaux déclencheurs.\n\nSuivez ce guide et votre vie sera transfigurée.',
+    createdAt: new Date(Date.now() - 3 * 24 * 3600 * 1000).toISOString(), // 3 days ago
+    voteCount: 154,
+    userHasVoted: true,
+    replyCount: 3,
+    isPinned: true
+  },
+  {
+    id: 'thread-pinned-2',
+    category: 'pattern_killer',
+    scope: 'clan',
+    authorPseudo: 'Modérateur_Alpha',
+    authorLevel: 18,
+    title: '📌 Règles d\'Or du Clan : Soutien radical, Zéro jugement',
+    bodyPreview: 'Ici, chaque rechute est un apprentissage. Pas de culpabilisation, nous sommes là pour nous relever...',
+    body: 'Frères, rappelez-vous que ce canal de clan est sacré. Nous ne tolérons aucun jugement ni rabaissement. Nous sommes des bâtisseurs d\'hommes. Si vous trébuchez, avouez-le dignement, et laissez la fraternité vous hisser.',
+    createdAt: new Date(Date.now() - 4 * 24 * 3600 * 1000).toISOString(),
+    voteCount: 88,
+    userHasVoted: false,
+    replyCount: 0,
+    isPinned: true
+  },
+  {
+    id: 'thread-1',
+    category: 'pattern_killer', // "🔥 Pattern Killer"
+    scope: 'clan',
+    authorPseudo: 'Max_La_Force',
+    authorLevel: 6,
+    title: '⚠️ Crise intense au jour 12 : besoin de soutien immédiat !',
+    bodyPreview: 'Le dimanche après-midi est toujours mon plus grand piège. L\'ennui s\'installe et mon cerveau commence à négocier...',
+    body: 'Le dimanche après-midi est toujours mon plus grand piège. L\'ennui s\'installe et mon cerveau commence à négocier. Il me dit "juste un coup d\'œil, ça ne fera rien". J\'ai besoin de votre force pour ne pas fléchir.',
+    createdAt: new Date(Date.now() - 2 * 3600 * 1000).toISOString(), // 2 hours ago
+    voteCount: 18,
+    userHasVoted: false,
+    replyCount: 2,
+    isPinned: false
+  },
+  {
+    id: 'thread-2',
+    category: 'kegel_physique', // "💪 Kegel & Physique"
+    scope: 'all',
+    authorPseudo: 'Alpha_Pro_kegel',
+    authorLevel: 10,
+    title: '💪 Entraînement Kegel : Quels résultats après 30 jours de pratique régulière ?',
+    bodyPreview: 'Je voulais partager mon retour d\'expérience sur les entraînements Alpha Kegel quotidiens. Mon contrôle s\'est incroyablement amélioré...',
+    body: 'Je voulais partager mon retour d\'expérience sur les entraînements Alpha Kegel quotidiens. Mon contrôle s\'est incroyablement amélioré, ainsi que ma posture et mon énergie physique générale. Ne négligez pas cette routine !',
+    createdAt: new Date(Date.now() - 1 * 24 * 3600 * 1000).toISOString(), // 1 day ago
+    voteCount: 42,
+    userHasVoted: false,
+    replyCount: 1,
+    isPinned: false
+  },
+  {
+    id: 'thread-3',
+    category: 'vitalite_energie', // "⚡ Vitalité & Énergie"
+    scope: 'clan',
+    authorPseudo: 'Vital_Nourish',
+    authorLevel: 4,
+    title: '⚡ Le jeûne intermittent et son effet sur la clarté mentale',
+    bodyPreview: 'Est-ce que certains d\'entre vous ont combiné la rétention séminale avec le jeûne de 16h ? J\'ai l\'impression que l\'effet est décuplé...',
+    body: 'Est-ce que certains d\'entre vous ont combiné la rétention séminale avec le jeûne de 16h ? J\'ai l\'impression que l\'effet de focalisation mentale est décuplé de manière spectaculaire.',
+    createdAt: new Date(Date.now() - 12 * 3600 * 1000).toISOString(), // 12 hours ago
+    voteCount: 23,
+    userHasVoted: false,
+    replyCount: 0, // unanswered!
+    isPinned: false
+  },
+  {
+    id: 'thread-4',
+    category: 'confiance_relations', // "🧠 Confiance & Relations"
+    scope: 'all',
+    authorPseudo: 'Phoenix_Arise',
+    authorLevel: 8,
+    title: '🧠 Comment reconstruire une relation saine après l\'addiction ?',
+    bodyPreview: 'Le plus dur n\'est pas seulement d\'arrêter, c\'est de réapprendre à aimer et à se connecter authentiquement sans fantasme...',
+    body: 'Le plus dur n\'est pas seulement d\'arrêter, c\'est de réapprendre à aimer et à se connecter authentiquement sans fantasme artificiel. Partageons nos victoires et nos doutes ici.',
+    createdAt: new Date(Date.now() - 5 * 24 * 3600 * 1000).toISOString(), // 5 days ago
+    voteCount: 37,
+    userHasVoted: false,
+    replyCount: 4,
+    isPinned: false
+  }
+];
+
+let repliesDb: ReplyData[] = [
+  {
+    id: 'reply-1-1',
+    threadId: 'thread-pinned-1',
+    authorPseudo: 'Viktor_Nord',
+    authorLevel: 11,
+    text: 'C\'est exactement le socle qu\'il me manquait. Les douches froides ont changé ma réactivité au stress.',
+    createdAt: new Date(Date.now() - 2.5 * 24 * 3600 * 1000).toISOString(),
+    voteCount: 15,
+    userHasVoted: false
+  },
+  {
+    id: 'reply-1-2',
+    threadId: 'thread-pinned-1',
+    authorPseudo: 'Yannick_K',
+    authorLevel: 7,
+    text: 'Merci pour ce guide, je l\'imprime pour le coller sur mon miroir !',
+    createdAt: new Date(Date.now() - 2 * 24 * 3600 * 1000).toISOString(),
+    voteCount: 8,
+    userHasVoted: false
+  },
+  {
+    id: 'reply-1-3',
+    threadId: 'thread-pinned-1',
+    authorPseudo: 'Coach_Alpha',
+    authorLevel: 25,
+    text: 'Excellent travail de synthèse Guerrier_Souverain. La rigueur engendre la souveraineté.',
+    createdAt: new Date(Date.now() - 1.5 * 24 * 3600 * 1000).toISOString(),
+    voteCount: 22,
+    userHasVoted: true
+  },
+  {
+    id: 'reply-2-1',
+    threadId: 'thread-1',
+    authorPseudo: 'Alex_Vigilant',
+    authorLevel: 5,
+    text: 'Pose ton téléphone immédiatement ! Fais 30 pompes ou sors marcher sans aucun écran. Ne reste pas seul dans ta chambre ! On est avec toi.',
+    createdAt: new Date(Date.now() - 1.8 * 3600 * 1000).toISOString(),
+    voteCount: 9,
+    userHasVoted: true
+  },
+  {
+    id: 'reply-2-2',
+    threadId: 'thread-1',
+    authorPseudo: 'Loup_Solitaire',
+    authorLevel: 9,
+    text: 'Je traverse la même chose en ce moment frère. J\'ai mis mes baskets et je cours. Fais de même, canalise cette force brute !',
+    createdAt: new Date(Date.now() - 1.5 * 3600 * 1000).toISOString(),
+    voteCount: 6,
+    userHasVoted: false
+  },
+  {
+    id: 'reply-3-1',
+    threadId: 'thread-2',
+    authorPseudo: 'Socrates_Mind',
+    authorLevel: 12,
+    text: 'Je confirme, l\'effet sur le fascia pelvien est énorme. Meilleure endurance et sensation de plénitude physique.',
+    createdAt: new Date(Date.now() - 18 * 3600 * 1000).toISOString(),
+    voteCount: 12,
+    userHasVoted: false
+  }
+];
+
+// GET list of unpinned threads, scoped, filtered, sorted
+app.get('/api/community/:userId/forum/threads', (req, res) => {
+  const { scope, category, sort } = req.query;
+
+  let result = threadsDb.filter(t => !t.isPinned);
+
+  // Filter by scope
+  if (scope === 'clan') {
+    result = result.filter(t => t.scope === 'clan');
+  } else if (scope === 'all') {
+    // Return all or just 'all' scope threads? Normally 'all' means all threads (both global and clan-specific if global view shows everything)
+    // The instructions say: "le forum reste scopé au clan de l'utilisateur par défaut, avec un onglet global optionnel"
+    // So 'all' returns all threads, or threads scoped to 'all'. Let's include everything when scope='all' to make it a true global view!
+  }
+
+  // Filter by category
+  if (category && category !== 'all' && category !== 'TOUT') {
+    result = result.filter(t => t.category === category);
+  }
+
+  // Sorting
+  if (sort === 'popular') {
+    result.sort((a, b) => b.voteCount - a.voteCount);
+  } else if (sort === 'unanswered') {
+    result = result.filter(t => t.replyCount === 0);
+    result.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  } else {
+    // 'recent' by default
+    result.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  }
+
+  res.json(result);
+});
+
+// GET pinned threads for specific scope
+app.get('/api/community/:userId/forum/threads/pinned', (req, res) => {
+  const { scope } = req.query;
+  let result = threadsDb.filter(t => t.isPinned);
+  if (scope === 'clan') {
+    result = result.filter(t => t.scope === 'clan');
+  }
+  res.json(result);
+});
+
+// GET single thread detail
+app.get('/api/community/:userId/forum/threads/:threadId', (req, res) => {
+  const { threadId } = req.params;
+  const thread = threadsDb.find(t => t.id === threadId);
+  if (thread) {
+    res.json(thread);
+  } else {
+    res.status(404).json({ error: 'Thread not found' });
+  }
+});
+
+// GET replies of a thread
+app.get('/api/community/:userId/forum/threads/:threadId/replies', (req, res) => {
+  const { threadId } = req.params;
+  const filteredReplies = repliesDb.filter(r => r.threadId === threadId);
+  // Sort by createdAt ascending or popularity
+  filteredReplies.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+  res.json(filteredReplies);
+});
+
+// POST create a new thread
+app.post('/api/community/:userId/forum/threads', (req, res) => {
+  const { category, title, body, scope } = req.body;
+
+  if (!category || !title || !body) {
+    return res.status(400).json({ error: 'Champs manquants' });
+  }
+
+  const newThread: ThreadData = {
+    id: `thread-${Date.now()}`,
+    category,
+    scope: scope || 'all',
+    authorPseudo: 'Guerrier_Novice',
+    authorLevel: 3,
+    title,
+    bodyPreview: body.length > 100 ? body.substring(0, 100) + '...' : body,
+    body,
+    createdAt: new Date().toISOString(),
+    voteCount: 1,
+    userHasVoted: true,
+    replyCount: 0,
+    isPinned: false
+  };
+
+  threadsDb.unshift(newThread);
+  res.status(201).json(newThread);
+});
+
+// POST post a reply to a thread
+app.post('/api/community/:userId/forum/threads/:threadId/replies', (req, res) => {
+  const { threadId } = req.params;
+  const { text } = req.body;
+
+  if (!text || text.trim().length === 0) {
+    return res.status(400).json({ error: 'Le texte de la réponse ne peut pas être vide' });
+  }
+
+  const thread = threadsDb.find(t => t.id === threadId);
+  if (!thread) {
+    return res.status(404).json({ error: 'Sujet introuvable' });
+  }
+
+  const newReply: ReplyData = {
+    id: `reply-${Date.now()}`,
+    threadId,
+    authorPseudo: 'Guerrier_Novice',
+    authorLevel: 3,
+    text,
+    createdAt: new Date().toISOString(),
+    voteCount: 0,
+    userHasVoted: false
+  };
+
+  repliesDb.push(newReply);
+  thread.replyCount += 1;
+
+  res.status(201).json(newReply);
+});
+
+// POST upvote a thread
+app.post('/api/community/:userId/forum/threads/:threadId/vote', (req, res) => {
+  const { threadId } = req.params;
+  const thread = threadsDb.find(t => t.id === threadId);
+  if (!thread) {
+    return res.status(404).json({ error: 'Sujet introuvable' });
+  }
+
+  thread.userHasVoted = !thread.userHasVoted;
+  if (thread.userHasVoted) {
+    thread.voteCount += 1;
+  } else {
+    thread.voteCount -= 1;
+  }
+
+  res.json({ success: true, voteCount: thread.voteCount, userHasVoted: thread.userHasVoted });
+});
+
+// POST upvote a reply
+app.post('/api/community/:userId/forum/replies/:replyId/vote', (req, res) => {
+  const { replyId } = req.params;
+  const reply = repliesDb.find(r => r.id === replyId);
+  if (!reply) {
+    return res.status(404).json({ error: 'Réponse introuvable' });
+  }
+
+  reply.userHasVoted = !reply.userHasVoted;
+  if (reply.userHasVoted) {
+    reply.voteCount += 1;
+  } else {
+    reply.voteCount -= 1;
+  }
+
+  res.json({ success: true, voteCount: reply.voteCount, userHasVoted: reply.userHasVoted });
+});
+
+
 // API Endpoint 3: Proxy secure Gemini API calls
 app.post('/api/chat', async (req, res) => {
   try {

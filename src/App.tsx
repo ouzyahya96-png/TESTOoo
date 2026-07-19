@@ -81,6 +81,8 @@ import { AISettingsScreen } from './screens/ai/AISettingsScreen';
 import { WeeklyReportDetailScreen } from './screens/ai/WeeklyReportDetailScreen';
 import { AIPredictionsScreen } from './screens/ai/AIPredictionsScreen';
 import { MentorshipScreen } from './screens/community/MentorshipScreen';
+import { ExpertsLiveScreen } from './screens/community/ExpertsLiveScreen';
+import { ForumScreen } from './screens/community/ForumScreen';
 
 import { TokensTab } from './screens/dashboard/TokensTab';
 import { PlaygroundTab } from './screens/dashboard/PlaygroundTab';
@@ -103,21 +105,21 @@ export default function App() {
     setToasts((prev) => prev.filter((t) => t.id !== id));
   };
 
-  const getInitialTabFromUrl = (): 'tokens' | 'playground' | 'dashboard' | 'architecture' | 'nutrition' | 'cold' | 'rewards' | 'points' | 'clans' | 'stories' | 'chat_clan' | 'mentorship' | 'challenges' | 'badges' | 'leaderboard' | 'subscription' | 'subscription_mgmt' | 'billing_history' | 'cancel_renew' | 'ai_engine' | 'ai_settings' | 'ai_weekly_report' | 'ai_predictions' => {
+  const getInitialTabFromUrl = (): 'tokens' | 'playground' | 'dashboard' | 'architecture' | 'nutrition' | 'cold' | 'rewards' | 'points' | 'clans' | 'stories' | 'chat_clan' | 'mentorship' | 'experts_live' | 'forum' | 'challenges' | 'badges' | 'leaderboard' | 'subscription' | 'subscription_mgmt' | 'billing_history' | 'cancel_renew' | 'ai_engine' | 'ai_settings' | 'ai_weekly_report' | 'ai_predictions' => {
     const path = window.location.pathname.replace(/^\//, '');
-    const validTabs = ['tokens', 'playground', 'dashboard', 'architecture', 'nutrition', 'cold', 'rewards', 'points', 'clans', 'stories', 'chat_clan', 'mentorship', 'challenges', 'badges', 'leaderboard', 'subscription', 'subscription_mgmt', 'billing_history', 'cancel_renew', 'ai_engine', 'ai_settings', 'ai_weekly_report', 'ai_predictions'];
+    const validTabs = ['tokens', 'playground', 'dashboard', 'architecture', 'nutrition', 'cold', 'rewards', 'points', 'clans', 'stories', 'chat_clan', 'mentorship', 'experts_live', 'forum', 'challenges', 'badges', 'leaderboard', 'subscription', 'subscription_mgmt', 'billing_history', 'cancel_renew', 'ai_engine', 'ai_settings', 'ai_weekly_report', 'ai_predictions'];
     if (validTabs.includes(path)) {
       return path as any;
     }
     return 'tokens';
   };
 
-  const [activeTab, setActiveTab] = useState<'tokens' | 'playground' | 'dashboard' | 'architecture' | 'nutrition' | 'cold' | 'rewards' | 'points' | 'clans' | 'stories' | 'chat_clan' | 'mentorship' | 'challenges' | 'badges' | 'leaderboard' | 'subscription' | 'subscription_mgmt' | 'billing_history' | 'cancel_renew' | 'ai_engine' | 'ai_settings' | 'ai_weekly_report' | 'ai_predictions'>(getInitialTabFromUrl);
+  const [activeTab, setActiveTab] = useState<'tokens' | 'playground' | 'dashboard' | 'architecture' | 'nutrition' | 'cold' | 'rewards' | 'points' | 'clans' | 'stories' | 'chat_clan' | 'mentorship' | 'experts_live' | 'forum' | 'challenges' | 'badges' | 'leaderboard' | 'subscription' | 'subscription_mgmt' | 'billing_history' | 'cancel_renew' | 'ai_engine' | 'ai_settings' | 'ai_weekly_report' | 'ai_predictions'>(getInitialTabFromUrl);
 
   useEffect(() => {
     const handlePopState = () => {
       const path = window.location.pathname.replace(/^\//, '');
-      const validTabs = ['tokens', 'playground', 'dashboard', 'architecture', 'nutrition', 'cold', 'rewards', 'points', 'clans', 'stories', 'chat_clan', 'mentorship', 'challenges', 'badges', 'leaderboard', 'subscription', 'subscription_mgmt', 'billing_history', 'cancel_renew', 'ai_engine', 'ai_settings', 'ai_weekly_report', 'ai_predictions'];
+      const validTabs = ['tokens', 'playground', 'dashboard', 'architecture', 'nutrition', 'cold', 'rewards', 'points', 'clans', 'stories', 'chat_clan', 'mentorship', 'experts_live', 'forum', 'challenges', 'badges', 'leaderboard', 'subscription', 'subscription_mgmt', 'billing_history', 'cancel_renew', 'ai_engine', 'ai_settings', 'ai_weekly_report', 'ai_predictions'];
       if (validTabs.includes(path)) {
         setActiveTab(path as any);
       } else {
@@ -185,7 +187,9 @@ export default function App() {
         { id: 'rewards', label: 'Pubs & Récompenses 🪙' },
         { id: 'clans', label: 'Clans & Fraternité 🛡️' },
         { id: 'chat_clan', label: 'Chat du Clan 💬' },
+        { id: 'forum', label: 'Forum Communauté 💬' },
         { id: 'mentorship', label: 'Mentorat Élite 🎖️' },
+        { id: 'experts_live', label: 'Experts en Direct 🔴' },
         { id: 'stories', label: 'Récits & Paliers 🏆' },
         { id: 'challenges', label: 'Défis & Quêtes ⚡' },
         { id: 'badges', label: 'Badges d\'Honneur 🎖️' },
@@ -914,6 +918,24 @@ export default function App() {
           <MentorshipScreen 
             addToast={addToast} 
             onBack={() => setActiveTab('dashboard')} 
+          />
+        )}
+
+        {activeTab === 'experts_live' && (
+          <ExpertsLiveScreen 
+            addToast={addToast} 
+            onBack={() => setActiveTab('dashboard')} 
+            userId="user-777"
+            userSubscriptionTier="FREE"
+          />
+        )}
+
+        {activeTab === 'forum' && (
+          <ForumScreen 
+            addToast={addToast} 
+            onBack={() => setActiveTab('dashboard')} 
+            userId="user-777"
+            clanId="clan-1"
           />
         )}
 
