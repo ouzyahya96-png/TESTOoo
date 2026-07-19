@@ -31,6 +31,8 @@ interface AIEngineScreenProps {
   addToast: (type: 'success' | 'warning' | 'error' | 'info', message: string) => void;
   onBack?: () => void;
   onNavigateToSettings?: () => void;
+  onNavigateToWeeklyReport?: () => void;
+  onNavigateToPredictions?: () => void;
 }
 
 interface DataPoint {
@@ -97,7 +99,7 @@ interface ChatMessage {
   timestamp: Date;
 }
 
-export const AIEngineScreen: React.FC<AIEngineScreenProps> = ({ addToast, onBack, onNavigateToSettings }) => {
+export const AIEngineScreen: React.FC<AIEngineScreenProps> = ({ addToast, onBack, onNavigateToSettings, onNavigateToWeeklyReport, onNavigateToPredictions }) => {
   // UI and Inspector view states
   const [showNativeCode, setShowNativeCode] = useState<boolean>(false);
   const [copied, setCopied] = useState<boolean>(false);
@@ -449,10 +451,21 @@ export const AIEngineScreen: React.FC<AIEngineScreenProps> = ({ addToast, onBack
 
             {/* ANALYTICAL INSIGHTS GRID */}
             <div>
-              <h4 className="text-xs font-headline font-black text-white uppercase tracking-widest mb-3 flex items-center gap-1.5">
-                <Sparkles className="w-4 h-4 text-[#FFD700]" />
-                Corrélations de Vie Détectées
-              </h4>
+              <div className="flex justify-between items-center mb-3">
+                <h4 className="text-xs font-headline font-black text-white uppercase tracking-widest flex items-center gap-1.5 mb-0">
+                  <Sparkles className="w-4 h-4 text-[#FFD700]" />
+                  Corrélations de Vie Détectées
+                </h4>
+                {onNavigateToPredictions && (
+                  <button
+                    id="navigate-to-predictions-button"
+                    onClick={onNavigateToPredictions}
+                    className="text-[10px] font-headline font-black text-[#FFD700] hover:text-white flex items-center gap-1 bg-[#16213E]/60 hover:bg-[#16213E] border border-[#1C1C3A] px-3 py-1.5 rounded-xl cursor-pointer transition-all active:scale-95"
+                  >
+                    Voir toutes les prédictions →
+                  </button>
+                )}
+              </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {report.insights.map((insight: Insight) => (
                   <AlphaCard 
@@ -527,6 +540,19 @@ export const AIEngineScreen: React.FC<AIEngineScreenProps> = ({ addToast, onBack
                       </span>
                     </div>
                   </div>
+
+                  {onNavigateToWeeklyReport && (
+                    <div className="mt-5 pt-3 border-t border-[#1C1C35]/50 flex justify-end">
+                      <button
+                        id="view-full-report-button"
+                        type="button"
+                        onClick={onNavigateToWeeklyReport}
+                        className="text-xs font-headline font-black text-[#FFD700] hover:text-white flex items-center gap-1 bg-[#16213E]/60 hover:bg-[#16213E] border border-[#1C1C3A] px-3.5 py-2 rounded-xl cursor-pointer transition-all active:scale-95"
+                      >
+                        Voir le rapport complet →
+                      </button>
+                    </div>
+                  )}
                 </div>
               </div>
             </AlphaCard>

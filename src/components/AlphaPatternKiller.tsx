@@ -51,7 +51,7 @@ export const AlphaPatternKiller: React.FC<AlphaPatternKillerProps> = ({ addToast
   const [riskScore, setRiskScore] = useState<number>(87);
   const [riskCategory, setRiskCategory] = useState<'GREEN' | 'ORANGE' | 'RED'>('RED');
   const [vitalityPoints, setVitalityPoints] = useState<number>(1420);
-  const [activeSubTab, setActiveSubTab] = useState<'detector' | 'protocol' | 'analytics' | 'coach'>('detector');
+  const [activeSubTab, setActiveSubTab] = useState<'detector' | 'protocol' | 'analytics' | 'coach' | 'circuit'>('detector');
 
   // ML local weights tracker (simulating live feedback loop model adaptation)
   const [weights, setWeights] = useState<Record<string, number>>({
@@ -583,7 +583,7 @@ export const AlphaPatternKiller: React.FC<AlphaPatternKillerProps> = ({ addToast
             <p className="text-sm font-headline font-extrabold text-[#FFD700]">{vitalityPoints} VP</p>
           </div>
           <div className="flex gap-1.5 bg-[#0F0F1A] p-1 rounded-xl border border-[#1A1A2E]">
-            {(['detector', 'protocol', 'analytics', 'coach'] as const).map((sub) => (
+            {(['detector', 'protocol', 'analytics', 'coach', 'circuit'] as const).map((sub) => (
               <button
                 key={sub}
                 onClick={() => setActiveSubTab(sub)}
@@ -591,7 +591,7 @@ export const AlphaPatternKiller: React.FC<AlphaPatternKillerProps> = ({ addToast
                   ${activeSubTab === sub ? 'bg-[#E94560] text-white' : 'text-[#8E8E93] hover:text-white'}
                 `}
               >
-                {sub === 'detector' ? 'Trigger Detector' : sub === 'protocol' ? 'Urgence 5-Min' : sub === 'analytics' ? 'Analyses' : 'AI Coach'}
+                {sub === 'detector' ? 'Trigger Detector' : sub === 'protocol' ? 'Urgence 5-Min' : sub === 'analytics' ? 'Analyses' : sub === 'coach' ? 'AI Coach' : 'Circuit CBT'}
               </button>
             ))}
           </div>
@@ -1036,6 +1036,27 @@ export const AlphaPatternKiller: React.FC<AlphaPatternKillerProps> = ({ addToast
               Canaliser
             </AlphaButton>
           </div>
+        </div>
+      )}
+
+      {activeSubTab === 'circuit' && (
+        <div className="flex flex-col gap-5 bg-[#16213E]/20 p-5 rounded-2xl border border-[#1A1A2E] animate-[fade-in_0.2s_ease-out] text-left">
+          <div className="border-b border-[#1A1A2E] pb-3">
+            <h5 className="font-headline font-extrabold text-xs text-white uppercase tracking-wider">CBT : Circuit de l'Observateur</h5>
+            <p className="text-[10px] text-[#8E8E93] mt-0.5">Entraînez votre cortex préfrontal à intercepter l'impulsion motrice réflexe.</p>
+          </div>
+          <CircuitObserverDiagram
+            mode="personal"
+            context="lesson"
+            embedded={true}
+            addToast={addToast}
+            urgeSurfDurationSeconds={90}
+            onUrgeSurfComplete={(outcome) => {
+              if (outcome === 'resisted') {
+                addToast('success', 'Entraînement de surf de crise validé souverainement ! 🌊');
+              }
+            }}
+          />
         </div>
       )}
 

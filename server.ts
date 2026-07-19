@@ -850,6 +850,425 @@ app.post('/api/ai-engine/:userId/recommendation/activate', (req, res) => {
   }
 });
 
+
+// API Endpoints for Retrospective Weekly Report (Specification 4.3)
+app.get('/api/ai-engine/:userId/weekly-report', (req, res) => {
+  try {
+    const userId = req.params.userId || 'ALPHA_SOLDIER_1';
+    const weekOffset = parseInt(req.query.weekOffset as string) || 0;
+
+    // Return empty state if offset is in the future or too far in the past
+    if (weekOffset > 0 || weekOffset < -3) {
+      return res.json({ success: true, weeklyData: null });
+    }
+
+    const reports: Record<number, any> = {
+      0: {
+        weekLabel: "13 - 19 Juillet 2026",
+        avgScore: 78,
+        dailyScores: [
+          { day: "Lun", score: 72 },
+          { day: "Mar", score: 60 },
+          { day: "Mer", score: 85 },
+          { day: "Jeu", score: 78 },
+          { day: "Ven", score: 90 },
+          { day: "Sam", score: 82 },
+          { day: "Dim", score: 79 }
+        ],
+        bestDay: { day: "Ven", score: 90 },
+        worstDay: { day: "Mar", score: 60 },
+        comparison: {
+          streak: { value: 12, delta: "+2j", trend: "up" },
+          avgMood: { value: 7.8, delta: "+0.5", trend: "up" },
+          avgEnergy: { value: "85%", delta: "+5%", trend: "up" },
+          sessionsCompleted: { value: "11 / 12", delta: "+1", trend: "up" }
+        },
+        pillarBreakdown: [
+          { pillar: "pattern", percentage: 92, color: "#FF2D55", label: "Pattern Killer" },
+          { pillar: "kegel", percentage: 85, color: "#00D9A5", label: "Kegel Coach" },
+          { pillar: "sleep", percentage: 78, color: "#4A90D9", label: "Sommeil" },
+          { pillar: "nutrition", percentage: 70, color: "#FFD700", label: "Nutrition" },
+          { pillar: "journal", percentage: 60, color: "#8E8E93", label: "Journal" }
+        ],
+        correlations: [
+          { id: "corr_0_1", text: "Les jours où tu dors moins de 6h, ton risque de pré-impulsion (urge) double le lendemain soir.", strength: "forte" },
+          { id: "corr_0_2", text: "Une douche froide d'au moins 2 minutes réduit de 40% l'apparition des crises de stress en soirée.", strength: "forte" },
+          { id: "corr_0_3", text: "Ta force de contraction Kegel maximale montre un gain relatif de 18% les jours post-sommeil profond.", strength: "modérée" }
+        ],
+        bestMoment: "Mercredi, tu as résisté à une urge à 22h après une journée de 9h de sommeil.",
+        watchPoint: "Les dimanches soirs restent ton moment le plus fragile, 3 semaines de suite.",
+        nextWeekFocus: {
+          title: "Programme ton rappel Sommeil 30 minutes plus tôt",
+          reason: "C'est la variable qui a eu le plus d'impact sur ton score de transformation cette semaine."
+        }
+      },
+      [-1]: {
+        weekLabel: "06 - 12 Juillet 2026",
+        avgScore: 74,
+        dailyScores: [
+          { day: "Lun", score: 80 },
+          { day: "Mar", score: 71 },
+          { day: "Mer", score: 65 },
+          { day: "Jeu", score: 73 },
+          { day: "Ven", score: 75 },
+          { day: "Sam", score: 85 },
+          { day: "Dim", score: 69 }
+        ],
+        bestDay: { day: "Sam", score: 85 },
+        worstDay: { day: "Mer", score: 65 },
+        comparison: {
+          streak: { value: 10, delta: "+3j", trend: "up" },
+          avgMood: { value: 7.3, delta: "+0.2", trend: "up" },
+          avgEnergy: { value: "80%", delta: "-2%", trend: "down" },
+          sessionsCompleted: { value: "10 / 12", delta: "+2", trend: "up" }
+        },
+        pillarBreakdown: [
+          { pillar: "pattern", percentage: 88, color: "#FF2D55", label: "Pattern Killer" },
+          { pillar: "kegel", percentage: 80, color: "#00D9A5", label: "Kegel Coach" },
+          { pillar: "sleep", percentage: 70, color: "#4A90D9", label: "Sommeil" },
+          { pillar: "nutrition", percentage: 75, color: "#FFD700", label: "Nutrition" },
+          { pillar: "journal", percentage: 55, color: "#8E8E93", label: "Journal" }
+        ],
+        correlations: [
+          { id: "corr_1_1", text: "L'absence de séances de respiration Wim Hof augmente ton anxiété latente de 25% les vendredis.", strength: "forte" },
+          { id: "corr_1_2", text: "Chaque session d'apnée réussie décale l'envie impulsive moyenne de 4 heures.", strength: "modérée" }
+        ],
+        bestMoment: "Samedi, record d'exposition au froid à 11°C pendant 4 minutes d'affilée.",
+        watchPoint: "Sommeil irrégulier durant le milieu de semaine (couchers tardifs après minuit).",
+        nextWeekFocus: {
+          title: "Intègre 5 minutes d'apnée guidée avant d'ouvrir les écrans",
+          reason: "Le calme matinal régule ta tension et renforce ton cortex préfrontal pour la journée."
+        }
+      },
+      [-2]: {
+        weekLabel: "29 Juin - 05 Juillet 2026",
+        avgScore: 81,
+        dailyScores: [
+          { day: "Lun", score: 75 },
+          { day: "Mar", score: 82 },
+          { day: "Mer", score: 88 },
+          { day: "Jeu", score: 80 },
+          { day: "Ven", score: 84 },
+          { day: "Sam", score: 79 },
+          { day: "Dim", score: 78 }
+        ],
+        bestDay: { day: "Mer", score: 88 },
+        worstDay: { day: "Lun", score: 75 },
+        comparison: {
+          streak: { value: 7, delta: "-4j", trend: "down" },
+          avgMood: { value: 7.1, delta: "-0.5", trend: "down" },
+          avgEnergy: { value: "82%", delta: "+1%", trend: "up" },
+          sessionsCompleted: { value: "8 / 12", delta: "-3", trend: "down" }
+        },
+        pillarBreakdown: [
+          { pillar: "pattern", percentage: 85, color: "#FF2D55", label: "Pattern Killer" },
+          { pillar: "kegel", percentage: 75, color: "#00D9A5", label: "Kegel Coach" },
+          { pillar: "sleep", percentage: 82, color: "#4A90D9", label: "Sommeil" },
+          { pillar: "nutrition", percentage: 80, color: "#FFD700", label: "Nutrition" },
+          { pillar: "journal", percentage: 65, color: "#8E8E93", label: "Journal" }
+        ],
+        correlations: [
+          { id: "corr_2_1", text: "Surcharges de travail cumulées corrélées à une baisse immédiate de la rigueur nutritionnelle.", strength: "forte" }
+        ],
+        bestMoment: "Mardi, séance de Kegel parfaite avec un score de contraction évalué à 95% d'amplitude.",
+        watchPoint: "Un relâchement de discipline le dimanche soir lié à l'anxiété de début de semaine.",
+        nextWeekFocus: {
+          title: "Écris 3 lignes dans ton journal de bord chaque soir avant 22h",
+          reason: "L'extériorisation écrite de tes pensées de combat soulage immédiatement le système nerveux."
+        }
+      },
+      [-3]: {
+        weekLabel: "22 - 28 Juin 2026",
+        avgScore: 68,
+        dailyScores: [
+          { day: "Lun", score: 60 },
+          { day: "Mar", score: 62 },
+          { day: "Mer", score: 70 },
+          { day: "Jeu", score: 65 },
+          { day: "Ven", score: 68 },
+          { day: "Sam", score: 72 },
+          { day: "Dim", score: 79 }
+        ],
+        bestDay: { day: "Dim", score: 79 },
+        worstDay: { day: "Lun", score: 60 },
+        comparison: {
+          streak: { value: 11, delta: "Stable", trend: "stable" },
+          avgMood: { value: 7.6, delta: "+0.1", trend: "up" },
+          avgEnergy: { value: "81%", delta: "Stable", trend: "stable" },
+          sessionsCompleted: { value: "11 / 12", delta: "Stable", trend: "stable" }
+        },
+        pillarBreakdown: [
+          { pillar: "pattern", percentage: 75, color: "#FF2D55", label: "Pattern Killer" },
+          { pillar: "kegel", percentage: 68, color: "#00D9A5", label: "Kegel Coach" },
+          { pillar: "sleep", percentage: 72, color: "#4A90D9", label: "Sommeil" },
+          { pillar: "nutrition", percentage: 65, color: "#FFD700", label: "Nutrition" },
+          { pillar: "journal", percentage: 60, color: "#8E8E93", label: "Journal" }
+        ],
+        correlations: [
+          { id: "corr_3_1", text: "Tes journées à faible hydratation augmentent la sensation physique de fatigue de 30%.", strength: "modérée" }
+        ],
+        bestMoment: "Vendredi soir, résistance héroïque face à une urge massive après l'entraînement de musculation.",
+        watchPoint: "Insuffisance d'hydratation hydrique sur le début de semaine (seulement 3 verres par jour).",
+        nextWeekFocus: {
+          title: "Valide tes 8 verres d'eau pure quotidiennement sans faute",
+          reason: "Une hydratation cellulaire active permet d'accélérer l'élimination des toxines et le focus."
+        }
+      }
+    };
+
+    res.json({ success: true, weeklyData: reports[weekOffset] || null });
+  } catch (error: any) {
+    res.status(500).json({ error: 'Failed to retrieve weekly report', message: error.message });
+  }
+});
+
+app.post('/api/ai-engine/:userId/weekly-report/apply-focus', (req, res) => {
+  try {
+    const { focus, weekOffset } = req.body;
+    res.json({ success: true, message: "Focus d'Habitude enregistré avec succès.", focus, weekOffset });
+  } catch (error: any) {
+    res.status(500).json({ error: 'Failed to apply weekly focus', message: error.message });
+  }
+});
+
+app.get('/api/ai-engine/:userId/weekly-report/export', (req, res) => {
+  try {
+    const weekOffset = parseInt(req.query.weekOffset as string) || 0;
+    const weekLabels: Record<number, string> = {
+      0: "13 - 19 Juillet 2026",
+      [-1]: "06 - 12 Juillet 2026",
+      [-2]: "29 Juin - 05 Juillet 2026",
+      [-3]: "22 - 28 Juin 2026"
+    };
+    const label = weekLabels[weekOffset] || "Période Inconnue";
+
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename=Rapport_Hebdomadaire_AlphaMan_Offset_${weekOffset}.pdf`);
+
+    // We output a clean, simulated text-based PDF content representing the retrieved metrics
+    const pdfData = 
+      `%PDF-1.4\n` +
+      `%ALPHA MAN Retrospective report\n` +
+      `1 0 obj <\n` +
+      `/Type /Catalog\n` +
+      `/Pages 2 0 R\n` +
+      `>> endobj\n` +
+      `2 0 obj <\n` +
+      `/Type /Pages\n` +
+      `/Kids [3 0 R]\n` +
+      `/Count 1\n` +
+      `>> endobj\n` +
+      `3 0 obj <\n` +
+      `/Type /Page\n` +
+      `/Parent 2 0 R\n` +
+      `/Resources << /Font << /F1 4 0 R >> >>\n` +
+      `/MediaBox [0 0 595 842]\n` +
+      `/Contents 5 0 R\n` +
+      `>> endobj\n` +
+      `4 0 obj <\n` +
+      `/Type /Font\n` +
+      `/Subtype /Type1\n` +
+      `/BaseFont /Helvetica-Bold\n` +
+      `>> endobj\n` +
+      `5 0 obj <\n` +
+      `/Length 400\n` +
+      `>> stream\n` +
+      `BT\n` +
+      `/F1 18 Tf\n` +
+      `50 780 Td (RAPPORT RETROSPECTIF HEBDOMADAIRE - ALPHA MAN) Tj\n` +
+      `/F1 12 Tf\n` +
+      `0 -40 Td (Utilisateur: ALPHA_SOLDIER_1) Tj\n` +
+      `0 -20 Td (Semaine: ${label}) Tj\n` +
+      `0 -40 Td (SCORE GLOBAL DE SYNERGIE DE VIE: 78/100) Tj\n` +
+      `0 -20 Td (Optimisation Souveraine des Piliers de Force) Tj\n` +
+      `0 -40 Td (- Streak de combat: 12 Jours (+2j vs semaine derniere)) Tj\n` +
+      `0 -20 Td (- Sommeil moyen de recuperation: 85%) Tj\n` +
+      `0 -20 Td (- Seances d'entrainement pelvienne Kegel accomplies: 11 / 12) Tj\n` +
+      `0 -20 Td (- Resistance active aux impulsions (Pattern Killer): 9 urges evitees) Tj\n` +
+      `0 -40 Td (CORRELATIONS SIGNIFICATIVES DE COHERENCE LOCALES:) Tj\n` +
+      `0 -20 Td (1. Un sommeil de qualite < 6h double le risque de pre-impulsion le lendemain soir.) Tj\n` +
+      `0 -20 Td (2. L'exposition au froid diminue l'intensite des urges de 15%.) Tj\n` +
+      `0 -40 Td (FOCUS D'ACTION RECOMMANDATION UNIQUE POUR LA SEMAINE PROCHAINE:) Tj\n` +
+      `0 -20 Td (Focus: Programme ton rappel Sommeil 30 minutes plus tot.) Tj\n` +
+      `0 -20 Td (Raison: Optimiser la recuperation pour immuniser le cortex contre les impulsions tardives.) Tj\n` +
+      `ET\n` +
+      `endstream\n` +
+      `endobj\n` +
+      `xref\n` +
+      `0 6\n` +
+      `0000000000 65535 f\n` +
+      `0000000015 00000 n\n` +
+      `0000000074 00000 n\n` +
+      `0000000134 00000 n\n` +
+      `0000000244 00000 n\n` +
+      `0000000311 00000 n\n` +
+      `trailer <<\n` +
+      `/Size 6\n` +
+      `/Root 1 0 R\n` +
+      `>>\n` +
+      `startxref\n` +
+      `795\n` +
+      `%%EOF\n`;
+
+    res.send(Buffer.from(pdfData, 'utf-8'));
+  } catch (error: any) {
+    res.status(500).json({ error: 'Failed to export PDF weekly report', message: error.message });
+  }
+});
+
+
+// State store for preventive action commitments
+const preventiveActionStatus: Record<string, 'pending' | 'committed' | 'snoozed'> = {
+  "rec_action_1": "pending",
+  "rec_action_2": "pending",
+  "rec_action_3": "pending"
+};
+
+// API Endpoints for AI Predictions Screen (Specification 4.4)
+app.get('/api/ai-engine/:userId/predictions/today', (req, res) => {
+  try {
+    const userId = req.params.userId || 'ALPHA_SOLDIER_1';
+    const settings = serverSettings[userId] || { sensitivity: 'moderate' };
+    
+    // Map sensitivity
+    let sensitivityLabel: 'cautious' | 'balanced' | 'precise' = 'balanced';
+    if (settings.sensitivity === 'low') sensitivityLabel = 'precise';
+    if (settings.sensitivity === 'high') sensitivityLabel = 'cautious';
+
+    // Generates hourly risk curve for today (24 hours)
+    const hourlyRisk = Array.from({ length: 24 }, (_, hour) => {
+      let riskPercent = 12; // default low
+      let reason = "Indice de base - Activités habituelles stables";
+
+      if (hour >= 21 && hour <= 23) {
+        riskPercent = 72;
+        reason = "Créneau historique de vulnérabilité tardive + fatigue cognitive accumulée";
+      } else if (hour === 15 || hour === 16) {
+        riskPercent = 45;
+        reason = "Baisse de vigilance post-déjeuner + hausse de temps d'écran";
+      } else if (hour >= 22) {
+        riskPercent = 68;
+        reason = "Fin de journée, fatigue cumulée et baisse d'auto-discipline";
+      } else if (hour >= 0 && hour <= 4) {
+        riskPercent = 35;
+        reason = "Sommeil perturbé ou réveil nocturne impulsif";
+      }
+
+      // Adjust risk slightly based on sensitivity setting
+      if (settings.sensitivity === 'high') {
+        riskPercent = Math.min(100, Math.round(riskPercent * 1.25));
+      } else if (settings.sensitivity === 'low') {
+        riskPercent = Math.max(5, Math.round(riskPercent * 0.75));
+      }
+
+      return { hour, riskPercent, reason };
+    });
+
+    res.json({
+      success: true,
+      predictionSensitivity: sensitivityLabel,
+      todayHourlyRisk: hourlyRisk
+    });
+  } catch (error: any) {
+    res.status(500).json({ error: 'Failed to retrieve daily prediction', message: error.message });
+  }
+});
+
+app.get('/api/ai-engine/:userId/predictions/week', (req, res) => {
+  try {
+    const userId = req.params.userId || 'ALPHA_SOLDIER_1';
+    
+    // Simulating 7-day forecast
+    const weekForecast = [
+      { date: "19", dayLabel: "DIM", maxRisk: 78, riskHour: "22h" },
+      { date: "20", dayLabel: "LUN", maxRisk: 35, riskHour: "15h" },
+      { date: "21", dayLabel: "MAR", maxRisk: 22, riskHour: "23h" },
+      { date: "22", dayLabel: "MER", maxRisk: 81, riskHour: "21h" },
+      { date: "23", dayLabel: "JEU", maxRisk: 44, riskHour: "16h" },
+      { date: "24", dayLabel: "VEN", maxRisk: 52, riskHour: "22h" },
+      { date: "25", dayLabel: "SAM", maxRisk: 65, riskHour: "23h" }
+    ];
+
+    const recommendations = [
+      {
+        id: "rec_action_1",
+        windowLabel: "Ce soir, 21h-23h",
+        riskPercent: 72,
+        suggestedAction: "Planifie un appel avec un ami ce soir-là, ou programme une session Kegel à 21h pile.",
+        status: preventiveActionStatus["rec_action_1"] || "pending"
+      },
+      {
+        id: "rec_action_2",
+        windowLabel: "Mercredi, 20h-22h",
+        riskPercent: 81,
+        suggestedAction: "Laisse ton téléphone hors de la chambre dès 20h et lance une séance d'Apnée guidée avant d'éteindre les lumières.",
+        status: preventiveActionStatus["rec_action_2"] || "pending"
+      },
+      {
+        id: "rec_action_3",
+        windowLabel: "Samedi, 22h-00h",
+        riskPercent: 65,
+        suggestedAction: "Planifie une douche froide impérative ou prépare une session d'écriture créative pour canaliser l'afflux de dopamine.",
+        status: preventiveActionStatus["rec_action_3"] || "pending"
+      }
+    ];
+
+    // Simulate "hasEnoughData": true unless requested otherwise. Can toggle or mock based on user or query params
+    const hasEnoughData = req.query.lowData !== 'true';
+
+    res.json({
+      success: true,
+      hasEnoughData,
+      weekForecast,
+      preventiveRecommendations: recommendations
+    });
+  } catch (error: any) {
+    res.status(500).json({ error: 'Failed to retrieve weekly predictions', message: error.message });
+  }
+});
+
+app.get('/api/ai-engine/:userId/predictions/accuracy', (req, res) => {
+  try {
+    res.json({
+      success: true,
+      modelAccuracy: {
+        percentConfirmed: 78,
+        confirmedCount: 42,
+        falseAlarmCount: 12
+      }
+    });
+  } catch (error: any) {
+    res.status(500).json({ error: 'Failed to retrieve model accuracy', message: error.message });
+  }
+});
+
+app.post('/api/ai-engine/:userId/predictions/:recommendationId/commit', (req, res) => {
+  try {
+    const { recommendationId } = req.params;
+    preventiveActionStatus[recommendationId] = 'committed';
+    res.json({
+      success: true,
+      message: "Recommandation d'action préventive engagée !"
+    });
+  } catch (error: any) {
+    res.status(500).json({ error: 'Failed to commit to preventive action', message: error.message });
+  }
+});
+
+app.post('/api/ai-engine/:userId/predictions/:recommendationId/snooze', (req, res) => {
+  try {
+    const { recommendationId } = req.params;
+    preventiveActionStatus[recommendationId] = 'snoozed';
+    res.json({
+      success: true,
+      message: "Recommandation reportée."
+    });
+  } catch (error: any) {
+    res.status(500).json({ error: 'Failed to snooze preventive action', message: error.message });
+  }
+});
+
+
 app.post('/api/ai-engine/:userId/chat', async (req, res) => {
   try {
     const { message, history } = req.body;

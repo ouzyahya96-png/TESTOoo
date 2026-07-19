@@ -76,6 +76,8 @@ import { BillingHistoryScreen } from './screens/subscription/BillingHistoryScree
 import { CancelRenewScreen } from './screens/subscription/CancelRenewScreen';
 import { AIEngineScreen } from './screens/ai/AIEngineScreen';
 import { AISettingsScreen } from './screens/ai/AISettingsScreen';
+import { WeeklyReportDetailScreen } from './screens/ai/WeeklyReportDetailScreen';
+import { AIPredictionsScreen } from './screens/ai/AIPredictionsScreen';
 
 import { TokensTab } from './screens/dashboard/TokensTab';
 import { PlaygroundTab } from './screens/dashboard/PlaygroundTab';
@@ -98,21 +100,21 @@ export default function App() {
     setToasts((prev) => prev.filter((t) => t.id !== id));
   };
 
-  const getInitialTabFromUrl = (): 'tokens' | 'playground' | 'dashboard' | 'architecture' | 'nutrition' | 'cold' | 'rewards' | 'points' | 'clans' | 'challenges' | 'badges' | 'leaderboard' | 'subscription' | 'subscription_mgmt' | 'billing_history' | 'cancel_renew' | 'ai_engine' | 'ai_settings' => {
+  const getInitialTabFromUrl = (): 'tokens' | 'playground' | 'dashboard' | 'architecture' | 'nutrition' | 'cold' | 'rewards' | 'points' | 'clans' | 'challenges' | 'badges' | 'leaderboard' | 'subscription' | 'subscription_mgmt' | 'billing_history' | 'cancel_renew' | 'ai_engine' | 'ai_settings' | 'ai_weekly_report' | 'ai_predictions' => {
     const path = window.location.pathname.replace(/^\//, '');
-    const validTabs = ['tokens', 'playground', 'dashboard', 'architecture', 'nutrition', 'cold', 'rewards', 'points', 'clans', 'challenges', 'badges', 'leaderboard', 'subscription', 'subscription_mgmt', 'billing_history', 'cancel_renew', 'ai_engine', 'ai_settings'];
+    const validTabs = ['tokens', 'playground', 'dashboard', 'architecture', 'nutrition', 'cold', 'rewards', 'points', 'clans', 'challenges', 'badges', 'leaderboard', 'subscription', 'subscription_mgmt', 'billing_history', 'cancel_renew', 'ai_engine', 'ai_settings', 'ai_weekly_report', 'ai_predictions'];
     if (validTabs.includes(path)) {
       return path as any;
     }
     return 'tokens';
   };
 
-  const [activeTab, setActiveTab] = useState<'tokens' | 'playground' | 'dashboard' | 'architecture' | 'nutrition' | 'cold' | 'rewards' | 'points' | 'clans' | 'challenges' | 'badges' | 'leaderboard' | 'subscription' | 'subscription_mgmt' | 'billing_history' | 'cancel_renew' | 'ai_engine' | 'ai_settings'>(getInitialTabFromUrl);
+  const [activeTab, setActiveTab] = useState<'tokens' | 'playground' | 'dashboard' | 'architecture' | 'nutrition' | 'cold' | 'rewards' | 'points' | 'clans' | 'challenges' | 'badges' | 'leaderboard' | 'subscription' | 'subscription_mgmt' | 'billing_history' | 'cancel_renew' | 'ai_engine' | 'ai_settings' | 'ai_weekly_report' | 'ai_predictions'>(getInitialTabFromUrl);
 
   useEffect(() => {
     const handlePopState = () => {
       const path = window.location.pathname.replace(/^\//, '');
-      const validTabs = ['tokens', 'playground', 'dashboard', 'architecture', 'nutrition', 'cold', 'rewards', 'points', 'clans', 'challenges', 'badges', 'leaderboard', 'subscription', 'subscription_mgmt', 'billing_history', 'cancel_renew', 'ai_engine', 'ai_settings'];
+      const validTabs = ['tokens', 'playground', 'dashboard', 'architecture', 'nutrition', 'cold', 'rewards', 'points', 'clans', 'challenges', 'badges', 'leaderboard', 'subscription', 'subscription_mgmt', 'billing_history', 'cancel_renew', 'ai_engine', 'ai_settings', 'ai_weekly_report', 'ai_predictions'];
       if (validTabs.includes(path)) {
         setActiveTab(path as any);
       } else {
@@ -929,6 +931,8 @@ export default function App() {
             addToast={addToast} 
             onBack={() => setActiveTab('dashboard')}
             onNavigateToSettings={() => setActiveTab('ai_settings')}
+            onNavigateToWeeklyReport={() => setActiveTab('ai_weekly_report')}
+            onNavigateToPredictions={() => setActiveTab('ai_predictions')}
           />
         )}
 
@@ -936,6 +940,23 @@ export default function App() {
           <AISettingsScreen 
             addToast={addToast} 
             onBack={() => setActiveTab('ai_engine')}
+          />
+        )}
+
+        {activeTab === 'ai_weekly_report' && (
+          <WeeklyReportDetailScreen 
+            userId="ALPHA_SOLDIER_1"
+            addToast={addToast}
+            onBack={() => setActiveTab('ai_engine')}
+          />
+        )}
+
+        {activeTab === 'ai_predictions' && (
+          <AIPredictionsScreen 
+            userId="ALPHA_SOLDIER_1"
+            addToast={addToast}
+            onBack={() => setActiveTab('ai_engine')}
+            onNavigateToSettings={() => setActiveTab('ai_settings')}
           />
         )}
 
