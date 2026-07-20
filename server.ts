@@ -2355,6 +2355,9 @@ interface ThreadData {
   isPinned: boolean;
   hasSolution?: boolean;
   solutionReplyId?: string | null;
+  moderationStatus?: 'approved' | 'needs_review' | 'removed';
+  reportCount?: number;
+  distressFlagged?: boolean;
 }
 
 interface ReplyData {
@@ -2371,6 +2374,9 @@ interface ReplyData {
   expertName?: string;
   expertSpecialty?: 'urologie' | 'sexologie' | 'andrologie' | 'psychiatrie' | 'nutrition' | null;
   isMarkedBest?: boolean;
+  moderationStatus?: 'approved' | 'needs_review' | 'removed';
+  reportCount?: number;
+  distressFlagged?: boolean;
 }
 
 // Global reputation updating helper
@@ -2744,7 +2750,7 @@ app.get('/api/community/:userId/forum/threads/:threadId/replies', (req, res) => 
 
 // POST create a new thread
 app.post('/api/community/:userId/forum/threads', (req, res) => {
-  const { category, title, body, scope } = req.body;
+  const { category, title, body, scope, moderationStatus, distressFlagged } = req.body;
 
   if (!category || !title || !body) {
     return res.status(400).json({ error: 'Champs manquants' });
@@ -2766,7 +2772,10 @@ app.post('/api/community/:userId/forum/threads', (req, res) => {
     replyCount: 0,
     isPinned: false,
     hasSolution: false,
-    solutionReplyId: null
+    solutionReplyId: null,
+    moderationStatus: moderationStatus || 'approved',
+    reportCount: 0,
+    distressFlagged: !!distressFlagged
   };
 
   threadsDb.unshift(newThread);
@@ -2776,7 +2785,7 @@ app.post('/api/community/:userId/forum/threads', (req, res) => {
 // POST post a reply to a thread
 app.post('/api/community/:userId/forum/threads/:threadId/replies', (req, res) => {
   const { threadId } = req.params;
-  const { text, isExpert, expertName, expertSpecialty } = req.body;
+  const { text, isExpert, expertName, expertSpecialty, moderationStatus, distressFlagged } = req.body;
 
   if (!text || text.trim().length === 0) {
     return res.status(400).json({ error: 'Le texte de la réponse ne peut pas être vide' });
@@ -2800,7 +2809,10 @@ app.post('/api/community/:userId/forum/threads/:threadId/replies', (req, res) =>
     isExpertReply: !!isExpert,
     expertName: isExpert ? (expertName || 'Expert_Souverain') : undefined,
     expertSpecialty: isExpert ? (expertSpecialty || 'urologie') : undefined,
-    isMarkedBest: false
+    isMarkedBest: false,
+    moderationStatus: moderationStatus || 'approved',
+    reportCount: 0,
+    distressFlagged: !!distressFlagged
   };
 
   repliesDb.push(newReply);
@@ -2951,6 +2963,34 @@ app.post('/api/community/:userId/forum/threads/:threadId/simulate-expert', (req,
   res.json({ success: true, reply: replyToTransform });
 });
 
+// POST report thread
+app.post('/api/community/:userId/forum/threads/:threadId/report', (req, res) => {
+  const { threadId } = req.params;
+  const { reason } = req.body;
+  const thread = threadsDb.find(t => t.id === threadId);
+  if (!thread) return res.status(404).json({ error: 'Thread not found' });
+
+  thread.reportCount = (thread.reportCount || 0) + 1;
+  if (thread.reportCount >= 3) {
+    thread.moderationStatus = 'needs_review';
+  }
+  res.json({ success: true, reportCount: thread.reportCount, moderationStatus: thread.moderationStatus });
+});
+
+// POST report reply
+app.post('/api/community/:userId/forum/replies/:replyId/report', (req, res) => {
+  const { replyId } = req.params;
+  const { reason } = req.body;
+  const reply = repliesDb.find(r => r.id === replyId);
+  if (!reply) return res.status(404).json({ error: 'Reply not found' });
+
+  reply.reportCount = (reply.reportCount || 0) + 1;
+  if (reply.reportCount >= 3) {
+    reply.moderationStatus = 'needs_review';
+  }
+  res.json({ success: true, reportCount: reply.reportCount, moderationStatus: reply.moderationStatus });
+});
+
 
 // API Endpoint 3: Proxy secure Gemini API calls
 app.post('/api/chat', async (req, res) => {
@@ -2988,6 +3028,120 @@ app.post('/api/chat', async (req, res) => {
   } catch (error: any) {
     console.error('Gemini call failure:', error);
     res.status(500).json({ error: 'Gemini API call failed', message: error.message });
+  }
+});
+
+// --- ADMIN DASHBOARD BACKEND API ENDPOINTS ---
+
+// GET /api/admin/stats?period={period}
+app.get('/api/admin/stats', (req, res) => {
+  try {
+    const period = req.query.period || '7d';
+    
+    // Base values that fluctuate depending on the period selected
+    let multiplier = 1.0;
+    if (period === 'today') multiplier = 0.98;
+    if (period === '30d') multiplier = 1.05;
+    if (period === 'all') multiplier = 1.15;
+
+    const stats = {
+      totalUsers: Math.round(24152 * multiplier),
+      totalUsersDelta: +(12.4 * multiplier).toFixed(1),
+      mrr: Math.round(290450 * multiplier),
+      mrrDelta: +(8.2 * multiplier).toFixed(1),
+      activeToday: Math.round(4812 * (period === 'today' ? 1.0 : multiplier)),
+      activeTodayDelta: +(15.1 * (period === 'today' ? 0.8 : multiplier)).toFixed(1),
+      conversionRate: +(8.4 * (period === 'today' ? 0.95 : 1.0)).toFixed(1),
+      conversionRateDelta: -1.2
+    };
+
+    res.json(stats);
+  } catch (error: any) {
+    res.status(500).json({ error: 'Failed to retrieve admin stats', message: error.message });
+  }
+});
+
+// GET /api/admin/subscriptions/breakdown
+app.get('/api/admin/subscriptions/breakdown', (req, res) => {
+  try {
+    // Return standard representation of the 5 tiers
+    const breakdown = [
+      { tier: 'FREE', label: 'Accès Libre', count: 10868, percentage: 45, color: 'bg-gray-400' },
+      { tier: 'BASIC', label: 'Guerrier Novice', count: 4830, percentage: 20, color: 'bg-blue-400' },
+      { tier: 'PREMIUM', label: 'Souverain d\'Élite', count: 5554, percentage: 23, color: 'bg-purple-500' },
+      { tier: 'ELITE', label: 'Confrère de l\'Ombre', count: 2173, percentage: 9, color: 'bg-yellow-400' },
+      { tier: 'ALPHA', label: 'Légende Absolue', count: 727, percentage: 3, color: 'bg-emerald-400' }
+    ];
+    res.json(breakdown);
+  } catch (error: any) {
+    res.status(500).json({ error: 'Failed to retrieve subscriptions breakdown', message: error.message });
+  }
+});
+
+// GET /api/admin/streaks/distribution
+app.get('/api/admin/streaks/distribution', (req, res) => {
+  try {
+    const distribution = [
+      { range: '0-7j', count: 12450 },
+      { range: '8-30j', count: 6820 },
+      { range: '31-90j', count: 3120 },
+      { range: '91-365j', count: 1320 },
+      { range: '365j+', count: 442 }
+    ];
+    res.json(distribution);
+  } catch (error: any) {
+    res.status(500).json({ error: 'Failed to retrieve streak distribution', message: error.message });
+  }
+});
+
+// GET /api/admin/moderation/queue-summary
+app.get('/api/admin/moderation/queue-summary', (req, res) => {
+  try {
+    // Dynamic counts from existing DB arrays in server.ts
+    const storiesCount = storiesDb.filter(s => s.status === 'needs_review' || s.status === 'pending').length;
+    const forumThreadsCount = threadsDb.filter(t => t.moderationStatus === 'needs_review').length;
+    const forumRepliesCount = repliesDb.filter(r => r.moderationStatus === 'needs_review').length;
+    
+    // Simulated active counts for other modules
+    const chatReportsCount = 1; // Simulated active reported messages
+    const expertQuestionsCount = 1; // Simulated active distress questions
+
+    const total = storiesCount + forumThreadsCount + forumRepliesCount + chatReportsCount + expertQuestionsCount;
+
+    res.json({
+      stories: storiesCount,
+      forumThreads: forumThreadsCount + forumRepliesCount, // Aggregate thread + reply moderation
+      chatReports: chatReportsCount,
+      expertQuestions: expertQuestionsCount,
+      total: total
+    });
+  } catch (error: any) {
+    res.status(500).json({ error: 'Failed to retrieve moderation queue summary', message: error.message });
+  }
+});
+
+// GET /api/admin/activity/recent?period={period}
+app.get('/api/admin/activity/recent', (req, res) => {
+  try {
+    const period = req.query.period || '7d';
+    
+    // Return different timestamp names or labels for variance
+    const prefix = period === 'today' ? 'Aujourd\'hui, il y a ' : 'Il y a ';
+    
+    const activities = [
+      { id: 'act-1', type: 'user-plus', text: 'Nouveau guerrier souverain inscrit depuis Casablanca', timestamp: `${prefix}5 min` },
+      { id: 'act-2', type: 'credit-card', text: 'Abonnement PREMIUM activé par un membre de la Confrérie', timestamp: `${prefix}12 min` },
+      { id: 'act-3', type: 'flag', text: 'Message signalé pour révision dans le chat du Clan Alpha', timestamp: `${prefix}24 min` },
+      { id: 'act-4', type: 'award', text: 'Palier légendaire de 90 jours validé par @Guerrier_Elite', timestamp: `${prefix}45 min` },
+      { id: 'act-5', type: 'user-plus', text: 'Nouveau guerrier souverain inscrit depuis Marrakech', timestamp: `${prefix}1h` },
+      { id: 'act-6', type: 'credit-card', text: 'Mise à niveau vers le Tier ALPHA (Légende Absolue) par @Souverain77', timestamp: `${prefix}1h 30` },
+      { id: 'act-7', type: 'flag', text: 'Sujet du forum mis en attente suite à 3 signalements', timestamp: `${prefix}2h` },
+      { id: 'act-8', type: 'award', text: 'Niveau d\'Honneur 10 atteint par @Confrere_Spartiate', timestamp: `${prefix}3h` }
+    ];
+
+    res.json(activities);
+  } catch (error: any) {
+    res.status(500).json({ error: 'Failed to retrieve recent activities', message: error.message });
   }
 });
 

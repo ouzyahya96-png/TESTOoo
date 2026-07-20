@@ -19,7 +19,9 @@ import {
   ChevronDown,
   Search,
   CheckCircle,
-  Check
+  Check,
+  Flag,
+  EyeOff
 } from 'lucide-react';
 import { motion } from 'motion/react';
 import { AlphaButton } from '../../components/AlphaButton';
@@ -29,6 +31,7 @@ interface ForumScreenProps {
   onBack?: () => void;
   userId?: string;
   clanId?: string;
+  onRequestCoachChat?: () => void;
 }
 
 export interface ThreadData {
@@ -49,6 +52,9 @@ export interface ThreadData {
   hasSolution?: boolean;
   solutionReplyId?: string | null;
   hasExpertReply?: boolean;
+  moderationStatus?: 'approved' | 'needs_review' | 'removed';
+  reportCount?: number;
+  distressFlagged?: boolean;
 }
 
 export interface ReplyData {
@@ -65,6 +71,9 @@ export interface ReplyData {
   expertName?: string;
   expertSpecialty?: 'urologie' | 'sexologie' | 'andrologie' | 'psychiatrie' | 'nutrition' | null;
   isMarkedBest?: boolean;
+  moderationStatus?: 'approved' | 'needs_review' | 'removed';
+  reportCount?: number;
+  distressFlagged?: boolean;
 }
 
 // Function to calculate the reputation tier from cumulative points
@@ -140,7 +149,8 @@ export const ForumScreen: React.FC<ForumScreenProps> = ({
   addToast,
   onBack,
   userId = 'user-777',
-  clanId = 'clan-1'
+  clanId = 'clan-1',
+  onRequestCoachChat
 }) => {
   const isMounted = useRef<boolean>(true);
 
@@ -178,6 +188,66 @@ export const ForumScreen: React.FC<ForumScreenProps> = ({
   const [showNativeCode, setShowNativeCode] = useState<boolean>(false);
   const [copied, setCopied] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState<boolean>(false);
+
+  // Moderation & safety states
+  const [isReportMenuOpen, setIsReportMenuOpen] = useState<boolean>(false);
+  const [reportTargetId, setReportTargetId] = useState<string | null>(null);
+  const [reportTargetType, setReportTargetType] = useState<'thread' | 'reply' | null>(null);
+  const [distressOverlayVisible, setDistressOverlayVisible] = useState<boolean>(false);
+  const [abuseFilterError, setAbuseFilterError] = useState<{ field: 'title' | 'body' | 'reply'; message: string } | null>(null);
+  const [threadsCreatedLast24h, setThreadsCreatedLast24h] = useState<number>(0);
+
+  // Light client-side distress signals keywords filter (synchronized with other occurrences)
+  const distressKeywords = [
+    'suicide', 'suicider', 'mutiler', 'mutilation', 'finir mes jours', 'en finir', 'mourir',
+    'veux crever', 'veux mourir', 'auto-mutiler', 'tuer moi', 'me tuer', 'plus envie de vivre'
+  ];
+
+  const checkTextForDistress = (text: string): boolean => {
+    if (!text) return false;
+    const normalized = text.toLowerCase();
+    return distressKeywords.some(kw => normalized.includes(kw));
+  };
+
+  // Abuse detection rules (coordonnées externes, URLs multiples, insultes)
+  const countURLs = (text: string): number => {
+    const urlRegex = /https?:\/\/[^\s]+|www\.[^\s]+/gi;
+    const matches = text.match(urlRegex);
+    return matches ? matches.length : 0;
+  };
+
+  const hasShortener = (text: string): boolean => {
+    const shorteners = ['bit.ly', 'tinyurl.com', 't.co', 'goo.gl', 'ow.ly', 'is.gd', 'buff.ly', 'rebrand.ly'];
+    const lowercase = text.toLowerCase();
+    return shorteners.some(s => lowercase.includes(s));
+  };
+
+  const hasExternalContact = (text: string): boolean => {
+    // Simple phone pattern (8+ digits) or social media links/phrases
+    const phonePattern = /(?:\+?\d{1,3}[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}|\+?\d{9,13}/;
+    if (phonePattern.test(text)) return true;
+
+    const socialPatterns = [
+      'instagram.com', 'snapchat.com', 't.me/', 'discord.gg', 'facebook.com',
+      'twitter.com', 'x.com', 'add me on', 'mon snap', 'mon insta', 'mon telegram',
+      'contactez-moi sur', 'whatsapp'
+    ];
+    const lowercase = text.toLowerCase();
+    if (socialPatterns.some(pat => lowercase.includes(pat))) return true;
+
+    return false;
+  };
+
+  const abusiveTerms = ['insulte1', 'haineux1', 'spammeur', 'fdp', 'connard', 'salope', 'encule'];
+  const hasAbusiveTerms = (text: string): boolean => {
+    const lowercase = text.toLowerCase();
+    return abusiveTerms.some(term => lowercase.includes(term));
+  };
+
+  const checkForAbuse = (text: string): boolean => {
+    if (!text) return false;
+    return countURLs(text) > 2 || hasShortener(text) || hasExternalContact(text) || hasAbusiveTerms(text);
+  };
 
   // Horizontal categories for filters
   const categoriesList = [
@@ -280,6 +350,16 @@ export const ForumScreen: React.FC<ForumScreenProps> = ({
     return () => clearTimeout(delayDebounceFn);
   }, [searchQuery, scopeFilter, isSearchActive, userId]);
 
+  // Distress overlay auto-dismiss timer (10 seconds)
+  useEffect(() => {
+    if (distressOverlayVisible) {
+      const timer = setTimeout(() => {
+        setDistressOverlayVisible(false);
+      }, 10000);
+      return () => clearTimeout(timer);
+    }
+  }, [distressOverlayVisible]);
+
   // Trigger vote on thread
   const handleVoteThread = async (e: React.MouseEvent, threadId: string, isPinnedList: boolean) => {
     e.stopPropagation(); // prevent opening thread detail on click
@@ -360,7 +440,20 @@ export const ForumScreen: React.FC<ForumScreenProps> = ({
     const trimmed = replyInput.trim();
     if (!trimmed || !selectedThreadId) return;
 
+    // Check for abuse filter (blocking)
+    if (checkForAbuse(trimmed)) {
+      setAbuseFilterError({
+        field: 'reply',
+        message: "Ce message ne respecte pas les règles de la communauté (liens ou coordonnées externes non autorisés). Modifie-le pour continuer."
+      });
+      return;
+    }
+
     if (navigator.vibrate) navigator.vibrate(40); // Haptic Light
+
+    // Check for distress filter (non-blocking)
+    const isDistress = checkTextForDistress(trimmed);
+    const modStatus = isDistress ? 'needs_review' : 'approved';
 
     // Optimistic UI reply item
     const mockReply: ReplyData = {
@@ -372,11 +465,15 @@ export const ForumScreen: React.FC<ForumScreenProps> = ({
       text: trimmed,
       createdAt: new Date().toISOString(),
       voteCount: 0,
-      userHasVoted: false
+      userHasVoted: false,
+      moderationStatus: modStatus,
+      distressFlagged: isDistress,
+      reportCount: 0
     };
 
     setThreadReplies(prev => [...prev, mockReply]);
     setReplyInput('');
+    setAbuseFilterError(null);
 
     if (threadDetail) {
       setThreadDetail(prev => prev ? { ...prev, replyCount: prev.replyCount + 1 } : null);
@@ -386,7 +483,11 @@ export const ForumScreen: React.FC<ForumScreenProps> = ({
       const res = await fetch(`/api/community/${userId}/forum/threads/${selectedThreadId}/replies`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text: trimmed })
+        body: JSON.stringify({
+          text: trimmed,
+          moderationStatus: modStatus,
+          distressFlagged: isDistress
+        })
       });
 
       if (res.ok) {
@@ -394,13 +495,17 @@ export const ForumScreen: React.FC<ForumScreenProps> = ({
         fetchThreadReplies(selectedThreadId);
         // Refresh underlying thread counts
         fetchThreads();
+
+        if (isDistress) {
+          setDistressOverlayVisible(true);
+        }
       } else {
         addToast('error', "Échec de publication.");
         if (selectedThreadId) fetchThreadReplies(selectedThreadId);
       }
     } catch (err) {
       console.error(err);
-      addToast('error', "Erreur de connexion.");
+      if (selectedThreadId) fetchThreadReplies(selectedThreadId);
     }
   };
 
@@ -484,7 +589,34 @@ export const ForumScreen: React.FC<ForumScreenProps> = ({
   const handleCreateThread = async () => {
     if (!composerCategory || !composerTitle.trim() || composerBody.trim().length < 20) return;
 
+    // Check rate limit (maximum 5 threads/24h)
+    if (threadsCreatedLast24h >= 5) {
+      addToast('warning', "Tu as atteint la limite de fils pour aujourd'hui, reviens demain 🙏");
+      return;
+    }
+
+    // Check for abuse filter (blocking)
+    if (checkForAbuse(composerTitle.trim())) {
+      setAbuseFilterError({
+        field: 'title',
+        message: "Ce message ne respecte pas les règles de la communauté (liens ou coordonnées externes non autorisés). Modifie-le pour continuer."
+      });
+      return;
+    }
+
+    if (checkForAbuse(composerBody.trim())) {
+      setAbuseFilterError({
+        field: 'body',
+        message: "Ce message ne respecte pas les règles de la communauté (liens ou coordonnées externes non autorisés). Modifie-le pour continuer."
+      });
+      return;
+    }
+
     if (navigator.vibrate) navigator.vibrate(60); // Haptic Medium
+
+    // Check for distress filter (non-blocking)
+    const isDistress = checkTextForDistress(composerTitle) || checkTextForDistress(composerBody);
+    const modStatus = isDistress ? 'needs_review' : 'approved';
 
     try {
       const res = await fetch(`/api/community/${userId}/forum/threads`, {
@@ -494,7 +626,9 @@ export const ForumScreen: React.FC<ForumScreenProps> = ({
           category: composerCategory,
           title: composerTitle.trim(),
           body: composerBody.trim(),
-          scope: scopeFilter
+          scope: scopeFilter,
+          moderationStatus: modStatus,
+          distressFlagged: isDistress
         })
       });
 
@@ -502,21 +636,78 @@ export const ForumScreen: React.FC<ForumScreenProps> = ({
         const newThread = await res.json();
         addToast('success', "🏆 Nouveau fil créé avec succès !");
         
-        // Reset composer
+        // Increment thread creation count for rate-limit
+        setThreadsCreatedLast24h(prev => prev + 1);
+
+        // Reset composer & errors
         setComposerCategory(null);
         setComposerTitle('');
         setComposerBody('');
         setIsComposerOpen(false);
+        setAbuseFilterError(null);
 
         // Fetch thread list and directly navigate to new thread
         await fetchThreads();
         handleOpenThread(newThread.id);
+
+        if (isDistress) {
+          setDistressOverlayVisible(true);
+        }
       } else {
         addToast('error', "Échec de création du fil.");
       }
     } catch (err) {
       console.error(err);
       addToast('error', "Erreur réseau.");
+    }
+  };
+
+  const handleOpenReportMenu = (targetId: string, targetType: 'thread' | 'reply') => {
+    if (navigator.vibrate) navigator.vibrate(20);
+    setReportTargetId(targetId);
+    setReportTargetType(targetType);
+    setIsReportMenuOpen(true);
+  };
+
+  const submitReport = async (reason: 'spam' | 'inappropriate' | 'harassment' | 'other') => {
+    if (!reportTargetId || !reportTargetType) return;
+    if (navigator.vibrate) navigator.vibrate(30);
+
+    const apiPath = reportTargetType === 'thread'
+      ? `/api/community/${userId}/forum/threads/${reportTargetId}/report`
+      : `/api/community/${userId}/forum/replies/${reportTargetId}/report`;
+
+    try {
+      const res = await fetch(apiPath, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reason })
+      });
+
+      if (res.ok) {
+        addToast('success', "Signalement envoyé, merci de nous aider à garder cet espace sain 🙏");
+        
+        // Optimistically update or refetch
+        if (reportTargetType === 'thread') {
+          if (selectedThreadId === reportTargetId) {
+            await fetchThreadReplies(selectedThreadId);
+          }
+          await fetchThreads();
+        } else {
+          if (selectedThreadId) {
+            await fetchThreadReplies(selectedThreadId);
+          }
+        }
+      } else {
+        addToast('error', "Échec de l'envoi du signalement.");
+      }
+    } catch (err) {
+      console.error(err);
+      addToast('error', "Erreur réseau.");
+    } finally {
+      setIsReportMenuOpen(false);
+      setReportTargetId(null);
+      setReportTargetType(null);
     }
   };
 
@@ -1096,14 +1287,32 @@ const styles = StyleSheet.create({
                     {pinnedThreads.map((item) => {
                       const catInfo = categoryMap[item.category] || categoryMap.general;
                       const isSelected = selectedThreadId === item.id;
+                      const isAuthor = item.authorPseudo === 'Guerrier_Novice';
+                      const isNeedsReview = item.moderationStatus === 'needs_review' || item.moderationStatus === 'removed';
+
+                      if (isNeedsReview && !isAuthor) {
+                        return (
+                          <div key={item.id} className="bg-[#16213E]/40 border border-red-900/30 rounded-2xl p-4 flex flex-col items-center justify-center text-center py-6">
+                            <EyeOff className="w-5 h-5 text-red-400 mb-1" />
+                            <span className="text-[10px] font-bold text-red-400 uppercase tracking-wider">Contenu Masqué</span>
+                            <p className="text-[9px] text-gray-500 mt-1 max-w-[220px]">Ce message épinglé a reçu plusieurs signalements de la communauté et est en cours de révision.</p>
+                          </div>
+                        );
+                      }
+
                       return (
                         <div
                           key={item.id}
                           onClick={() => handleOpenThread(item.id)}
-                          className={`bg-[#16213E] hover:bg-[#1E2E56] border rounded-2xl p-3.5 transition-all cursor-pointer text-left ${
+                          className={`bg-[#16213E] hover:bg-[#1E2E56] border rounded-2xl p-3.5 transition-all cursor-pointer text-left relative ${
                             isSelected ? 'border-[#FFD700] ring-1 ring-[#FFD700]/30' : 'border-[#FFD700]/30 hover:border-gray-700'
                           }`}
                         >
+                          {isNeedsReview && isAuthor && (
+                            <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-2.5 mb-2.5 text-[9px] text-red-400 flex items-center gap-1.5 font-bold">
+                              <span>⚠️ Ce sujet est en cours de modération (visible uniquement par vous).</span>
+                            </div>
+                          )}
                           <div className="flex flex-wrap items-center gap-1.5 text-[8px] font-bold text-gray-400 pb-2 border-b border-gray-800/40">
                             <span className="bg-[#FFD700]/15 text-[#FFD700] px-1.5 py-0.5 rounded uppercase flex items-center gap-1 select-none">
                               <span>📌 ÉPINGLÉ</span>
@@ -1131,7 +1340,7 @@ const styles = StyleSheet.create({
                           </p>
 
                           <div className="flex items-center justify-between mt-3 pt-2.5 border-t border-gray-800/50">
-                            <div className="flex items-center gap-3">
+                            <div className="flex items-center gap-2.5">
                               <button
                                 onClick={(e) => handleVoteThread(e, item.id, true)}
                                 className="flex items-center gap-1.5 group"
@@ -1141,8 +1350,20 @@ const styles = StyleSheet.create({
                               </button>
 
                               <span className="text-[10px] text-gray-500 font-mono">
-                                💬 {item.replyCount} réponses
+                                💬 {item.replyCount}
                               </span>
+
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleOpenReportMenu(item.id, 'thread');
+                                }}
+                                className="flex items-center gap-1 hover:text-red-400 text-gray-500 transition-colors"
+                                title="Signaler ce fil"
+                              >
+                                <Flag className="w-3.5 h-3.5" />
+                                <span className="text-[9px]">Signaler</span>
+                              </button>
                             </div>
                             <span className="text-[9px] text-gray-500 italic flex items-center font-sans">
                               par {item.authorPseudo} <ReputationBadge points={item.authorReputationPoints} compact={true} /> (Lvl {item.authorLevel})
@@ -1196,14 +1417,32 @@ const styles = StyleSheet.create({
                         {searchResults.map((item) => {
                           const catInfo = categoryMap[item.category] || categoryMap.general;
                           const isSelected = selectedThreadId === item.id;
+                          const isAuthor = item.authorPseudo === 'Guerrier_Novice';
+                          const isNeedsReview = item.moderationStatus === 'needs_review' || item.moderationStatus === 'removed';
+
+                          if (isNeedsReview && !isAuthor) {
+                            return (
+                              <div key={item.id} className="bg-[#16213E]/40 border border-red-900/30 rounded-2xl p-4 flex flex-col items-center justify-center text-center py-6">
+                                <EyeOff className="w-5 h-5 text-red-400 mb-1" />
+                                <span className="text-[10px] font-bold text-red-400 uppercase tracking-wider">Contenu Masqué</span>
+                                <p className="text-[9px] text-gray-500 mt-1 max-w-[220px]">Ce message a reçu plusieurs signalements et est en cours de révision.</p>
+                              </div>
+                            );
+                          }
+
                           return (
                             <div
                               key={item.id}
                               onClick={() => handleOpenThread(item.id)}
-                              className={`bg-[#16213E] hover:bg-[#1E2E56] border rounded-2xl p-4 transition-all cursor-pointer text-left ${
+                              className={`bg-[#16213E] hover:bg-[#1E2E56] border rounded-2xl p-4 transition-all cursor-pointer text-left relative ${
                                 isSelected ? 'border-[#FFD700] ring-1 ring-[#FFD700]/30' : 'border-gray-800/80 hover:border-gray-700'
                               }`}
                             >
+                              {isNeedsReview && isAuthor && (
+                                <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-2.5 mb-2.5 text-[9px] text-red-400 flex items-center gap-1.5 font-bold">
+                                  <span>⚠️ Ce sujet est en cours de modération (visible uniquement par vous).</span>
+                                </div>
+                              )}
                               <div className="flex flex-wrap items-center gap-1.5 text-[8px] font-mono text-gray-500">
                                 <span className={`${catInfo.bg} ${catInfo.color} border px-2 py-0.5 rounded font-black uppercase whitespace-nowrap`}>
                                   {catInfo.icon} {catInfo.label}
@@ -1242,8 +1481,20 @@ const styles = StyleSheet.create({
 
                                   <span className="text-gray-400 font-sans flex items-center gap-1">
                                     <MessageCircle className="w-3.5 h-3.5 text-gray-500" />
-                                    {item.replyCount} {item.replyCount > 1 ? 'réponses' : 'réponse'}
+                                    {item.replyCount}
                                   </span>
+
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleOpenReportMenu(item.id, 'thread');
+                                    }}
+                                    className="flex items-center gap-1 hover:text-red-400 text-gray-500 transition-colors"
+                                    title="Signaler ce fil"
+                                  >
+                                    <Flag className="w-3.5 h-3.5" />
+                                    <span>Signaler</span>
+                                  </button>
                                 </div>
                               </div>
                             </div>
@@ -1269,16 +1520,33 @@ const styles = StyleSheet.create({
                       threads.map((item) => {
                         const catInfo = categoryMap[item.category] || categoryMap.general;
                         const isSelected = selectedThreadId === item.id;
+                        const isAuthor = item.authorPseudo === 'Guerrier_Novice';
+                        const isNeedsReview = item.moderationStatus === 'needs_review' || item.moderationStatus === 'removed';
                         const timeText = "il y a 2h";
+
+                        if (isNeedsReview && !isAuthor) {
+                          return (
+                            <div key={item.id} className="bg-[#16213E]/40 border border-red-900/30 rounded-2xl p-4 flex flex-col items-center justify-center text-center py-6">
+                              <EyeOff className="w-5 h-5 text-red-400 mb-1" />
+                              <span className="text-[10px] font-bold text-red-400 uppercase tracking-wider">Contenu Masqué</span>
+                              <p className="text-[9px] text-gray-500 mt-1 max-w-[220px]">Ce message a reçu plusieurs signalements de la communauté et est en cours de révision.</p>
+                            </div>
+                          );
+                        }
 
                         return (
                           <div
                             key={item.id}
                             onClick={() => handleOpenThread(item.id)}
-                            className={`bg-[#16213E] hover:bg-[#1E2E56] border rounded-2xl p-4 transition-all cursor-pointer text-left ${
+                            className={`bg-[#16213E] hover:bg-[#1E2E56] border rounded-2xl p-4 transition-all cursor-pointer text-left relative ${
                               isSelected ? 'border-[#FFD700] ring-1 ring-[#FFD700]/30' : 'border-gray-800/80 hover:border-gray-700'
                             }`}
                           >
+                            {isNeedsReview && isAuthor && (
+                              <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-2.5 mb-2.5 text-[9px] text-red-400 flex items-center gap-1.5 font-bold">
+                                <span>⚠️ Ce sujet est en cours de modération (visible uniquement par vous).</span>
+                              </div>
+                            )}
                             {/* Thread Card Header */}
                             <div className="flex flex-wrap items-center gap-1.5 text-[8px] font-mono text-gray-500">
                               <span className={`${catInfo.bg} ${catInfo.color} border px-2 py-0.5 rounded font-black uppercase whitespace-nowrap`}>
@@ -1323,8 +1591,21 @@ const styles = StyleSheet.create({
                                 {/* Reply count */}
                                 <span className="text-gray-400 font-sans flex items-center gap-1">
                                   <MessageCircle className="w-3.5 h-3.5 text-gray-500" />
-                                  {item.replyCount} {item.replyCount > 1 ? 'réponses' : 'réponse'}
+                                  {item.replyCount}
                                 </span>
+
+                                {/* Signalement */}
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleOpenReportMenu(item.id, 'thread');
+                                  }}
+                                  className="flex items-center gap-1 hover:text-red-400 text-gray-500 transition-colors"
+                                  title="Signaler ce fil"
+                                >
+                                  <Flag className="w-3.5 h-3.5" />
+                                  <span>Signaler</span>
+                                </button>
                               </div>
 
                               {/* Unanswered badge */}
@@ -1359,59 +1640,96 @@ const styles = StyleSheet.create({
         <div className="lg:col-span-4 bg-[#111124] border border-[#1C1C3A] rounded-[24px] p-5 space-y-4 text-left shadow-lg min-h-[500px] flex flex-col justify-between">
           
           {selectedThreadId && threadDetail ? (
-            <div className="flex-1 flex flex-col justify-between space-y-4 h-full">
-              
-              {/* DETAILED MESSAGE HEADER */}
-              <div className="space-y-3 flex-1 overflow-y-auto custom-scrollbar pr-1 max-h-[480px]">
-                
-                <div className="flex items-center justify-between border-b border-gray-800 pb-3">
-                  <div className="flex items-center gap-2">
-                    <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-[#FFD700]/30 to-[#FFD700]/10 border border-[#FFD700]/20 flex items-center justify-center text-[#FFD700] font-black text-xs uppercase">
-                      {threadDetail.authorPseudo[0]}
-                    </div>
-                    <div>
-                      <div className="flex items-center">
-                        <span className="text-xs font-bold text-white block">{threadDetail.authorPseudo}</span>
-                        <ReputationBadge points={threadDetail.authorReputationPoints} compact={false} />
-                      </div>
-                      <span className="text-[9px] text-[#00D9A5] block font-mono">Niveau {threadDetail.authorLevel} d'Honneur</span>
-                    </div>
-                  </div>
-                  
-                  <span className="text-[9px] text-gray-500 font-mono">il y a quelques jours</span>
-                </div>
-
-                {/* ORIGINAL BODY */}
-                <div className="space-y-2">
-                  <span className="text-[9px] bg-gray-800 text-gray-400 px-2 py-0.5 rounded uppercase font-mono tracking-widest">
-                    {(categoryMap[threadDetail.category] || categoryMap.general).label}
-                  </span>
-                  <h3 className="text-sm font-headline font-black text-white leading-normal">
-                    {threadDetail.title}
-                  </h3>
-                  <p className="text-xs text-gray-300 leading-relaxed font-sans whitespace-pre-wrap bg-[#0F0F1A] border border-gray-800/80 p-3.5 rounded-2xl">
-                    {threadDetail.body}
+            threadDetail.moderationStatus === 'needs_review' && threadDetail.authorPseudo !== 'Guerrier_Novice' ? (
+              <div className="flex-1 flex flex-col items-center justify-center text-center p-6 text-gray-500 space-y-3">
+                <EyeOff className="w-12 h-12 text-red-500/60 animate-bounce mx-auto" />
+                <div>
+                  <h4 className="text-xs font-bold text-red-400 font-headline uppercase">Sujet Temporairement Masqué</h4>
+                  <p className="text-[11px] text-gray-500 font-sans max-w-[220px] mx-auto mt-1 leading-relaxed">
+                    Ce contenu a fait l'objet de plusieurs signalements de la communauté et a été mis en attente pour examen de modération.
                   </p>
                 </div>
+              </div>
+            ) : (
+              <div className="flex-1 flex flex-col justify-between space-y-4 h-full">
+                
+                {/* DETAILED MESSAGE HEADER */}
+                <div className="space-y-3 flex-1 overflow-y-auto custom-scrollbar pr-1 max-h-[480px]">
+                  
+                  {threadDetail.moderationStatus === 'needs_review' && threadDetail.authorPseudo === 'Guerrier_Novice' && (
+                    <div className="bg-red-500/10 border border-red-500/30 rounded-2xl p-3 text-[10px] text-red-400 flex flex-col gap-1 font-semibold leading-relaxed">
+                      <span className="font-bold flex items-center gap-1.5">⚠️ Sujet en cours d'examen</span>
+                      <span>Ce sujet a été signalé par d'autres guerriers et est actuellement masqué pour eux pendant sa révision.</span>
+                    </div>
+                  )}
 
-                {/* THREAD DETAILS FOOTER ACTION */}
-                <div className="flex items-center gap-3 text-[10px] text-gray-500 font-mono py-1 border-b border-gray-800/50">
-                  <button 
-                    onClick={(e) => handleVoteThread(e, threadDetail.id, threadDetail.isPinned)}
-                    className="flex items-center gap-1.5 bg-gray-800/60 hover:bg-gray-800 px-2.5 py-1 rounded-lg transition-all"
-                  >
-                    <ChevronUp className={`w-4 h-4 ${threadDetail.userHasVoted ? 'text-[#00D9A5]' : 'text-gray-500'}`} />
-                    <span className={threadDetail.userHasVoted ? 'text-[#00D9A5] font-black' : ''}>{threadDetail.voteCount} soutiens</span>
-                  </button>
-                  <span>•</span>
-                  <span>{threadReplies.length} réponses</span>
-                </div>
+                  <div className="flex items-center justify-between border-b border-gray-800 pb-3">
+                    <div className="flex items-center gap-2">
+                      <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-[#FFD700]/30 to-[#FFD700]/10 border border-[#FFD700]/20 flex items-center justify-center text-[#FFD700] font-black text-xs uppercase">
+                        {threadDetail.authorPseudo[0]}
+                      </div>
+                      <div>
+                        <div className="flex items-center">
+                          <span className="text-xs font-bold text-white block">{threadDetail.authorPseudo}</span>
+                          <ReputationBadge points={threadDetail.authorReputationPoints} compact={false} />
+                        </div>
+                        <span className="text-[9px] text-[#00D9A5] block font-mono">Niveau {threadDetail.authorLevel} d'Honneur</span>
+                      </div>
+                    </div>
+                    
+                    <span className="text-[9px] text-gray-500 font-mono">il y a quelques jours</span>
+                  </div>
+
+                  {/* ORIGINAL BODY */}
+                  <div className="space-y-2">
+                    <span className="text-[9px] bg-gray-800 text-gray-400 px-2 py-0.5 rounded uppercase font-mono tracking-widest">
+                      {(categoryMap[threadDetail.category] || categoryMap.general).label}
+                    </span>
+                    <h3 className="text-sm font-headline font-black text-white leading-normal">
+                      {threadDetail.title}
+                    </h3>
+                    <p className="text-xs text-gray-300 leading-relaxed font-sans whitespace-pre-wrap bg-[#0F0F1A] border border-gray-800/80 p-3.5 rounded-2xl">
+                      {threadDetail.body}
+                    </p>
+                  </div>
+
+                  {/* THREAD DETAILS FOOTER ACTION */}
+                  <div className="flex items-center gap-3 text-[10px] text-gray-500 font-mono py-1 border-b border-gray-800/50">
+                    <button 
+                      onClick={(e) => handleVoteThread(e, threadDetail.id, threadDetail.isPinned)}
+                      className="flex items-center gap-1.5 bg-gray-800/60 hover:bg-gray-800 px-2.5 py-1 rounded-lg transition-all"
+                    >
+                      <ChevronUp className={`w-4 h-4 ${threadDetail.userHasVoted ? 'text-[#00D9A5]' : 'text-gray-500'}`} />
+                      <span className={threadDetail.userHasVoted ? 'text-[#00D9A5] font-black' : ''}>{threadDetail.voteCount} soutiens</span>
+                    </button>
+                    <span>•</span>
+                    <span>{threadReplies.length} réponses</span>
+                    <span>•</span>
+                    <button
+                      onClick={() => handleOpenReportMenu(threadDetail.id, 'thread')}
+                      className="flex items-center gap-1 hover:text-red-400 transition-colors"
+                      title="Signaler ce fil"
+                    >
+                      <Flag className="w-3.5 h-3.5" />
+                      <span>Signaler</span>
+                    </button>
+                  </div>
 
                 {/* REPLIES ITERATOR LIST */}
                 <div className="space-y-2.5 pt-1.5">
                   <span className="text-[10px] font-headline font-black text-[#FFD700] tracking-wider uppercase block pb-1">
                     Échanges fraternels ({threadReplies.length})
                   </span>
+
+                  {/* Bouton de simulation expert */}
+                  {selectedThreadId && threadDetail && !threadReplies.some(reply => !!reply.isExpertReply) && (
+                    <button
+                      onClick={handleSimulateExpert}
+                      className="w-full py-2 bg-[#16213E] hover:bg-[#1E2E56] text-[11px] font-bold rounded-xl text-center transition-all border border-gray-800"
+                    >
+                      🧪 Simuler une réponse d'expert sur ce fil
+                    </button>
+                  )}
 
                   {threadReplies.length === 0 ? (
                     <div className="text-center py-6 text-gray-500 italic text-[11px] font-sans">
@@ -1422,12 +1740,23 @@ const styles = StyleSheet.create({
                       {threadReplies.map((reply) => {
                         const isExpert = !!reply.isExpertReply;
                         const isBest = !!reply.isMarkedBest;
+                        const isAuthor = reply.authorPseudo === 'Guerrier_Novice';
+                        const isNeedsReview = reply.moderationStatus === 'needs_review' || reply.moderationStatus === 'removed';
                         
+                        if (isNeedsReview && !isAuthor) {
+                          return (
+                            <div key={reply.id} className="bg-[#1A1A2E]/50 border border-red-900/20 rounded-2xl p-3 flex items-center gap-3">
+                              <EyeOff className="w-4 h-4 text-red-400 shrink-0" />
+                              <span className="text-[10px] text-gray-500 italic">Réponse masquée temporairement suite à des signalements de la communauté.</span>
+                            </div>
+                          );
+                        }
+
                         let cardStyle = "bg-[#1A1A2E] border border-gray-800/80";
-                        if (isExpert) {
+                        if (isBest) {
+                          cardStyle = "bg-[rgba(0,217,165,0.08)] border-[1.5px] border-[#00D9A5] shadow-[0_0_12px_rgba(0,217,165,0.15)]";
+                        } else if (isExpert) {
                           cardStyle = "bg-[rgba(74,144,217,0.08)] border-[1.5px] border-[#4A90D9]";
-                        } else if (isBest) {
-                          cardStyle = "bg-[rgba(0,217,165,0.06)] border-[1.5px] border-[#00D9A5] shadow-[0_0_12px_rgba(0,217,165,0.15)]";
                         }
 
                         return (
@@ -1435,17 +1764,32 @@ const styles = StyleSheet.create({
                             key={reply.id}
                             className={`${cardStyle} rounded-2xl p-4 text-left space-y-2 relative transition-all duration-300`}
                           >
+                            {isNeedsReview && isAuthor && (
+                              <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-2.5 text-[9px] text-red-400 font-bold leading-relaxed">
+                                ⚠️ Votre réponse a été signalée et est actuellement invisible pour les autres membres.
+                              </div>
+                            )}
+
                             {/* Badges at the top if Expert or Best */}
-                            <div className="flex flex-wrap gap-2 pb-1">
+                            <div className="flex flex-wrap gap-[6px] pb-1 items-center">
                               {isBest && (
                                 <span className="bg-[#00D9A5]/15 text-[#00D9A5] text-[9px] font-bold uppercase px-2.5 py-1 rounded-md tracking-wider flex items-center gap-1 select-none">
                                   🏆 SOLUTION
                                 </span>
                               )}
                               {isExpert && (
-                                <span className="bg-[#4A90D9]/15 text-[#4A90D9] text-[9px] font-bold uppercase px-2.5 py-1 rounded-md tracking-wider flex items-center gap-1 select-none font-sans">
-                                  ✓ RÉPONSE D'EXPERT {reply.expertSpecialty && `· ${reply.expertSpecialty.charAt(0).toUpperCase() + reply.expertSpecialty.slice(1)}`}
-                                </span>
+                                isBest ? (
+                                  <span 
+                                    className="bg-[#4A90D9]/15 text-[#4A90D9] text-[9px] font-bold uppercase px-2.5 py-1 rounded-md tracking-wider flex items-center gap-1 select-none font-sans"
+                                    title={reply.expertSpecialty ? `Expert · ${reply.expertSpecialty.charAt(0).toUpperCase() + reply.expertSpecialty.slice(1)}` : "Expert"}
+                                  >
+                                    ✓ EXPERT
+                                  </span>
+                                ) : (
+                                  <span className="bg-[#4A90D9]/15 text-[#4A90D9] text-[9px] font-bold uppercase px-2.5 py-1 rounded-md tracking-wider flex items-center gap-1 select-none font-sans">
+                                    ✓ RÉPONSE D'EXPERT {reply.expertSpecialty && `· ${reply.expertSpecialty.charAt(0).toUpperCase() + reply.expertSpecialty.slice(1)}`}
+                                  </span>
+                                )
                               )}
                             </div>
 
@@ -1466,18 +1810,29 @@ const styles = StyleSheet.create({
 
                             {/* Reply Action Footer */}
                             <div className="flex justify-between items-center pt-2 border-t border-gray-800/40">
-                              <button
-                                onClick={() => handleVoteReply(reply.id)}
-                                className="flex items-center gap-1 group"
-                              >
-                                <ChevronUp className={`w-3.5 h-3.5 group-hover:scale-125 transition-transform ${reply.userHasVoted ? 'text-[#00D9A5] font-black' : 'text-gray-500'}`} />
-                                <span className={`text-[10px] ${reply.userHasVoted ? 'text-[#00D9A5] font-bold' : 'text-gray-400'}`}>
-                                  {reply.voteCount}
-                                </span>
-                              </button>
+                              <div className="flex items-center gap-2.5 shrink-0">
+                                <button
+                                  onClick={() => handleVoteReply(reply.id)}
+                                  className="flex items-center gap-1 group"
+                                >
+                                  <ChevronUp className={`w-3.5 h-3.5 group-hover:scale-125 transition-transform ${reply.userHasVoted ? 'text-[#00D9A5] font-black' : 'text-gray-500'}`} />
+                                  <span className={`text-[10px] ${reply.userHasVoted ? 'text-[#00D9A5] font-bold' : 'text-gray-400'}`}>
+                                    {reply.voteCount}
+                                  </span>
+                                </button>
+
+                                <button
+                                  onClick={() => handleOpenReportMenu(reply.id, 'reply')}
+                                  className="flex items-center gap-1 hover:text-red-400 text-gray-500 transition-colors text-[9px] font-bold"
+                                  title="Signaler cette réponse"
+                                >
+                                  <Flag className="w-3 h-3" />
+                                  <span>Signaler</span>
+                                </button>
+                              </div>
 
                               {/* Mark as Best / Solution button */}
-                              {!threadDetail.hasSolution && !isExpert && (
+                              {!threadDetail.hasSolution && (
                                 <div className="flex items-center gap-1.5 shrink-0">
                                   {confirmingBestAnswerFor === reply.id ? (
                                     <div className="flex items-center gap-1">
@@ -1549,6 +1904,7 @@ const styles = StyleSheet.create({
               </div>
 
             </div>
+          )
           ) : (
             <div className="flex-1 flex flex-col items-center justify-center text-center p-6 text-gray-500 space-y-3">
               <MessageSquare className="w-12 h-12 text-gray-700 animate-pulse" />
@@ -1564,6 +1920,105 @@ const styles = StyleSheet.create({
         </div>
 
       </div>
+
+      {/* MODAL DE SIGNALEMENT (REPORT DIALOG) */}
+      {isReportMenuOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+          <div className="w-full max-w-sm bg-[#111124] border border-[#1C1C3A] rounded-2xl p-5 space-y-4 shadow-2xl text-left">
+            <div className="flex items-center gap-2 text-red-400">
+              <Flag className="w-5 h-5" />
+              <h4 className="text-sm font-bold font-headline uppercase tracking-wider">Signaler ce contenu</h4>
+            </div>
+            <p className="text-[11px] text-gray-400 leading-relaxed font-sans">
+              Aidez-nous à préserver la fraternité et la bienveillance au sein de la confrérie. Quel est le motif de ce signalement ?
+            </p>
+            <div className="space-y-2">
+              {[
+                { id: 'harassment', label: 'Harcèlement ou intimidation' },
+                { id: 'inappropriate', label: 'Contenu inapproprié ou explicite' },
+                { id: 'spam', label: 'Spam, liens suspects ou publicité' },
+                { id: 'self_harm', label: 'Détresse, suicide ou automutilation' },
+                { id: 'other', label: 'Autre infraction aux règles' }
+              ].map((reason) => (
+                <button
+                  key={reason.id}
+                  onClick={() => submitReport(reason.id as any)}
+                  className="w-full text-left text-xs text-white bg-[#16213E] hover:bg-[#1E2E56] hover:text-[#00D9A5] border border-gray-800/80 px-3.5 py-2.5 rounded-xl transition-all font-sans font-medium"
+                >
+                  {reason.label}
+                </button>
+              ))}
+            </div>
+            <div className="pt-2 flex justify-end">
+              <button
+                onClick={() => {
+                  setIsReportMenuOpen(false);
+                  setReportTargetId(null);
+                  setReportTargetType(null);
+                }}
+                className="text-xs text-gray-400 hover:text-white font-mono px-3 py-1.5 transition-colors"
+              >
+                Annuler
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* OVERLAY DE SÉCURITÉ / DÉTRESSE (DISTRESS WARNING OVERLAY) */}
+      {distressOverlayVisible && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md">
+          <div className="w-full max-w-md bg-gradient-to-b from-[#1E1124] to-[#111124] border border-red-500/30 rounded-3xl p-6 space-y-5 shadow-2xl text-center relative overflow-hidden">
+            <div className="absolute top-0 inset-x-0 h-1 bg-gradient-to-r from-red-500 via-orange-500 to-yellow-500" />
+            <div className="w-12 h-12 rounded-full bg-red-500/10 border border-red-500/20 flex items-center justify-center text-red-500 mx-auto animate-pulse">
+              <Shield className="w-6 h-6" />
+            </div>
+            <div className="space-y-2">
+              <h3 className="text-base font-headline font-black text-white uppercase tracking-wide">
+                Tu n'es pas seul, mon frère 🛡️
+              </h3>
+              <p className="text-xs text-gray-300 leading-relaxed font-sans max-w-sm mx-auto">
+                La confrérie est un lieu de combat, mais aussi de soutien inconditionnel. Si tu traverses une période difficile ou que tu penses à en finir, sache qu'il existe des oreilles attentives prêtes à t'épauler sans jugement.
+              </p>
+            </div>
+
+            <div className="bg-[#0F0F1A] border border-gray-800/80 rounded-2xl p-4 space-y-2.5 text-left">
+              <div className="flex justify-between items-center border-b border-gray-800/50 pb-2">
+                <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider font-mono">📍 France (SOS Amitié)</span>
+                <span className="text-xs font-black text-red-400 font-mono">09 72 39 40 50</span>
+              </div>
+              <div className="flex justify-between items-center border-b border-gray-800/50 pb-2">
+                <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider font-mono">📍 Suicide Écoute</span>
+                <span className="text-xs font-black text-red-400 font-mono">01 45 39 40 00</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider font-mono">📞 Ligne d'Urgence Nationale</span>
+                <span className="text-xs font-black text-red-400 font-mono">31 14 (Appel Gratuit)</span>
+              </div>
+            </div>
+
+            <div className="flex flex-col sm:flex-row gap-2.5">
+              <button
+                onClick={() => {
+                  setDistressOverlayVisible(false);
+                  if (onRequestCoachChat) {
+                    onRequestCoachChat();
+                  }
+                }}
+                className="flex-1 bg-[#FFD700] hover:bg-yellow-500 text-[#0F0F1A] text-xs font-black uppercase py-3 rounded-xl transition-all shadow-md hover:shadow-yellow-500/20 flex items-center justify-center gap-1.5"
+              >
+                💬 Parler à l'I.A. Coach de crise
+              </button>
+              <button
+                onClick={() => setDistressOverlayVisible(false)}
+                className="flex-1 bg-gray-800/60 hover:bg-gray-800 text-gray-300 text-xs font-bold uppercase py-3 rounded-xl transition-colors border border-gray-700/50"
+              >
+                Fermer (10s)
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   );
