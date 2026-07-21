@@ -73,6 +73,7 @@ import { ChallengesScreen } from './screens/gamification/ChallengesScreen';
 import { BadgesScreen } from './screens/gamification/BadgesScreen';
 import { LeaderboardScreen } from './screens/gamification/LeaderboardScreen';
 import { SubscriptionScreen } from './screens/subscription/SubscriptionScreen';
+import { PromoCodesScreen } from './screens/subscription/PromoCodesScreen';
 import { SubscriptionManagementScreen } from './screens/subscription/SubscriptionManagementScreen';
 import { BillingHistoryScreen } from './screens/subscription/BillingHistoryScreen';
 import { CancelRenewScreen } from './screens/subscription/CancelRenewScreen';
@@ -110,22 +111,22 @@ export default function App() {
     setToasts((prev) => prev.filter((t) => t.id !== id));
   };
 
-  const getInitialTabFromUrl = (): 'tokens' | 'playground' | 'dashboard' | 'architecture' | 'nutrition' | 'cold' | 'rewards' | 'points' | 'clans' | 'stories' | 'chat_clan' | 'mentorship' | 'experts_live' | 'forum' | 'challenges' | 'badges' | 'leaderboard' | 'subscription' | 'subscription_mgmt' | 'billing_history' | 'cancel_renew' | 'ai_engine' | 'ai_settings' | 'ai_weekly_report' | 'ai_predictions' | 'admin_dashboard' | 'admin_moderation' | 'admin_content' | 'admin_analytics' | 'admin_ad_management' => {
+  const getInitialTabFromUrl = (): 'tokens' | 'playground' | 'dashboard' | 'architecture' | 'nutrition' | 'cold' | 'rewards' | 'points' | 'clans' | 'stories' | 'chat_clan' | 'mentorship' | 'experts_live' | 'forum' | 'challenges' | 'badges' | 'leaderboard' | 'subscription' | 'subscription_mgmt' | 'billing_history' | 'cancel_renew' | 'promo_codes' | 'ai_engine' | 'ai_settings' | 'ai_weekly_report' | 'ai_predictions' | 'admin_dashboard' | 'admin_moderation' | 'admin_content' | 'admin_analytics' | 'admin_ad_management' => {
     const path = window.location.pathname.replace(/^\//, '');
-    const validTabs = ['tokens', 'playground', 'dashboard', 'architecture', 'nutrition', 'cold', 'rewards', 'points', 'clans', 'stories', 'chat_clan', 'mentorship', 'experts_live', 'forum', 'challenges', 'badges', 'leaderboard', 'subscription', 'subscription_mgmt', 'billing_history', 'cancel_renew', 'ai_engine', 'ai_settings', 'ai_weekly_report', 'ai_predictions', 'admin_dashboard', 'admin_moderation', 'admin_content', 'admin_analytics', 'admin_ad_management'];
+    const validTabs = ['tokens', 'playground', 'dashboard', 'architecture', 'nutrition', 'cold', 'rewards', 'points', 'clans', 'stories', 'chat_clan', 'mentorship', 'experts_live', 'forum', 'challenges', 'badges', 'leaderboard', 'subscription', 'subscription_mgmt', 'billing_history', 'cancel_renew', 'promo_codes', 'ai_engine', 'ai_settings', 'ai_weekly_report', 'ai_predictions', 'admin_dashboard', 'admin_moderation', 'admin_content', 'admin_analytics', 'admin_ad_management'];
     if (validTabs.includes(path)) {
       return path as any;
     }
     return 'tokens';
   };
 
-  const [activeTab, setActiveTab] = useState<'tokens' | 'playground' | 'dashboard' | 'architecture' | 'nutrition' | 'cold' | 'rewards' | 'points' | 'clans' | 'stories' | 'chat_clan' | 'mentorship' | 'experts_live' | 'forum' | 'challenges' | 'badges' | 'leaderboard' | 'subscription' | 'subscription_mgmt' | 'billing_history' | 'cancel_renew' | 'ai_engine' | 'ai_settings' | 'ai_weekly_report' | 'ai_predictions' | 'admin_dashboard' | 'admin_moderation' | 'admin_content' | 'admin_analytics' | 'admin_ad_management'>(getInitialTabFromUrl);
+  const [activeTab, setActiveTab] = useState<'tokens' | 'playground' | 'dashboard' | 'architecture' | 'nutrition' | 'cold' | 'rewards' | 'points' | 'clans' | 'stories' | 'chat_clan' | 'mentorship' | 'experts_live' | 'forum' | 'challenges' | 'badges' | 'leaderboard' | 'subscription' | 'subscription_mgmt' | 'billing_history' | 'cancel_renew' | 'promo_codes' | 'ai_engine' | 'ai_settings' | 'ai_weekly_report' | 'ai_predictions' | 'admin_dashboard' | 'admin_moderation' | 'admin_content' | 'admin_analytics' | 'admin_ad_management'>(getInitialTabFromUrl);
   const [moderationFilter, setModerationFilter] = useState<'all' | 'stories' | 'forum' | 'chat' | 'experts'>('all');
 
   useEffect(() => {
     const handlePopState = () => {
       const path = window.location.pathname.replace(/^\//, '');
-      const validTabs = ['tokens', 'playground', 'dashboard', 'architecture', 'nutrition', 'cold', 'rewards', 'points', 'clans', 'stories', 'chat_clan', 'mentorship', 'experts_live', 'forum', 'challenges', 'badges', 'leaderboard', 'subscription', 'subscription_mgmt', 'billing_history', 'cancel_renew', 'ai_engine', 'ai_settings', 'ai_weekly_report', 'ai_predictions', 'admin_dashboard', 'admin_moderation', 'admin_content', 'admin_analytics', 'admin_ad_management'];
+      const validTabs = ['tokens', 'playground', 'dashboard', 'architecture', 'nutrition', 'cold', 'rewards', 'points', 'clans', 'stories', 'chat_clan', 'mentorship', 'experts_live', 'forum', 'challenges', 'badges', 'leaderboard', 'subscription', 'subscription_mgmt', 'billing_history', 'cancel_renew', 'promo_codes', 'ai_engine', 'ai_settings', 'ai_weekly_report', 'ai_predictions', 'admin_dashboard', 'admin_moderation', 'admin_content', 'admin_analytics', 'admin_ad_management'];
       if (validTabs.includes(path)) {
         setActiveTab(path as any);
       } else {
@@ -208,6 +209,7 @@ export default function App() {
       icon: <Crown className="w-4 h-4 text-yellow-400 fill-current" />,
       pages: [
         { id: 'subscription', label: 'Offres d\'Abonnement 👑' },
+        { id: 'promo_codes', label: 'Offres & Codes Promo 🏷️' },
       ]
     },
     {
@@ -971,6 +973,14 @@ export default function App() {
 
         {activeTab === 'subscription' && (
           <SubscriptionScreen addToast={addToast} onBack={() => setActiveTab('dashboard')} />
+        )}
+
+        {activeTab === 'promo_codes' && (
+          <PromoCodesScreen 
+            addToast={addToast} 
+            onBack={() => setActiveTab('dashboard')} 
+            onNavigateToSubscription={() => setActiveTab('subscription')}
+          />
         )}
 
         {activeTab === 'subscription_mgmt' && (

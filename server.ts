@@ -4397,6 +4397,262 @@ app.put('/api/admin/ads/protected-zones/:id', (req, res) => {
   res.json({ success: true, zone });
 });
 
+// ==========================================
+// PROMO CODES & SPECIAL OFFERS DATA & ENDPOINTS
+// ==========================================
+
+interface PromoState {
+  flashOffer: {
+    id: string;
+    title: string;
+    oldPrice: number;
+    newPrice: number;
+    timeLeftSeconds: number;
+    isActive: boolean;
+    alreadyClaimedCount: number;
+  };
+  activeOffers: {
+    id: string;
+    title: string;
+    subtitle: string;
+    type: 'BIENVENUE' | 'ANNIVERSAIRE' | 'STREAK BONUS' | 'CLAN VICTORY';
+    color: string;
+    badge: 'ACTIVE' | '48H' | 'DÉBLOQUÉ' | 'UTILISÉE';
+    isUsed: boolean;
+    usedDate: string | null;
+  }[];
+  referral: {
+    code: string;
+    invitedCount: number;
+    convertedCount: number;
+    pointsGained: number;
+    palierBonusProgress: number; // Max 4
+    palierBonusUnlocked: boolean;
+  };
+  loyaltyProgram: {
+    currentLevel: string;
+    monthsSubscribed: number;
+    nextLevel: string;
+    progressMonths: number;
+    tiers: {
+      name: string;
+      monthsRequired: number;
+      reward: string;
+      unlocked: boolean;
+    }[];
+  };
+  suggestedCodes: string[];
+}
+
+let userPromosDb: { [userId: string]: PromoState } = {};
+
+function getOrCreatePromoState(userId: string): PromoState {
+  const normalizedId = userId || 'default';
+  if (!userPromosDb[normalizedId]) {
+    userPromosDb[normalizedId] = {
+      flashOffer: {
+        id: 'flash_premium_50',
+        title: '-50% SUR PREMIUM',
+        oldPrice: 59,
+        newPrice: 29.50,
+        timeLeftSeconds: 15798, // 4h 23m 18s
+        isActive: true,
+        alreadyClaimedCount: 847
+      },
+      activeOffers: [
+        {
+          id: 'offer_welcome',
+          title: '-50% sur le 1er mois PREMIUM',
+          subtitle: 'Valable 7 jours après inscription',
+          type: 'BIENVENUE',
+          color: '#00D9A5',
+          badge: 'ACTIVE',
+          isUsed: false,
+          usedDate: null
+        },
+        {
+          id: 'offer_birthday',
+          title: '1 mois ELITE offert',
+          subtitle: 'Valable 48h',
+          type: 'ANNIVERSAIRE',
+          color: '#FFD700',
+          badge: '48H',
+          isUsed: false,
+          usedDate: null
+        },
+        {
+          id: 'offer_streak',
+          title: '30% de réduction sur ELITE',
+          subtitle: 'Débloqué après 30 jours de suite',
+          type: 'STREAK BONUS',
+          color: '#4A90D9',
+          badge: 'DÉBLOQUÉ',
+          isUsed: false,
+          usedDate: null
+        },
+        {
+          id: 'offer_clan',
+          title: '14 jours ALPHA offerts',
+          subtitle: 'Utilisée après victoire de Clan',
+          type: 'CLAN VICTORY',
+          color: '#5A5A5A',
+          badge: 'UTILISÉE',
+          isUsed: true,
+          usedDate: '2026-07-15'
+        }
+      ],
+      referral: {
+        code: 'ALPHA-WARRIOR',
+        invitedCount: 8,
+        convertedCount: 3,
+        pointsGained: 600,
+        palierBonusProgress: 3,
+        palierBonusUnlocked: false
+      },
+      loyaltyProgram: {
+        currentLevel: 'OR',
+        monthsSubscribed: 12,
+        nextLevel: 'PLATINE',
+        progressMonths: 12,
+        tiers: [
+          { name: 'BRONZE', monthsRequired: 3, reward: 'Skin Bronze', unlocked: true },
+          { name: 'ARGENT', monthsRequired: 6, reward: '+500 PTS', unlocked: true },
+          { name: 'OR', monthsRequired: 12, reward: '1 mois offert', unlocked: true },
+          { name: 'PLATINE', monthsRequired: 18, reward: 'Badge Platine', unlocked: false },
+          { name: 'DIAMANT', monthsRequired: 24, reward: 'VIP à vie', unlocked: false }
+        ]
+      },
+      suggestedCodes: ['ALPHA50', 'WARRIOR', 'KEGEL100']
+    };
+  }
+  return userPromosDb[normalizedId];
+}
+
+// GET PROMO STATE
+app.get('/api/promos/:userId', (req, res) => {
+  const { userId } = req.params;
+  const state = getOrCreatePromoState(userId);
+  res.json(state);
+});
+
+// APPLY PROMO CODE
+app.post('/api/promos/:userId/apply', (req, res) => {
+  const { userId } = req.params;
+  const { code } = req.body;
+  const state = getOrCreatePromoState(userId);
+
+  if (!code) {
+    return res.status(400).json({ error: 'Le code promo est requis.' });
+  }
+
+  const cleanCode = code.trim().toUpperCase();
+
+  if (cleanCode === 'ALPHA50') {
+    return res.json({
+      success: true,
+      discountPercent: 50,
+      rewardPoints: 0,
+      message: 'Code ALPHA50 appliqué ! Vous bénéficiez de -50% de réduction sur PREMIUM.',
+      code: cleanCode
+    });
+  } else if (cleanCode === 'WARRIOR') {
+    return res.json({
+      success: true,
+      discountPercent: 30,
+      rewardPoints: 0,
+      message: 'Code WARRIOR valide ! 30% de réduction immédiate débloquée.',
+      code: cleanCode
+    });
+  } else if (cleanCode === 'KEGEL100') {
+    state.referral.pointsGained += 100; // Simuler gain de points
+    return res.json({
+      success: true,
+      discountPercent: 0,
+      rewardPoints: 100,
+      message: 'Félicitations ! Code KEGEL100 appliqué, +100 Points ajoutés à votre Clan !',
+      code: cleanCode
+    });
+  } else {
+    return res.status(400).json({ error: 'Code promotionnel invalide ou expiré.' });
+  }
+});
+
+// LOG SHARE ACTION
+app.post('/api/promos/:userId/referral/share', (req, res) => {
+  const { userId } = req.params;
+  const state = getOrCreatePromoState(userId);
+  state.referral.invitedCount += 1;
+  res.json({
+    success: true,
+    message: 'Partage enregistré ! Votre compteur d\'invitations a été mis à jour.',
+    invitedCount: state.referral.invitedCount
+  });
+});
+
+// APPLY SPECIAL OFFER
+app.post('/api/promos/:userId/offers/:offerId/apply', (req, res) => {
+  const { userId, offerId } = req.params;
+  const state = getOrCreatePromoState(userId);
+  const offer = state.activeOffers.find(o => o.id === offerId);
+
+  if (!offer) {
+    return res.status(404).json({ error: 'Offre non trouvée.' });
+  }
+
+  if (offer.isUsed) {
+    return res.status(400).json({ error: 'Cette offre a déjà été utilisée.' });
+  }
+
+  offer.isUsed = true;
+  offer.badge = 'UTILISÉE';
+  offer.usedDate = new Date().toISOString().split('T')[0];
+
+  res.json({
+    success: true,
+    message: `L'offre "${offer.title}" a été activée avec succès !`,
+    offer
+  });
+});
+
+// SIMULATION: CONVERT A FRIEND (ADMIN SEED)
+app.post('/api/promos/:userId/simulation/convert', (req, res) => {
+  const { userId } = req.params;
+  const state = getOrCreatePromoState(userId);
+
+  // Each conversion adds 1 converted, 200 PTS, 7 days VIP progress
+  state.referral.convertedCount += 1;
+  state.referral.pointsGained += 200;
+  
+  if (state.referral.palierBonusProgress < 4) {
+    state.referral.palierBonusProgress += 1;
+    if (state.referral.palierBonusProgress === 4) {
+      state.referral.palierBonusUnlocked = true;
+    }
+  } else {
+    // If we're already at or above 4, we keep tracking overall converted but palier cap or reset can happen. 
+    // Here we will just increment palier count to show continuing milestones or keep it capped at 4.
+    // Let's cap palierBonusProgress at 4 for the VIP reward trigger visual.
+  }
+
+  res.json({
+    success: true,
+    message: 'Ami converti simulé avec succès ! +200 PTS & 7 jours Premium crédités.',
+    referral: state.referral
+  });
+});
+
+// SIMULATION: RESET PROMOS
+app.post('/api/promos/:userId/simulation/reset', (req, res) => {
+  const { userId } = req.params;
+  delete userPromosDb[userId || 'default'];
+  const state = getOrCreatePromoState(userId);
+  res.json({
+    success: true,
+    message: 'Simulation réinitialisée à l\'état d\'origine !',
+    referral: state.referral
+  });
+});
+
 // Integrate Vite middleware or static serving
 async function startServer() {
   if (process.env.NODE_ENV !== 'production') {
