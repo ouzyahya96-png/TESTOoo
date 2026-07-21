@@ -3,6 +3,7 @@ import path from 'path';
 import { createServer as createViteServer } from 'vite';
 import dotenv from 'dotenv';
 import { GoogleGenAI } from '@google/genai';
+import { EDUCATION_LESSONS } from './src/pattern_killer/educationLessons';
 
 dotenv.config();
 
@@ -2338,6 +2339,25 @@ app.get('/api/community/:userId/experts/replays/:replayId', (req, res) => {
 
 // --- Forum Module ---
 
+app.get('/api/community/crisis-resources', (req, res) => {
+  // IMPORTANT : ces valeurs sont des PLACEHOLDERS. Elles doivent être
+  // vérifiées et remplacées par une personne de confiance avec des
+  // numéros confirmés et actuellement en service pour le Maroc avant
+  // toute mise en production. Ne jamais publier cette app avec des
+  // numéros non vérifiés dans un contexte de détresse psychologique.
+  res.json({
+    resources: [
+      {
+        label: "Services d'urgence de ton pays",
+        value: "Compose le numéro d'urgence local depuis ton téléphone",
+        verified: false
+      }
+    ],
+    lastVerifiedAt: null,
+    note: "Ressources à compléter par l'équipe avant lancement public."
+  });
+});
+
 interface ThreadData {
   id: string;
   category: string;
@@ -3094,23 +3114,357 @@ app.get('/api/admin/streaks/distribution', (req, res) => {
   }
 });
 
+interface ModerationItem {
+  id: string;
+  source: 'stories' | 'forum' | 'chat' | 'experts';
+  contentType: 'thread' | 'reply' | 'message' | 'story' | 'question';
+  status: 'pending' | 'needs_review' | 'approved' | 'removed' | 'featured';
+  authorPseudo: string;
+  authorLevel: number;
+  authorStreak: number;
+  contentPreview: string;
+  contentFull: string;
+  reportCount: number;
+  reportReasons: Array<{ reason: string; count: number }>;
+  distressFlagged: boolean;
+  followedUpAt: string | null;
+  followedUpBy: string | null;
+  createdAt: string;
+  followUpNote?: string;
+}
+
+let moderationQueueDb: ModerationItem[] = [
+  {
+    id: 'mod-story-1',
+    source: 'stories',
+    contentType: 'story',
+    status: 'pending',
+    authorPseudo: 'Rachid_K',
+    authorLevel: 3,
+    authorStreak: 12,
+    contentPreview: "Jour 10 franchi ! J'ai ressenti une pulsion intense hier soir en rentrant du boulot, mais j'ai fait une séance de respiration Kegel guidée et c'est passé...",
+    contentFull: "Jour 10 franchi ! J'ai ressenti une pulsion intense hier soir en rentrant du boulot, mais j'ai fait une séance de respiration Kegel guidée et c'est passé. Mon conseil : l'application est un bouclier mental.",
+    reportCount: 0,
+    reportReasons: [],
+    distressFlagged: false,
+    followedUpAt: null,
+    followedUpBy: null,
+    createdAt: new Date(Date.now() - 3600 * 1000).toISOString()
+  },
+  {
+    id: 'mod-forum-1',
+    source: 'forum',
+    contentType: 'thread',
+    status: 'needs_review',
+    authorPseudo: 'Loup_Solitaire',
+    authorLevel: 1,
+    authorStreak: 1,
+    contentPreview: "Sujet: REGARDEZ CETTE VIDÉO POUR GUÉRIR IMMEDIATEMENT !!! Salut les gars, cliquez sur mon lien crypto-méditation pour guérir en 24h...",
+    contentFull: "Sujet: REGARDEZ CETTE VIDÉO POUR GUÉRIR IMMEDIATEMENT !!! Salut les gars, cliquez sur mon lien crypto-méditation pour guérir en 24h sans aucun effort, c'est gratuit mais vous devez vous inscrire sur le canal telegram du gourou.",
+    reportCount: 4,
+    reportReasons: [
+      { reason: 'Spam / Publicité', count: 3 },
+      { reason: 'Contenu suspect', count: 1 }
+    ],
+    distressFlagged: false,
+    followedUpAt: null,
+    followedUpBy: null,
+    createdAt: new Date(Date.now() - 4 * 3600 * 1000).toISOString()
+  },
+  {
+    id: 'mod-chat-1',
+    source: 'chat',
+    contentType: 'message',
+    status: 'needs_review',
+    authorPseudo: 'Novice_Fache',
+    authorLevel: 2,
+    authorStreak: 0,
+    contentPreview: "De toute façon ce programme sert à rien, vous êtes tous des faibles à essayer de contrôler vos corps, allez vous faire voir.",
+    contentFull: "De toute façon ce programme sert à rien, vous êtes tous des faibles à essayer de contrôler vos corps, allez vous faire voir.",
+    reportCount: 2,
+    reportReasons: [
+      { reason: 'Insultes / Toxicité', count: 2 }
+    ],
+    distressFlagged: false,
+    followedUpAt: null,
+    followedUpBy: null,
+    createdAt: new Date(Date.now() - 2 * 3600 * 1000).toISOString()
+  },
+  {
+    id: 'mod-forum-2',
+    source: 'forum',
+    contentType: 'reply',
+    status: 'needs_review',
+    authorPseudo: 'Perdu_Dans_Le_Noir',
+    authorLevel: 2,
+    authorStreak: 3,
+    contentPreview: "En réponse au guide des douches froides : C'est n'importe quoi vos douches froides ça détruit la santé et ça sert qu'aux masochistes...",
+    contentFull: "En réponse au guide des douches froides : C'est n'importe quoi vos douches froides ça détruit la santé et ça sert qu'aux masochistes. Allez plutôt acheter des pilules.",
+    reportCount: 3,
+    reportReasons: [
+      { reason: 'Harcèlement / Non respect', count: 3 }
+    ],
+    distressFlagged: false,
+    followedUpAt: null,
+    followedUpBy: null,
+    createdAt: new Date(Date.now() - 10 * 3600 * 1000).toISOString()
+  },
+  {
+    id: 'mod-experts-1',
+    source: 'experts',
+    contentType: 'question',
+    status: 'approved',
+    authorPseudo: 'Espoir_Brise',
+    authorLevel: 4,
+    authorStreak: 45,
+    contentPreview: "Je viens de rechuter après 45 jours de combat acharné... Je me sens tellement misérable, j'ai l'impression que je n'y arriverai jamais...",
+    contentFull: "Je viens de rechuter après 45 jours de combat acharné... Je me sens tellement misérable, j'ai l'impression que je n'y arriverai jamais. J'ai des idées très sombres ce soir, je ne vois plus l'intérêt de continuer à me battre si c'est pour toujours échouer.",
+    reportCount: 0,
+    reportReasons: [],
+    distressFlagged: true,
+    followedUpAt: null,
+    followedUpBy: null,
+    createdAt: new Date(Date.now() - 30 * 60000).toISOString()
+  },
+  {
+    id: 'mod-forum-3',
+    source: 'forum',
+    contentType: 'thread',
+    status: 'approved',
+    authorPseudo: 'Guerrier_Fatigue',
+    authorLevel: 5,
+    authorStreak: 120,
+    contentPreview: "Sujet: À bout de forces physiques et mentales... Mes frères, après 120 jours de pure abstinence, je traverse une phase de dépression extrême...",
+    contentFull: "Sujet: À bout de forces physiques et mentales... Mes frères, après 120 jours de pure abstinence, je traverse une phase de dépression extrême (flatline). Je pleure sans raison, j'ai envie de tout abandonner. J'ai besoin d'aide s'il vous plaît...",
+    reportCount: 0,
+    reportReasons: [],
+    distressFlagged: true,
+    followedUpAt: null,
+    followedUpBy: null,
+    createdAt: new Date(Date.now() - 120 * 60000).toISOString()
+  },
+  {
+    id: 'mod-chat-2',
+    source: 'chat',
+    contentType: 'message',
+    status: 'approved',
+    authorPseudo: 'Frere_En_Detresse',
+    authorLevel: 1,
+    authorStreak: 2,
+    contentPreview: "Je suis au bord du gouffre les gars. Ma vie est un échec complet, je gâche tout ce que je touche.",
+    contentFull: "Je suis au bord du gouffre les gars. Ma vie est un échec complet, je gâche tout ce que je touche.",
+    reportCount: 0,
+    reportReasons: [],
+    distressFlagged: true,
+    followedUpAt: null,
+    followedUpBy: null,
+    createdAt: new Date(Date.now() - 15 * 60000).toISOString()
+  }
+];
+
+let recentActionsDb = [
+  { id: 'act-mod-1', type: 'approve', text: 'Récit de Rachid_K approuvé', timestamp: 'Il y a 2 min' },
+  { id: 'act-mod-2', type: 'remove', text: 'Sujet de Loup_Solitaire retiré', timestamp: 'Il y a 10 min' }
+];
+
+// GET /api/admin/moderation/queue
+app.get('/api/admin/moderation/queue', (req, res) => {
+  try {
+    const { view, source } = req.query;
+    let filtered = [...moderationQueueDb];
+
+    if (view === 'standard') {
+      filtered = filtered.filter(item => !item.distressFlagged && (item.status === 'pending' || item.status === 'needs_review'));
+    } else if (view === 'distress') {
+      filtered = filtered.filter(item => item.distressFlagged);
+    }
+
+    if (source && source !== 'all') {
+      filtered = filtered.filter(item => item.source === source);
+    }
+
+    res.json(filtered);
+  } catch (error: any) {
+    res.status(500).json({ error: 'Failed to retrieve moderation queue', message: error.message });
+  }
+});
+
+// GET /api/admin/moderation/recent-actions
+app.get('/api/admin/moderation/recent-actions', (req, res) => {
+  res.json(recentActionsDb);
+});
+
+// POST /api/admin/moderation/:itemId/approve
+app.post('/api/admin/moderation/:itemId/approve', (req, res) => {
+  try {
+    const { itemId } = req.params;
+    const item = moderationQueueDb.find(i => i.id === itemId);
+    if (!item) {
+      return res.status(404).json({ error: 'Moderation item not found' });
+    }
+
+    item.status = 'approved';
+
+    // Propagate to stories database
+    if (item.source === 'stories') {
+      const story = storiesDb.find(s => s.id === item.id || s.id === itemId.replace('mod-', ''));
+      if (story) {
+        story.status = 'approved';
+      }
+    }
+
+    // Propagate to forum
+    if (item.source === 'forum') {
+      if (item.contentType === 'thread') {
+        const thread = threadsDb.find(t => t.id === item.id || t.id === itemId.replace('mod-', ''));
+        if (thread) {
+          thread.moderationStatus = 'approved';
+        }
+      } else if (item.contentType === 'reply') {
+        const reply = repliesDb.find(r => r.id === item.id || r.id === itemId.replace('mod-', ''));
+        if (reply) {
+          reply.moderationStatus = 'approved';
+        }
+      }
+    }
+
+    recentActionsDb.unshift({
+      id: 'act-' + Date.now(),
+      type: 'approve',
+      text: `${item.contentType === 'story' ? 'Récit' : item.contentType === 'thread' ? 'Sujet' : item.contentType === 'reply' ? 'Réponse' : 'Message'} de @${item.authorPseudo} approuvé`,
+      timestamp: 'À l\'instant'
+    });
+    if (recentActionsDb.length > 10) recentActionsDb.pop();
+
+    res.json({ success: true, item });
+  } catch (error: any) {
+    res.status(500).json({ error: 'Failed to approve moderation item', message: error.message });
+  }
+});
+
+// POST /api/admin/moderation/:itemId/feature
+app.post('/api/admin/moderation/:itemId/feature', (req, res) => {
+  try {
+    const { itemId } = req.params;
+    const item = moderationQueueDb.find(i => i.id === itemId);
+    if (!item) {
+      return res.status(404).json({ error: 'Moderation item not found' });
+    }
+
+    item.status = 'featured';
+
+    if (item.source === 'stories') {
+      const story = storiesDb.find(s => s.id === item.id || s.id === itemId.replace('mod-', ''));
+      if (story) {
+        story.status = 'featured';
+      }
+    }
+
+    recentActionsDb.unshift({
+      id: 'act-' + Date.now(),
+      type: 'feature',
+      text: `Récit de @${item.authorPseudo} mis en vedette ⭐`,
+      timestamp: 'À l\'instant'
+    });
+    if (recentActionsDb.length > 10) recentActionsDb.pop();
+
+    res.json({ success: true, item });
+  } catch (error: any) {
+    res.status(500).json({ error: 'Failed to feature moderation item', message: error.message });
+  }
+});
+
+// POST /api/admin/moderation/:itemId/remove
+app.post('/api/admin/moderation/:itemId/remove', (req, res) => {
+  try {
+    const { itemId } = req.params;
+    const { reason } = req.body;
+    const item = moderationQueueDb.find(i => i.id === itemId);
+    if (!item) {
+      return res.status(404).json({ error: 'Moderation item not found' });
+    }
+
+    item.status = 'removed';
+
+    // Propagate to stories database
+    if (item.source === 'stories') {
+      const story = storiesDb.find(s => s.id === item.id || s.id === itemId.replace('mod-', ''));
+      if (story) {
+        story.status = 'needs_review'; // hide or mark removed
+      }
+    }
+
+    // Propagate to forum
+    if (item.source === 'forum') {
+      if (item.contentType === 'thread') {
+        const thread = threadsDb.find(t => t.id === item.id || t.id === itemId.replace('mod-', ''));
+        if (thread) {
+          thread.moderationStatus = 'removed';
+        }
+      } else if (item.contentType === 'reply') {
+        const reply = repliesDb.find(r => r.id === item.id || r.id === itemId.replace('mod-', ''));
+        if (reply) {
+          reply.moderationStatus = 'removed';
+        }
+      }
+    }
+
+    recentActionsDb.unshift({
+      id: 'act-' + Date.now(),
+      type: 'remove',
+      text: `${item.contentType === 'story' ? 'Récit' : item.contentType === 'thread' ? 'Sujet' : item.contentType === 'reply' ? 'Réponse' : 'Message'} de @${item.authorPseudo} retiré: ${reason || 'Infraction à la charte'}`,
+      timestamp: 'À l\'instant'
+    });
+    if (recentActionsDb.length > 10) recentActionsDb.pop();
+
+    res.json({ success: true, item });
+  } catch (error: any) {
+    res.status(500).json({ error: 'Failed to remove moderation item', message: error.message });
+  }
+});
+
+// POST /api/admin/moderation/:itemId/follow-up
+app.post('/api/admin/moderation/:itemId/follow-up', (req, res) => {
+  try {
+    const { itemId } = req.params;
+    const { note } = req.body;
+    const item = moderationQueueDb.find(i => i.id === itemId);
+    if (!item) {
+      return res.status(404).json({ error: 'Moderation item not found' });
+    }
+
+    item.followedUpAt = new Date().toISOString();
+    item.followedUpBy = 'Général HQ';
+    item.followUpNote = note || '';
+
+    recentActionsDb.unshift({
+      id: 'act-' + Date.now(),
+      type: 'follow_up',
+      text: `Suivi détresse validé pour @${item.authorPseudo}`,
+      timestamp: 'À l\'instant'
+    });
+    if (recentActionsDb.length > 10) recentActionsDb.pop();
+
+    res.json({ success: true, item });
+  } catch (error: any) {
+    res.status(500).json({ error: 'Failed to follow-up on distress signal', message: error.message });
+  }
+});
+
 // GET /api/admin/moderation/queue-summary
 app.get('/api/admin/moderation/queue-summary', (req, res) => {
   try {
-    // Dynamic counts from existing DB arrays in server.ts
-    const storiesCount = storiesDb.filter(s => s.status === 'needs_review' || s.status === 'pending').length;
-    const forumThreadsCount = threadsDb.filter(t => t.moderationStatus === 'needs_review').length;
-    const forumRepliesCount = repliesDb.filter(r => r.moderationStatus === 'needs_review').length;
-    
-    // Simulated active counts for other modules
-    const chatReportsCount = 1; // Simulated active reported messages
-    const expertQuestionsCount = 1; // Simulated active distress questions
+    // Dynamic counts from the moderation database
+    const storiesCount = moderationQueueDb.filter(i => i.source === 'stories' && !i.distressFlagged && (i.status === 'pending' || i.status === 'needs_review')).length;
+    const forumThreadsCount = moderationQueueDb.filter(i => i.source === 'forum' && !i.distressFlagged && (i.status === 'pending' || i.status === 'needs_review')).length;
+    const chatReportsCount = moderationQueueDb.filter(i => i.source === 'chat' && !i.distressFlagged && (i.status === 'pending' || i.status === 'needs_review')).length;
+    const expertQuestionsCount = moderationQueueDb.filter(i => i.distressFlagged && !i.followedUpAt).length;
 
-    const total = storiesCount + forumThreadsCount + forumRepliesCount + chatReportsCount + expertQuestionsCount;
+    const total = storiesCount + forumThreadsCount + chatReportsCount + expertQuestionsCount;
 
     res.json({
       stories: storiesCount,
-      forumThreads: forumThreadsCount + forumRepliesCount, // Aggregate thread + reply moderation
+      forumThreads: forumThreadsCount,
       chatReports: chatReportsCount,
       expertQuestions: expertQuestionsCount,
       total: total
@@ -3143,6 +3497,904 @@ app.get('/api/admin/activity/recent', (req, res) => {
   } catch (error: any) {
     res.status(500).json({ error: 'Failed to retrieve recent activities', message: error.message });
   }
+});
+
+// ==========================================
+// IN-MEMORY DATABASES FOR CONTENT MANAGEMENT
+// ==========================================
+let lessonsAdminDb: any[] = [];
+let challengesAdminDb: any[] = [
+  {
+    id: 'chall-1',
+    title: 'Défi du Moine Solitaire',
+    description: "30 jours d'abstinence sexuelle totale et de reconconnexion mentale saine. Reconnectez-vous à l'essentiel.",
+    type: 'individual',
+    rewardPoints: 100,
+    durationDays: 30,
+    startDate: new Date().toISOString().split('T')[0],
+    active: true
+  },
+  {
+    id: 'chall-2',
+    title: 'Bataille de Respiration du Clan',
+    description: 'Atteindre collectivement 500 minutes de respiration de combat au sein du clan pour libérer l\'énergie sacrée.',
+    type: 'clan',
+    rewardPoints: 150,
+    durationDays: 7,
+    startDate: new Date().toISOString().split('T')[0],
+    active: true
+  },
+  {
+    id: 'chall-3',
+    title: 'Douche Froide d\'Acier',
+    description: 'Prendre une douche froide de 3 minutes chaque matin au réveil pour endurcir l\'esprit et le corps.',
+    type: 'individual',
+    rewardPoints: 50,
+    durationDays: 5,
+    startDate: new Date().toISOString().split('T')[0],
+    active: false
+  }
+];
+
+let expertsAdminDb: any[] = [
+  {
+    id: 'exp-1',
+    name: 'Dr. Marc-Antoine Perrin',
+    title: 'Sexologue clinicien & Andrologue',
+    specialty: 'sexologie',
+    bio: 'Sexologue clinicien & Andrologue. Spécialiste de la réactivité neuro-sexuelle.',
+    isActive: true,
+    sessionCount: 42,
+    questionCount: 156
+  },
+  {
+    id: 'exp-2',
+    name: 'Dr. Amine El Mansouri',
+    title: 'Chirurgien Urologue',
+    specialty: 'urologie',
+    bio: 'Chirurgien Urologue spécialisé en physiologie pelvienne et abstinence active.',
+    isActive: true,
+    sessionCount: 18,
+    questionCount: 92
+  },
+  {
+    id: 'exp-3',
+    name: 'Pr. Karim Benyahia',
+    title: 'Neuro-Psychiatre',
+    specialty: 'psychiatrie',
+    bio: 'Neuro-Psychiatre, chercheur sur la reconfiguration des circuits dopaminergiques.',
+    isActive: true,
+    sessionCount: 56,
+    questionCount: 312
+  },
+  {
+    id: 'exp-4',
+    name: 'Jean-Laurent Clavier',
+    title: 'Nutritionniste & Expert en endocrinologie',
+    specialty: 'nutrition',
+    bio: 'Nutritionniste & Expert en endocrinologie comportementale et optimisation hormonale.',
+    isActive: true,
+    sessionCount: 12,
+    questionCount: 45
+  }
+];
+
+// Helper to initialize lessons admin database
+function ensureLessonsInitialized() {
+  if (lessonsAdminDb.length === 0) {
+    lessonsAdminDb = EDUCATION_LESSONS.map(l => ({
+      id: l.id,
+      category: l.category,
+      categoryLabel: l.categoryLabel,
+      level: l.level,
+      title: l.title,
+      subtitle: l.subtitle,
+      durationMinutes: l.durationMinutes,
+      requiredTier: l.requiredTier,
+      rewardPoints: l.rewardPoints,
+      unlockCondition: l.unlockCondition,
+      content: l.content,
+      status: 'published'
+    }));
+  }
+}
+
+// GET /api/admin/content/lessons
+app.get('/api/admin/content/lessons', (req, res) => {
+  try {
+    ensureLessonsInitialized();
+    const { category, q } = req.query;
+    let filtered = [...lessonsAdminDb];
+
+    if (category && category !== 'all') {
+      const categoryMap: Record<string, string> = {
+        'Neuroscience': 'NEUROSCIENCE',
+        'Addiction': 'PATTERN_ADDICTION',
+        'Physiologie Kegel': 'KEGEL_PHYSIOLOGY',
+        'Vitalité': 'VITALITY_ENERGY',
+        'Confiance & Intimité': 'CONFIDENCE_INTIMACY'
+      };
+      const dbCat = categoryMap[category as string];
+      if (dbCat) {
+        filtered = filtered.filter(l => l.category === dbCat);
+      }
+    }
+
+    if (q) {
+      const searchStr = (q as string).toLowerCase();
+      filtered = filtered.filter(l => 
+        l.title.toLowerCase().includes(searchStr) || 
+        l.subtitle.toLowerCase().includes(searchStr)
+      );
+    }
+
+    res.json(filtered);
+  } catch (error: any) {
+    res.status(500).json({ error: 'Failed to retrieve lessons', message: error.message });
+  }
+});
+
+// POST /api/admin/content/lessons
+app.post('/api/admin/content/lessons', (req, res) => {
+  try {
+    ensureLessonsInitialized();
+    const { title, category, level, contentText, status, durationMinutes, rewardPoints } = req.body;
+    
+    const newLesson = {
+      id: `lesson-${Date.now()}`,
+      category: category || 'NEUROSCIENCE',
+      categoryLabel: category === 'NEUROSCIENCE' ? 'Neuroscience Fondamentale' : 
+                     category === 'PATTERN_ADDICTION' ? 'Addiction & Habitudes' :
+                     category === 'KEGEL_PHYSIOLOGY' ? 'Physiologie Kegel' :
+                     category === 'VITALITY_ENERGY' ? 'Vitalité & Énergie' : 'Confiance & Intimité',
+      level: Number(level) || 1,
+      title: title || 'Nouvelle Leçon',
+      subtitle: 'Créé via le poste de gestion de contenu',
+      durationMinutes: Number(durationMinutes) || 5,
+      requiredTier: 'FREE',
+      rewardPoints: Number(rewardPoints) || 50,
+      unlockCondition: 'none',
+      content: [
+        { type: 'header', text: title },
+        { type: 'text', text: contentText || '' }
+      ],
+      status: status || 'draft'
+    };
+
+    lessonsAdminDb.unshift(newLesson);
+    res.json({ success: true, lesson: newLesson });
+  } catch (error: any) {
+    res.status(500).json({ error: 'Failed to create lesson', message: error.message });
+  }
+});
+
+// PUT /api/admin/content/lessons/:id
+app.put('/api/admin/content/lessons/:id', (req, res) => {
+  try {
+    ensureLessonsInitialized();
+    const { id } = req.params;
+    const { title, category, level, contentText, status, durationMinutes, rewardPoints } = req.body;
+
+    const lesson = lessonsAdminDb.find(l => l.id === id);
+    if (!lesson) {
+      return res.status(404).json({ error: 'Lesson not found' });
+    }
+
+    if (title !== undefined) lesson.title = title;
+    if (category !== undefined) {
+      lesson.category = category;
+      lesson.categoryLabel = category === 'NEUROSCIENCE' ? 'Neuroscience Fondamentale' : 
+                             category === 'PATTERN_ADDICTION' ? 'Addiction & Habitudes' :
+                             category === 'KEGEL_PHYSIOLOGY' ? 'Physiologie Kegel' :
+                             category === 'VITALITY_ENERGY' ? 'Vitalité & Énergie' : 'Confiance & Intimité';
+    }
+    if (level !== undefined) lesson.level = Number(level);
+    if (durationMinutes !== undefined) lesson.durationMinutes = Number(durationMinutes);
+    if (rewardPoints !== undefined) lesson.rewardPoints = Number(rewardPoints);
+    if (contentText !== undefined) {
+      lesson.content = [
+        { type: 'header', text: lesson.title },
+        { type: 'text', text: contentText }
+      ];
+    }
+    if (status !== undefined) lesson.status = status;
+
+    res.json({ success: true, lesson });
+  } catch (error: any) {
+    res.status(500).json({ error: 'Failed to update lesson', message: error.message });
+  }
+});
+
+// DELETE /api/admin/content/lessons/:id
+app.delete('/api/admin/content/lessons/:id', (req, res) => {
+  try {
+    ensureLessonsInitialized();
+    const { id } = req.params;
+    const index = lessonsAdminDb.findIndex(l => l.id === id);
+    if (index === -1) {
+      return res.status(404).json({ error: 'Lesson not found' });
+    }
+    lessonsAdminDb.splice(index, 1);
+    res.json({ success: true });
+  } catch (error: any) {
+    res.status(500).json({ error: 'Failed to delete lesson', message: error.message });
+  }
+});
+
+// GET /api/admin/content/challenges
+app.get('/api/admin/content/challenges', (req, res) => {
+  try {
+    const { type, q } = req.query;
+    let filtered = [...challengesAdminDb];
+
+    if (type && type !== 'all') {
+      filtered = filtered.filter(c => c.type === type);
+    }
+
+    if (q) {
+      const searchStr = (q as string).toLowerCase();
+      filtered = filtered.filter(c => 
+        c.title.toLowerCase().includes(searchStr) || 
+        c.description.toLowerCase().includes(searchStr)
+      );
+    }
+
+    res.json(filtered);
+  } catch (error: any) {
+    res.status(500).json({ error: 'Failed to retrieve challenges', message: error.message });
+  }
+});
+
+// POST /api/admin/content/challenges
+app.post('/api/admin/content/challenges', (req, res) => {
+  try {
+    const { title, description, type, rewardPoints, durationDays, startDate, active } = req.body;
+    
+    const newChallenge = {
+      id: `chall-${Date.now()}`,
+      title: title || 'Nouveau Défi',
+      description: description || '',
+      type: type || 'individual',
+      rewardPoints: Number(rewardPoints) || 50,
+      durationDays: Number(durationDays) || 7,
+      startDate: startDate || new Date().toISOString().split('T')[0],
+      active: active !== undefined ? active : true
+    };
+
+    challengesAdminDb.unshift(newChallenge);
+    res.json({ success: true, challenge: newChallenge });
+  } catch (error: any) {
+    res.status(500).json({ error: 'Failed to create challenge', message: error.message });
+  }
+});
+
+// PUT /api/admin/content/challenges/:id
+app.put('/api/admin/content/challenges/:id', (req, res) => {
+  try {
+    const { id } = req.params;
+    const { title, description, type, rewardPoints, durationDays, startDate, active } = req.body;
+
+    const challenge = challengesAdminDb.find(c => c.id === id);
+    if (!challenge) {
+      return res.status(404).json({ error: 'Challenge not found' });
+    }
+
+    if (title !== undefined) challenge.title = title;
+    if (description !== undefined) challenge.description = description;
+    if (type !== undefined) challenge.type = type;
+    if (rewardPoints !== undefined) challenge.rewardPoints = Number(rewardPoints);
+    if (durationDays !== undefined) challenge.durationDays = Number(durationDays);
+    if (startDate !== undefined) challenge.startDate = startDate;
+    if (active !== undefined) challenge.active = active;
+
+    res.json({ success: true, challenge });
+  } catch (error: any) {
+    res.status(500).json({ error: 'Failed to update challenge', message: error.message });
+  }
+});
+
+// DELETE /api/admin/content/challenges/:id
+app.delete('/api/admin/content/challenges/:id', (req, res) => {
+  try {
+    const { id } = req.params;
+    const index = challengesAdminDb.findIndex(c => c.id === id);
+    if (index === -1) {
+      return res.status(404).json({ error: 'Challenge not found' });
+    }
+    challengesAdminDb.splice(index, 1);
+    res.json({ success: true });
+  } catch (error: any) {
+    res.status(500).json({ error: 'Failed to delete challenge', message: error.message });
+  }
+});
+
+// GET /api/admin/content/experts
+app.get('/api/admin/content/experts', (req, res) => {
+  try {
+    const { q } = req.query;
+    let filtered = [...expertsAdminDb];
+
+    if (q) {
+      const searchStr = (q as string).toLowerCase();
+      filtered = filtered.filter(e => 
+        e.name.toLowerCase().includes(searchStr) || 
+        e.title.toLowerCase().includes(searchStr) || 
+        e.bio.toLowerCase().includes(searchStr)
+      );
+    }
+
+    res.json(filtered);
+  } catch (error: any) {
+    res.status(500).json({ error: 'Failed to retrieve experts', message: error.message });
+  }
+});
+
+// POST /api/admin/content/experts
+app.post('/api/admin/content/experts', (req, res) => {
+  try {
+    const { name, title, specialty, bio, isActive } = req.body;
+    
+    const newExpert = {
+      id: `exp-${Date.now()}`,
+      name: name || 'Nouvel Expert',
+      title: title || 'Médecin Praticien',
+      specialty: specialty || 'urologie',
+      bio: bio || '',
+      isActive: isActive !== undefined ? isActive : true,
+      sessionCount: 0,
+      questionCount: 0
+    };
+
+    expertsAdminDb.unshift(newExpert);
+    res.json({ success: true, expert: newExpert });
+  } catch (error: any) {
+    res.status(500).json({ error: 'Failed to create expert', message: error.message });
+  }
+});
+
+// PUT /api/admin/content/experts/:id
+app.put('/api/admin/content/experts/:id', (req, res) => {
+  try {
+    const { id } = req.params;
+    const { name, title, specialty, bio, isActive } = req.body;
+
+    const expert = expertsAdminDb.find(e => e.id === id);
+    if (!expert) {
+      return res.status(404).json({ error: 'Expert not found' });
+    }
+
+    if (name !== undefined) expert.name = name;
+    if (title !== undefined) expert.title = title;
+    if (specialty !== undefined) expert.specialty = specialty;
+    if (bio !== undefined) expert.bio = bio;
+    if (isActive !== undefined) expert.isActive = isActive;
+
+    res.json({ success: true, expert });
+  } catch (error: any) {
+    res.status(500).json({ error: 'Failed to update expert', message: error.message });
+  }
+});
+
+// DELETE /api/admin/content/experts/:id
+app.delete('/api/admin/content/experts/:id', (req, res) => {
+  try {
+    const { id } = req.params;
+    const index = expertsAdminDb.findIndex(e => e.id === id);
+    if (index === -1) {
+      return res.status(404).json({ error: 'Expert not found' });
+    }
+    expertsAdminDb.splice(index, 1);
+    res.json({ success: true });
+  } catch (error: any) {
+    res.status(500).json({ error: 'Failed to delete expert', message: error.message });
+  }
+});
+
+// ==========================================
+// ADMIN ANALYTICS ENDPOINTS
+// ==========================================
+
+app.get('/api/admin/analytics/retention', (req, res) => {
+  try {
+    const period = (req.query.period as string) || '30d';
+    
+    // Scale factor based on period
+    const factor = period === '12m' ? 1.15 : period === '90d' ? 1.05 : 1.0;
+    
+    const d1 = Math.round(84 * factor * 10) / 10;
+    const d7 = Math.round(56 * factor * 10) / 10;
+    const d30 = Math.round(41 * factor * 10) / 10;
+    
+    // Cohort retention curves (days 0 to 30)
+    const cohortCurves = [
+      {
+        cohortLabel: "Cohorte 13 Juil 2026",
+        points: Array.from({ length: 31 }, (_, day) => {
+          let percent = 100 - Math.pow(day, 0.6) * 11;
+          if (day > 0) percent -= 5;
+          return { day, percentActive: Math.max(10, Math.round(percent * 10) / 10) };
+        })
+      },
+      {
+        cohortLabel: "Cohorte 06 Juil 2026",
+        points: Array.from({ length: 31 }, (_, day) => {
+          let percent = 100 - Math.pow(day, 0.6) * 11.8;
+          if (day > 0) percent -= 6;
+          return { day, percentActive: Math.max(8, Math.round(percent * 10) / 10) };
+        })
+      },
+      {
+        cohortLabel: "Cohorte 29 Juin 2026",
+        points: Array.from({ length: 31 }, (_, day) => {
+          let percent = 100 - Math.pow(day, 0.6) * 10.5;
+          if (day > 0) percent -= 4;
+          return { day, percentActive: Math.max(12, Math.round(percent * 10) / 10) };
+        })
+      }
+    ];
+
+    const pillarRetention = [
+      { pillar: 'Pattern Killer', retentionD30: 58 },
+      { pillar: 'Kegel', retentionD30: 49 },
+      { pillar: 'Communauté', retentionD30: 74 },
+      { pillar: 'Vitalité seule', retentionD30: 31 }
+    ];
+
+    const churnReasons = [
+      { reason: 'Prix trop élevé', percentage: 38, count: Math.round(45 * (period === '12m' ? 12 : period === '90d' ? 3 : 1)) },
+      { reason: 'Pas assez utilisé', percentage: 28, count: Math.round(33 * (period === '12m' ? 12 : period === '90d' ? 3 : 1)) },
+      { reason: 'Objectif atteint', percentage: 18, count: Math.round(21 * (period === '12m' ? 12 : period === '90d' ? 3 : 1)) },
+      { reason: 'Manque de fonctionnalités', percentage: 11, count: Math.round(13 * (period === '12m' ? 12 : period === '90d' ? 3 : 1)) },
+      { reason: 'Autre', percentage: 5, count: Math.round(6 * (period === '12m' ? 12 : period === '90d' ? 3 : 1)) }
+    ];
+
+    res.json({
+      d1,
+      d1Delta: 1.2,
+      d7,
+      d7Delta: 2.4,
+      d30,
+      d30Delta: 4.8,
+      cohortCurves,
+      pillarRetention,
+      churnReasons
+    });
+  } catch (error: any) {
+    res.status(500).json({ error: 'Failed to fetch retention analytics', message: error.message });
+  }
+});
+
+app.get('/api/admin/analytics/funnel', (req, res) => {
+  try {
+    const period = (req.query.period as string) || '30d';
+    const mult = period === '12m' ? 12 : period === '90d' ? 3 : 1;
+
+    const baseDownloads = 1200 * mult;
+    const onboardingCompleted = Math.round(baseDownloads * 0.82);
+    const accountCreated = Math.round(onboardingCompleted * 0.83);
+    const freeTrialActive = Math.round(accountCreated * 0.515);
+    const convertedPayant = Math.round(freeTrialActive * 0.24);
+
+    const steps = [
+      { label: 'Téléchargement', percentage: 100, count: baseDownloads },
+      { label: 'Onboarding complété', percentage: Math.round((onboardingCompleted / baseDownloads) * 100), count: onboardingCompleted },
+      { label: 'Compte créé', percentage: Math.round((accountCreated / baseDownloads) * 100), count: accountCreated },
+      { label: 'Essai/FREE actif 7 jours', percentage: Math.round((freeTrialActive / baseDownloads) * 100), count: freeTrialActive },
+      { label: 'Converti en payant', percentage: Math.round((convertedPayant / baseDownloads) * 1000) / 10, count: convertedPayant }
+    ];
+
+    const acquisitionSources = [
+      { source: 'Parrainage', percentage: 28, count: Math.round(baseDownloads * 0.28), conversionRate: 14.5 },
+      { source: 'Recherche organique', percentage: 42, count: Math.round(baseDownloads * 0.42), conversionRate: 6.2 },
+      { source: 'Réseaux sociaux', percentage: 22, count: Math.round(baseDownloads * 0.22), conversionRate: 4.8 },
+      { source: 'Autre', percentage: 8, count: Math.round(baseDownloads * 0.08), conversionRate: 3.1 }
+    ];
+
+    res.json({
+      steps,
+      acquisitionSources
+    });
+  } catch (error: any) {
+    res.status(500).json({ error: 'Failed to fetch funnel analytics', message: error.message });
+  }
+});
+
+app.get('/api/admin/analytics/revenue', (req, res) => {
+  try {
+    const period = (req.query.period as string) || '30d';
+    
+    let mrr = 18450;
+    let arpu = 185;
+    let ltv = 1110;
+    let churnRate = 4.2;
+
+    if (period === '90d') {
+      mrr = 19600;
+      arpu = 188;
+      ltv = 1140;
+      churnRate = 4.1;
+    } else if (period === '12m') {
+      mrr = 24100;
+      arpu = 195;
+      ltv = 1250;
+      churnRate = 3.8;
+    }
+
+    let mrrTrend: any[] = [];
+    if (period === '12m') {
+      const months = ['Août 25', 'Sept 25', 'Oct 25', 'Nov 25', 'Déc 25', 'Jan 26', 'Fév 26', 'Mar 26', 'Avr 26', 'Mai 26', 'Juin 26', 'Juil 26'];
+      let base = 12000;
+      mrrTrend = months.map((m, i) => {
+        base += 1000 + Math.sin(i) * 300;
+        return {
+          month: m,
+          mrr: Math.round(base),
+          mrrWithoutChurn: Math.round(base * (1 + (i * 0.015)))
+        };
+      });
+    } else if (period === '90d') {
+      const months = ['Mai 26', 'Juin 26', 'Juil 26'];
+      let base = 16000;
+      mrrTrend = months.map((m, i) => {
+        base += 1200 + Math.sin(i) * 200;
+        return {
+          month: m,
+          mrr: Math.round(base),
+          mrrWithoutChurn: Math.round(base * (1 + (i * 0.02)))
+        };
+      });
+    } else {
+      const months = ['Semaine 1', 'Semaine 2', 'Semaine 3', 'Semaine 4'];
+      let base = 17200;
+      mrrTrend = months.map((m, i) => {
+        base += 300 + Math.sin(i) * 100;
+        return {
+          month: m,
+          mrr: Math.round(base),
+          mrrWithoutChurn: Math.round(base * (1 + (i * 0.008)))
+        };
+      });
+    }
+
+    const subscriberMult = period === '12m' ? 1.5 : period === '90d' ? 1.1 : 1.0;
+    const tierBreakdown = [
+      { tier: 'BASIC', subscriberCount: Math.round(52 * subscriberMult), mrrContribution: Math.round(2548 * subscriberMult), percentage: 13.8 },
+      { tier: 'PREMIUM', subscriberCount: Math.round(34 * subscriberMult), mrrContribution: Math.round(5066 * subscriberMult), percentage: 27.5 },
+      { tier: 'ELITE', subscriberCount: Math.round(18 * subscriberMult), mrrContribution: Math.round(5382 * subscriberMult), percentage: 29.2 },
+      { tier: 'ALPHA', subscriberCount: Math.round(11 * subscriberMult), mrrContribution: Math.round(5454 * subscriberMult), percentage: 29.5 }
+    ];
+
+    res.json({
+      mrr,
+      mrrDelta: 12.4,
+      arpu,
+      arpuDelta: 2.1,
+      ltv,
+      ltvDelta: 4.5,
+      churnRate,
+      churnRateDelta: -0.8,
+      mrrTrend,
+      tierBreakdown
+    });
+  } catch (error: any) {
+    res.status(500).json({ error: 'Failed to fetch revenue analytics', message: error.message });
+  }
+});
+
+app.get('/api/admin/analytics/community', (req, res) => {
+  try {
+    const period = (req.query.period as string) || '30d';
+    const mult = period === '12m' ? 12 : period === '90d' ? 3 : 1;
+
+    // Read real databases!
+    const baseStories = storiesDb.length;
+    const baseThreads = threadsDb.length;
+    const baseMentors = currentMenteesDb.length;
+    
+    let baseChat = 0;
+    Object.values(clanMessagesDb).forEach(messages => {
+      baseChat += messages.length;
+    });
+    if (baseChat === 0) {
+      baseChat = 42;
+    }
+
+    const storiesPublished = baseStories * mult;
+    const forumThreadsCreated = baseThreads * mult;
+    const mentorshipMatches = Math.max(1, baseMentors) * mult;
+    const chatMessages = baseChat * mult;
+
+    const retentionWithCommunity = Math.min(95, 76 + (baseStories % 5));
+    const retentionWithoutCommunity = Math.max(15, 29 - (baseThreads % 4));
+
+    let moderationTrend: any[] = [];
+    if (period === '12m') {
+      const months = ['Août 25', 'Sept 25', 'Oct 25', 'Nov 25', 'Déc 25', 'Jan 26', 'Fév 26', 'Mar 26', 'Avr 26', 'Mai 26', 'Juin 26', 'Juil 26'];
+      moderationTrend = months.map((m, i) => ({
+        week: m,
+        created: Math.round(15 + Math.sin(i) * 5 + i * 0.5),
+        resolved: Math.round(14 + Math.sin(i) * 4.8 + i * 0.5)
+      }));
+    } else if (period === '90d') {
+      const weeks = ['Semaine 1', 'Semaine 2', 'Semaine 3', 'Semaine 4', 'Semaine 5', 'Semaine 6', 'Semaine 7', 'Semaine 8', 'Semaine 9', 'Semaine 10', 'Semaine 11', 'Semaine 12'];
+      moderationTrend = weeks.map((w, i) => ({
+        week: w,
+        created: Math.round(8 + Math.cos(i) * 3),
+        resolved: Math.round(7 + Math.cos(i) * 2.8)
+      }));
+    } else {
+      const weeks = ['Semaine -3', 'Semaine -2', 'Semaine -1', 'Semaine Actuelle'];
+      moderationTrend = weeks.map((w, i) => ({
+        week: w,
+        created: Math.round(6 + i * 2),
+        resolved: Math.round(5 + i * 2.1)
+      }));
+    }
+
+    res.json({
+      storiesPublished,
+      storiesDelta: 14,
+      forumThreadsCreated,
+      forumDelta: 8,
+      mentorshipMatches,
+      mentorshipDelta: 22,
+      chatMessages,
+      chatDelta: 35,
+      retentionWithCommunity,
+      retentionWithoutCommunity,
+      moderationTrend
+    });
+  } catch (error: any) {
+    res.status(500).json({ error: 'Failed to fetch community analytics', message: error.message });
+  }
+});
+
+app.get('/api/admin/analytics/export', (req, res) => {
+  try {
+    const tab = (req.query.tab as string) || 'retention';
+    const period = (req.query.period as string) || '30d';
+
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader('Content-Disposition', `attachment; filename=analytics_${tab}_${period}.csv`);
+
+    let csvContent = '';
+
+    if (tab === 'retention') {
+      csvContent = `Metrique,Valeur,Delta\nRetention J1,84%,+1.2%\nRetention J7,56%,+2.4%\nRetention J30,41%,+4.8%\n\n`;
+      csvContent += `Pilier,Retention J30\nPattern Killer,58%\nKegel,49%\nCommunaute,74%\nVitalite seule,31%\n`;
+    } else if (tab === 'funnel') {
+      csvContent = `Etape,Pourcentage,Nombre Absolu\nTéléchargement,100%,1200\nOnboarding complet,82%,984\nCompte cree,68%,816\nEssai FREE 7 jours,35%,420\nConverti en payant,8.4%,101\n`;
+    } else if (tab === 'revenue') {
+      csvContent = `Indicateur,Valeur,Delta\nMRR,18450 DH,+12.4%\nARPU,185 DH,+2.1%\nLTV estimee,1110 DH,+4.5%\nTaux de Churn,4.2%,-0.8%\n`;
+    } else {
+      csvContent = `Metrique,Valeur,Delta\nRecits publies,${storiesDb.length},+14%\nFils Forum crees,${threadsDb.length},+8%\nMises en relation Mentorat,${currentMenteesDb.length},+22%\n`;
+    }
+
+    res.send(csvContent);
+  } catch (error: any) {
+    res.status(500).json({ error: 'Failed to export analytics', message: error.message });
+  }
+});
+
+// ==========================================
+// ADMIN AD MANAGEMENT DATA & ENDPOINTS
+// ==========================================
+
+interface PlacementData {
+  id: string;
+  name: string;
+  description: string;
+  isActive: boolean;
+  type: 'RÉCOMPENSÉ' | 'INTERSTITIEL';
+  ecpm: number;
+  viewsPerDay: number;
+  fillRate: number;
+  maxDailyFrequency: number;
+  priorityNetwork: string;
+}
+
+interface NetworkData {
+  id: string;
+  name: string;
+  isActive: boolean;
+  ecpm: number;
+  fillRate: number;
+  rank: number;
+}
+
+interface RewardSettings {
+  pointsPerAd: number;
+  dailyLimit: number;
+  weekendMultiplierActive: boolean;
+  weekendMultiplierPercent: number;
+}
+
+interface ProtectedZone {
+  id: string;
+  name: string;
+  description: string;
+  isLocked: boolean;
+  isPermanent: boolean;
+}
+
+let adPlacementsDb: PlacementData[] = [
+  {
+    id: 'rewarded_video_rewards',
+    name: 'Récompense Vidéo (AdRewardsScreen)',
+    description: 'Vidéo complète, opt-in utilisateur',
+    isActive: true,
+    type: 'RÉCOMPENSÉ',
+    ecpm: 18,
+    viewsPerDay: 2300,
+    fillRate: 94,
+    maxDailyFrequency: 5,
+    priorityNetwork: 'admob'
+  },
+  {
+    id: 'interstitial_kegel_end',
+    name: 'Interstitiel Fin de Session Kegel',
+    description: 'Affiché à la complétion d\'une session d\'exercices Kegel',
+    isActive: true,
+    type: 'INTERSTITIEL',
+    ecpm: 12,
+    viewsPerDay: 1400,
+    fillRate: 89,
+    maxDailyFrequency: 3,
+    priorityNetwork: 'unity_ads'
+  },
+  {
+    id: 'interstitial_back_dashboard',
+    name: 'Interstitiel Retour Dashboard',
+    description: 'Désactivé par défaut (fréquence trop intrusive si actif par défaut)',
+    isActive: false,
+    type: 'INTERSTITIEL',
+    ecpm: 9,
+    viewsPerDay: 0,
+    fillRate: 85,
+    maxDailyFrequency: 2,
+    priorityNetwork: 'ironsource'
+  }
+];
+
+let adNetworksDb: NetworkData[] = [
+  { id: 'admob', name: 'AdMob', isActive: true, ecpm: 22, fillRate: 96, rank: 1 },
+  { id: 'unity_ads', name: 'Unity Ads', isActive: true, ecpm: 16, fillRate: 92, rank: 2 },
+  { id: 'ironsource', name: 'IronSource', isActive: true, ecpm: 14, fillRate: 88, rank: 3 }
+];
+
+let adRewardSettingsDb: RewardSettings = {
+  pointsPerAd: 50,
+  dailyLimit: 4,
+  weekendMultiplierActive: false,
+  weekendMultiplierPercent: 50
+};
+
+let adProtectedZonesDb: ProtectedZone[] = [
+  {
+    id: 'crisis_mode',
+    name: 'Mode Crise Pattern Killer',
+    description: 'CircuitObserverDiagram en context=crisis',
+    isLocked: true,
+    isPermanent: true
+  },
+  {
+    id: 'distress_overlay',
+    name: 'Overlay de détresse (Forum, Stories, Chat, Experts)',
+    description: 'Filtre de détresse identifié de la Phase 6',
+    isLocked: true,
+    isPermanent: true
+  },
+  {
+    id: 'story_composer',
+    name: 'Composer de Story pendant rédaction',
+    description: 'Évite l\'interruption cognitive en cours de rédaction d\'un récit intime',
+    isLocked: true,
+    isPermanent: false
+  },
+  {
+    id: 'mentorship_chat',
+    name: 'Chat Mentorat 1-à-1',
+    description: 'Espace d\'accompagnement confidentiel et sécurisant',
+    isLocked: true,
+    isPermanent: false
+  },
+  {
+    id: 'onboarding_first_steps',
+    name: 'Onboarding (5 premières étapes)',
+    description: 'Garantit que le nouveau guerrier comprend la proposition de valeur sans distraction',
+    isLocked: true,
+    isPermanent: false
+  }
+];
+
+// PLACEMENTS API
+app.get('/api/admin/ads/placements', (req, res) => {
+  res.json(adPlacementsDb);
+});
+
+app.put('/api/admin/ads/placements/:id', (req, res) => {
+  const { id } = req.params;
+  const placement = adPlacementsDb.find(p => p.id === id);
+  if (!placement) {
+    return res.status(404).json({ error: 'Placement not found' });
+  }
+  const { isActive, maxDailyFrequency, priorityNetwork, name, type } = req.body;
+  if (isActive !== undefined) placement.isActive = isActive;
+  if (maxDailyFrequency !== undefined) placement.maxDailyFrequency = Number(maxDailyFrequency);
+  if (priorityNetwork !== undefined) placement.priorityNetwork = priorityNetwork;
+  if (name !== undefined) placement.name = name;
+  if (type !== undefined) placement.type = type;
+  res.json({ success: true, placement });
+});
+
+// NETWORKS API
+app.get('/api/admin/ads/networks', (req, res) => {
+  res.json(adNetworksDb.sort((a, b) => a.rank - b.rank));
+});
+
+app.put('/api/admin/ads/networks/reorder', (req, res) => {
+  const { orderedIds } = req.body;
+  if (!Array.isArray(orderedIds)) {
+    return res.status(400).json({ error: 'orderedIds must be an array' });
+  }
+  orderedIds.forEach((id: string, index: number) => {
+    const net = adNetworksDb.find(n => n.id === id);
+    if (net) {
+      net.rank = index + 1;
+    }
+  });
+  res.json({ success: true, networks: adNetworksDb.sort((a, b) => a.rank - b.rank) });
+});
+
+app.get('/api/admin/ads/networks/performance', (req, res) => {
+  res.json([
+    { network: 'AdMob', ecpm: 22, fillRate: 96 },
+    { network: 'Unity Ads', ecpm: 16, fillRate: 92 },
+    { network: 'IronSource', ecpm: 14, fillRate: 88 }
+  ]);
+});
+
+// REWARDS API
+app.get('/api/admin/ads/rewards/settings', (req, res) => {
+  res.json(adRewardSettingsDb);
+});
+
+app.put('/api/admin/ads/rewards/settings', (req, res) => {
+  const { pointsPerAd, dailyLimit, weekendMultiplierActive, weekendMultiplierPercent } = req.body;
+  if (pointsPerAd !== undefined) adRewardSettingsDb.pointsPerAd = Number(pointsPerAd);
+  if (dailyLimit !== undefined) adRewardSettingsDb.dailyLimit = Number(dailyLimit);
+  if (weekendMultiplierActive !== undefined) adRewardSettingsDb.weekendMultiplierActive = Boolean(weekendMultiplierActive);
+  if (weekendMultiplierPercent !== undefined) adRewardSettingsDb.weekendMultiplierPercent = Number(weekendMultiplierPercent);
+  res.json({ success: true, settings: adRewardSettingsDb });
+});
+
+app.get('/api/admin/ads/rewards/usage', (req, res) => {
+  res.json({
+    adsWatchedToday: 1430,
+    pointsDistributedToday: 1430 * adRewardSettingsDb.pointsPerAd,
+    completionRate: 88
+  });
+});
+
+// PROTECTED ZONES API
+app.get('/api/admin/ads/protected-zones', (req, res) => {
+  res.json(adProtectedZonesDb);
+});
+
+app.put('/api/admin/ads/protected-zones/:id', (req, res) => {
+  const { id } = req.params;
+  const zone = adProtectedZonesDb.find(z => z.id === id);
+  if (!zone) {
+    return res.status(404).json({ error: 'Protected zone not found' });
+  }
+  if (zone.isPermanent) {
+    return res.status(400).json({ error: 'Protection permanente non désactivable pour préserver les personnes vulnérables' });
+  }
+  const { isLocked } = req.body;
+  if (isLocked !== undefined) {
+    zone.isLocked = Boolean(isLocked);
+  }
+  res.json({ success: true, zone });
 });
 
 // Integrate Vite middleware or static serving

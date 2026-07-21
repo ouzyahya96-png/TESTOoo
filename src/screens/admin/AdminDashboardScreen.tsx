@@ -25,9 +25,20 @@ import {
 interface AdminDashboardScreenProps {
   addToast: (type: 'success' | 'warning' | 'error' | 'info', message: string) => void;
   onBack?: () => void;
+  onNavigateToModeration?: (sourceFilter: 'all' | 'stories' | 'forum' | 'chat' | 'experts') => void;
+  onNavigateToContent?: () => void;
+  onNavigateToAnalytics?: () => void;
+  onNavigateToAdManagement?: () => void;
 }
 
-export const AdminDashboardScreen: React.FC<AdminDashboardScreenProps> = ({ addToast, onBack }) => {
+export const AdminDashboardScreen: React.FC<AdminDashboardScreenProps> = ({ 
+  addToast, 
+  onBack,
+  onNavigateToModeration,
+  onNavigateToContent,
+  onNavigateToAnalytics,
+  onNavigateToAdManagement
+}) => {
   // Access Gate Security State
   const [isUnlocked, setIsUnlocked] = useState<boolean>(() => {
     return localStorage.getItem('alpha_admin_unlocked') === 'true';
@@ -162,12 +173,30 @@ export const AdminDashboardScreen: React.FC<AdminDashboardScreenProps> = ({ addT
 
   // Click on moderation queues
   const handleModerationQueueClick = (system: string) => {
-    addToast('info', `L'outil de modération complet arrive dans le prochain module (${system}) 🛡️`);
+    if (onNavigateToModeration) {
+      if (system === 'Récits') onNavigateToModeration('stories');
+      else if (system === 'Forum') onNavigateToModeration('forum');
+      else if (system === 'Chat') onNavigateToModeration('chat');
+      else if (system === 'Experts') onNavigateToModeration('experts');
+      else onNavigateToModeration('all');
+    } else {
+      addToast('info', `L'outil de modération complet arrive dans le prochain module (${system}) 🛡️`);
+    }
   };
 
   // Click on modules cards
   const handleModuleCardClick = (moduleName: string) => {
-    addToast('info', `Le module "${moduleName}" sera disponible dans la prochaine mise à jour admin ⚙️`);
+    if (moduleName === 'Gestion de Contenu' && onNavigateToContent) {
+      onNavigateToContent();
+    } else if (moduleName === 'Modération' && onNavigateToModeration) {
+      onNavigateToModeration('all');
+    } else if (moduleName === 'Analytics' && onNavigateToAnalytics) {
+      onNavigateToAnalytics();
+    } else if (moduleName === 'Gestion Publicité' && onNavigateToAdManagement) {
+      onNavigateToAdManagement();
+    } else {
+      addToast('info', `Le module "${moduleName}" sera disponible dans la prochaine mise à jour admin ⚙️`);
+    }
   };
 
   if (!isUnlocked) {
@@ -629,10 +658,10 @@ export const AdminDashboardScreen: React.FC<AdminDashboardScreenProps> = ({ addT
               <p className="text-[10px] text-gray-400 mt-1 font-sans leading-relaxed">Leçons de combat, défis physiques, profil experts, catalogue de recettes & douches froides.</p>
             </div>
             <div className="mt-4 pt-3 border-t border-gray-800/50 flex items-center justify-between">
-              <span className="bg-[#1A1A2E] text-gray-500 text-[8px] font-mono font-bold uppercase px-2 py-0.5 rounded-md">
-                Bientôt disponible
+              <span className="bg-emerald-500/10 text-[#00D9A5] text-[8px] font-mono font-bold uppercase px-2 py-0.5 rounded-md">
+                Opérationnel
               </span>
-              <ArrowRight className="w-3.5 h-3.5 text-gray-500" />
+              <ArrowRight className="w-3.5 h-3.5 text-[#00D9A5]" />
             </div>
           </div>
 
@@ -649,10 +678,10 @@ export const AdminDashboardScreen: React.FC<AdminDashboardScreenProps> = ({ addT
               <p className="text-[10px] text-gray-400 mt-1 font-sans leading-relaxed">Gestion complète des récits, fils, chat de clans, signalements croisés et fiches de sanctions.</p>
             </div>
             <div className="mt-4 pt-3 border-t border-gray-800/50 flex items-center justify-between">
-              <span className="bg-[#1A1A2E] text-gray-500 text-[8px] font-mono font-bold uppercase px-2 py-0.5 rounded-md">
-                Bientôt disponible
+              <span className="bg-emerald-500/10 text-[#00D9A5] text-[8px] font-mono font-bold uppercase px-2 py-0.5 rounded-md">
+                Opérationnel
               </span>
-              <ArrowRight className="w-3.5 h-3.5 text-gray-500" />
+              <ArrowRight className="w-3.5 h-3.5 text-[#00D9A5]" />
             </div>
           </div>
 
@@ -669,10 +698,10 @@ export const AdminDashboardScreen: React.FC<AdminDashboardScreenProps> = ({ addT
               <p className="text-[10px] text-gray-400 mt-1 font-sans leading-relaxed">Suivi des cohortes, taux de rétention des streaks, churn d'abonnement, taux de conversion.</p>
             </div>
             <div className="mt-4 pt-3 border-t border-gray-800/50 flex items-center justify-between">
-              <span className="bg-[#1A1A2E] text-gray-500 text-[8px] font-mono font-bold uppercase px-2 py-0.5 rounded-md">
-                Bientôt disponible
+              <span className="bg-emerald-500/10 text-[#00D9A5] text-[8px] font-mono font-bold uppercase px-2 py-0.5 rounded-md">
+                Opérationnel
               </span>
-              <ArrowRight className="w-3.5 h-3.5 text-gray-500" />
+              <ArrowRight className="w-3.5 h-3.5 text-[#00D9A5]" />
             </div>
           </div>
 
@@ -689,10 +718,10 @@ export const AdminDashboardScreen: React.FC<AdminDashboardScreenProps> = ({ addT
               <p className="text-[10px] text-gray-400 mt-1 font-sans leading-relaxed">Emplacements pubs sponsorisées, seuils de récompenses en tokens, calcul de CPM et revenus.</p>
             </div>
             <div className="mt-4 pt-3 border-t border-gray-800/50 flex items-center justify-between">
-              <span className="bg-[#1A1A2E] text-gray-500 text-[8px] font-mono font-bold uppercase px-2 py-0.5 rounded-md">
-                Bientôt disponible
+              <span className="bg-emerald-500/10 text-[#00D9A5] text-[8px] font-mono font-bold uppercase px-2 py-0.5 rounded-md">
+                Opérationnel
               </span>
-              <ArrowRight className="w-3.5 h-3.5 text-gray-500" />
+              <ArrowRight className="w-3.5 h-3.5 text-[#00D9A5]" />
             </div>
           </div>
 

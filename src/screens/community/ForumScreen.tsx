@@ -194,6 +194,7 @@ export const ForumScreen: React.FC<ForumScreenProps> = ({
   const [reportTargetId, setReportTargetId] = useState<string | null>(null);
   const [reportTargetType, setReportTargetType] = useState<'thread' | 'reply' | null>(null);
   const [distressOverlayVisible, setDistressOverlayVisible] = useState<boolean>(false);
+  const [crisisResources, setCrisisResources] = useState<{ label: string; value: string; verified: boolean }[]>([]);
   const [abuseFilterError, setAbuseFilterError] = useState<{ field: 'title' | 'body' | 'reply'; message: string } | null>(null);
   const [threadsCreatedLast24h, setThreadsCreatedLast24h] = useState<number>(0);
 
@@ -360,6 +361,32 @@ export const ForumScreen: React.FC<ForumScreenProps> = ({
     }
   }, [distressOverlayVisible]);
 
+  // Load crisis resources from the server dynamically when the overlay opens
+  useEffect(() => {
+    if (distressOverlayVisible && crisisResources.length === 0) {
+      fetch('/api/community/crisis-resources')
+        .then(res => {
+          if (res.ok) return res.json();
+          throw new Error('Failed to fetch crisis resources');
+        })
+        .then(data => {
+          if (data && data.resources) {
+            setCrisisResources(data.resources);
+          }
+        })
+        .catch(err => {
+          console.error("Error fetching crisis resources:", err);
+          setCrisisResources([
+            {
+              label: "Services d'urgence de ton pays",
+              value: "Compose le numéro d'urgence local depuis ton téléphone",
+              verified: false
+            }
+          ]);
+        });
+    }
+  }, [distressOverlayVisible, crisisResources.length]);
+
   // Trigger vote on thread
   const handleVoteThread = async (e: React.MouseEvent, threadId: string, isPinnedList: boolean) => {
     e.stopPropagation(); // prevent opening thread detail on click
@@ -453,7 +480,7 @@ export const ForumScreen: React.FC<ForumScreenProps> = ({
 
     // Check for distress filter (non-blocking)
     const isDistress = checkTextForDistress(trimmed);
-    const modStatus = isDistress ? 'needs_review' : 'approved';
+    const modStatus = 'approved';
 
     // Optimistic UI reply item
     const mockReply: ReplyData = {
@@ -616,7 +643,7 @@ export const ForumScreen: React.FC<ForumScreenProps> = ({
 
     // Check for distress filter (non-blocking)
     const isDistress = checkTextForDistress(composerTitle) || checkTextForDistress(composerBody);
-    const modStatus = isDistress ? 'needs_review' : 'approved';
+    const modStatus = 'approved';
 
     try {
       const res = await fetch(`/api/community/${userId}/forum/threads`, {
@@ -1983,18 +2010,33 @@ const styles = StyleSheet.create({
             </div>
 
             <div className="bg-[#0F0F1A] border border-gray-800/80 rounded-2xl p-4 space-y-2.5 text-left">
-              <div className="flex justify-between items-center border-b border-gray-800/50 pb-2">
-                <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider font-mono">📍 France (SOS Amitié)</span>
-                <span className="text-xs font-black text-red-400 font-mono">09 72 39 40 50</span>
-              </div>
-              <div className="flex justify-between items-center border-b border-gray-800/50 pb-2">
-                <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider font-mono">📍 Suicide Écoute</span>
-                <span className="text-xs font-black text-red-400 font-mono">01 45 39 40 00</span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider font-mono">📞 Ligne d'Urgence Nationale</span>
-                <span className="text-xs font-black text-red-400 font-mono">31 14 (Appel Gratuit)</span>
-              </div>
+              {crisisResources.length === 0 ? (
+                <div className="text-[10px] text-gray-500 font-mono py-1 animate-pulse text-center">
+                  Chargement des ressources d'assistance...
+                </div>
+              ) : (
+                crisisResources.map((res, index) => (
+                  <div 
+                    key={index} 
+                    className={`flex justify-between items-center ${index < crisisResources.length - 1 ? 'border-b border-gray-800/50 pb-2' : ''}`}
+                  >
+                    <div className="flex items-center gap-1.5 min-w-0">
+                      <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider font-mono truncate">
+                        📍 {res.label}
+                      </span>
+                      {!res.verified && (
+                        <HelpCircle 
+                          className="w-3.5 h-3.5 text-yellow-500 shrink-0" 
+                          title="Non vérifié - Espace de test"
+                        />
+                      )}
+                    </div>
+                    <span className="text-xs font-black text-red-400 font-mono shrink-0 ml-2">
+                      {res.value}
+                    </span>
+                  </div>
+                ))
+              )}
             </div>
 
             <div className="flex flex-col sm:flex-row gap-2.5">

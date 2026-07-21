@@ -84,6 +84,10 @@ import { MentorshipScreen } from './screens/community/MentorshipScreen';
 import { ExpertsLiveScreen } from './screens/community/ExpertsLiveScreen';
 import { ForumScreen } from './screens/community/ForumScreen';
 import { AdminDashboardScreen } from './screens/admin/AdminDashboardScreen';
+import { ModerationScreen } from './screens/admin/ModerationScreen';
+import { ContentManagementScreen } from './screens/admin/ContentManagementScreen';
+import { AnalyticsScreen } from './screens/admin/AnalyticsScreen';
+import { AdManagementScreen } from './screens/admin/AdManagementScreen';
 
 import { TokensTab } from './screens/dashboard/TokensTab';
 import { PlaygroundTab } from './screens/dashboard/PlaygroundTab';
@@ -106,21 +110,22 @@ export default function App() {
     setToasts((prev) => prev.filter((t) => t.id !== id));
   };
 
-  const getInitialTabFromUrl = (): 'tokens' | 'playground' | 'dashboard' | 'architecture' | 'nutrition' | 'cold' | 'rewards' | 'points' | 'clans' | 'stories' | 'chat_clan' | 'mentorship' | 'experts_live' | 'forum' | 'challenges' | 'badges' | 'leaderboard' | 'subscription' | 'subscription_mgmt' | 'billing_history' | 'cancel_renew' | 'ai_engine' | 'ai_settings' | 'ai_weekly_report' | 'ai_predictions' | 'admin_dashboard' => {
+  const getInitialTabFromUrl = (): 'tokens' | 'playground' | 'dashboard' | 'architecture' | 'nutrition' | 'cold' | 'rewards' | 'points' | 'clans' | 'stories' | 'chat_clan' | 'mentorship' | 'experts_live' | 'forum' | 'challenges' | 'badges' | 'leaderboard' | 'subscription' | 'subscription_mgmt' | 'billing_history' | 'cancel_renew' | 'ai_engine' | 'ai_settings' | 'ai_weekly_report' | 'ai_predictions' | 'admin_dashboard' | 'admin_moderation' | 'admin_content' | 'admin_analytics' | 'admin_ad_management' => {
     const path = window.location.pathname.replace(/^\//, '');
-    const validTabs = ['tokens', 'playground', 'dashboard', 'architecture', 'nutrition', 'cold', 'rewards', 'points', 'clans', 'stories', 'chat_clan', 'mentorship', 'experts_live', 'forum', 'challenges', 'badges', 'leaderboard', 'subscription', 'subscription_mgmt', 'billing_history', 'cancel_renew', 'ai_engine', 'ai_settings', 'ai_weekly_report', 'ai_predictions', 'admin_dashboard'];
+    const validTabs = ['tokens', 'playground', 'dashboard', 'architecture', 'nutrition', 'cold', 'rewards', 'points', 'clans', 'stories', 'chat_clan', 'mentorship', 'experts_live', 'forum', 'challenges', 'badges', 'leaderboard', 'subscription', 'subscription_mgmt', 'billing_history', 'cancel_renew', 'ai_engine', 'ai_settings', 'ai_weekly_report', 'ai_predictions', 'admin_dashboard', 'admin_moderation', 'admin_content', 'admin_analytics', 'admin_ad_management'];
     if (validTabs.includes(path)) {
       return path as any;
     }
     return 'tokens';
   };
 
-  const [activeTab, setActiveTab] = useState<'tokens' | 'playground' | 'dashboard' | 'architecture' | 'nutrition' | 'cold' | 'rewards' | 'points' | 'clans' | 'stories' | 'chat_clan' | 'mentorship' | 'experts_live' | 'forum' | 'challenges' | 'badges' | 'leaderboard' | 'subscription' | 'subscription_mgmt' | 'billing_history' | 'cancel_renew' | 'ai_engine' | 'ai_settings' | 'ai_weekly_report' | 'ai_predictions' | 'admin_dashboard'>(getInitialTabFromUrl);
+  const [activeTab, setActiveTab] = useState<'tokens' | 'playground' | 'dashboard' | 'architecture' | 'nutrition' | 'cold' | 'rewards' | 'points' | 'clans' | 'stories' | 'chat_clan' | 'mentorship' | 'experts_live' | 'forum' | 'challenges' | 'badges' | 'leaderboard' | 'subscription' | 'subscription_mgmt' | 'billing_history' | 'cancel_renew' | 'ai_engine' | 'ai_settings' | 'ai_weekly_report' | 'ai_predictions' | 'admin_dashboard' | 'admin_moderation' | 'admin_content' | 'admin_analytics' | 'admin_ad_management'>(getInitialTabFromUrl);
+  const [moderationFilter, setModerationFilter] = useState<'all' | 'stories' | 'forum' | 'chat' | 'experts'>('all');
 
   useEffect(() => {
     const handlePopState = () => {
       const path = window.location.pathname.replace(/^\//, '');
-      const validTabs = ['tokens', 'playground', 'dashboard', 'architecture', 'nutrition', 'cold', 'rewards', 'points', 'clans', 'stories', 'chat_clan', 'mentorship', 'experts_live', 'forum', 'challenges', 'badges', 'leaderboard', 'subscription', 'subscription_mgmt', 'billing_history', 'cancel_renew', 'ai_engine', 'ai_settings', 'ai_weekly_report', 'ai_predictions', 'admin_dashboard'];
+      const validTabs = ['tokens', 'playground', 'dashboard', 'architecture', 'nutrition', 'cold', 'rewards', 'points', 'clans', 'stories', 'chat_clan', 'mentorship', 'experts_live', 'forum', 'challenges', 'badges', 'leaderboard', 'subscription', 'subscription_mgmt', 'billing_history', 'cancel_renew', 'ai_engine', 'ai_settings', 'ai_weekly_report', 'ai_predictions', 'admin_dashboard', 'admin_moderation', 'admin_content', 'admin_analytics', 'admin_ad_management'];
       if (validTabs.includes(path)) {
         setActiveTab(path as any);
       } else {
@@ -1029,6 +1034,42 @@ export default function App() {
           <AdminDashboardScreen 
             addToast={addToast}
             onBack={() => setActiveTab('dashboard')}
+            onNavigateToModeration={(filter) => {
+              setModerationFilter(filter);
+              setActiveTab('admin_moderation');
+            }}
+            onNavigateToContent={() => setActiveTab('admin_content')}
+            onNavigateToAnalytics={() => setActiveTab('admin_analytics')}
+            onNavigateToAdManagement={() => setActiveTab('admin_ad_management')}
+          />
+        )}
+
+        {activeTab === 'admin_moderation' && (
+          <ModerationScreen
+            addToast={addToast}
+            onBack={() => setActiveTab('admin_dashboard')}
+            initialSourceFilter={moderationFilter}
+          />
+        )}
+
+        {activeTab === 'admin_content' && (
+          <ContentManagementScreen
+            addToast={addToast}
+            onBack={() => setActiveTab('admin_dashboard')}
+          />
+        )}
+
+        {activeTab === 'admin_analytics' && (
+          <AnalyticsScreen
+            addToast={addToast}
+            onBack={() => setActiveTab('admin_dashboard')}
+          />
+        )}
+
+        {activeTab === 'admin_ad_management' && (
+          <AdManagementScreen
+            addToast={addToast}
+            onBack={() => setActiveTab('admin_dashboard')}
           />
         )}
 
