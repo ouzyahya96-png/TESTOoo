@@ -18,6 +18,8 @@ enum Gender {
   PREFER_NOT_TO_SAY
 }
 
+// NOTE: Le tier 'BASIC' n'existe pas côté DB. Selon la décision produit à trancher,
+// il devra être mappé vers FREE ou PREMIUM.
 enum SubscriptionTier {
   FREE
   PREMIUM

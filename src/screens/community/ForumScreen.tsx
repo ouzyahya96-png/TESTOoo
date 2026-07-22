@@ -329,6 +329,15 @@ export const ForumScreen: React.FC<ForumScreenProps> = ({
     };
   }, [fetchThreads]);
 
+  useEffect(() => {
+    return () => {
+      if (countdownTimer.current) {
+        clearInterval(countdownTimer.current);
+        countdownTimer.current = null;
+      }
+    };
+  }, []);
+
   // Search trigger with 300ms debounce
   useEffect(() => {
     if (!isSearchActive || searchQuery.trim() === '') {

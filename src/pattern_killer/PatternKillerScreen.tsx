@@ -37,7 +37,69 @@ interface PatternFactors {
   locationRisk: number;
 }
 
-export default function PatternKillerScreen() {
+export default function PatternKillerScreen({ userId = 'ALPHA_SOLDIER_1' }: { userId?: string } = {}) {
+  const userLanguage = localStorage.getItem('alpha-language') || localStorage.getItem('alpha-user-language') || 'fr';
+  // AI Settings State for urge surf
+  const [settingsUrgeSurfSeconds, setSettingsUrgeSurfSeconds] = useState<number>(90);
+  const [hasCompletedCircuitSimulation, setHasCompletedCircuitSimulation] = useState<boolean>(false);
+  const [fullSettings, setFullSettings] = useState<any>(null);
+
+  useEffect(() => {
+    const fetchSettings = async () => {
+      try {
+        const res = await fetch(`/api/ai-engine/${userId}/settings`);
+        if (res.ok) {
+          const data = await res.json();
+          if (data?.settings) {
+            setFullSettings(data.settings);
+            if (data.settings.urgeSurfDurationSeconds !== undefined) {
+              setSettingsUrgeSurfSeconds(Number(data.settings.urgeSurfDurationSeconds));
+            } else if (data.settings.urgeSurfDuration !== undefined) {
+              setSettingsUrgeSurfSeconds(Number(data.settings.urgeSurfDuration));
+            }
+            if (data.settings.hasCompletedCircuitSimulation !== undefined) {
+              setHasCompletedCircuitSimulation(!!data.settings.hasCompletedCircuitSimulation);
+            }
+          }
+        }
+      } catch (err) {
+        console.error('Failed to fetch settings in PatternKillerScreen:', err);
+      }
+    };
+    fetchSettings();
+  }, [userId]);
+
+  const handleSimulationComplete = async (choice: 'automatic' | 'observe', wasFirstTime: boolean) => {
+    if (wasFirstTime) {
+      try {
+        const updatedSettings = fullSettings ? { ...fullSettings, hasCompletedCircuitSimulation: true } : {
+          coachTone: 'spartan',
+          notificationFrequency: 'smart',
+          sensitivity: 'moderate',
+          urgeSurfDurationSeconds: settingsUrgeSurfSeconds,
+          hasCompletedCircuitSimulation: true,
+          permissions: {
+            contractile: true,
+            sleep: true,
+            stress: true,
+            screenTime: true,
+            urges: true,
+            coldExposure: true
+          }
+        };
+        setHasCompletedCircuitSimulation(true);
+        setFullSettings(updatedSettings);
+        await fetch(`/api/ai-engine/${userId}/settings`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ settings: updatedSettings })
+        });
+      } catch (err) {
+        console.error('Failed to update settings in PatternKillerScreen:', err);
+      }
+    }
+  };
+
   // 1. Factors State
   const [factors, setFactors] = useState<PatternFactors>({
     timeOfDay: 21, // 9 PM
@@ -400,7 +462,10 @@ export default function PatternKillerScreen() {
             mode="personal"
             context="crisis"
             embedded={true}
-            urgeSurfDurationSeconds={90}
+            isRTL={userLanguage === 'ar'}
+            urgeSurfDurationSeconds={settingsUrgeSurfSeconds}
+            isFirstSimulationCompletion={!hasCompletedCircuitSimulation}
+            onSimulationComplete={handleSimulationComplete}
             onUrgeSurfComplete={(outcome) => {
               if (outcome === 'resisted') {
                 handleResisted();

@@ -10,6 +10,8 @@ dotenv.config();
 const app = express();
 const PORT = 3000;
 
+const FORUM_REPORT_THRESHOLD = 3;
+
 app.use(express.json());
 
 // Initialize Gemini Client
@@ -634,6 +636,7 @@ let serverSettings: Record<string, any> = {
     notificationFrequency: 'smart',
     sensitivity: 'moderate',
     urgeSurfDurationSeconds: 90,
+    hasCompletedCircuitSimulation: false,
     permissions: {
       contractile: true,
       sleep: true,
@@ -653,6 +656,7 @@ app.get('/api/ai-engine/:userId/settings', (req, res) => {
       notificationFrequency: 'smart',
       sensitivity: 'moderate',
       urgeSurfDurationSeconds: 90,
+      hasCompletedCircuitSimulation: false,
       permissions: {
         contractile: true,
         sleep: true,
@@ -812,7 +816,8 @@ app.get('/api/ai-engine/:userId', (req, res) => {
         avgSleepQuality: 85,
         sessionsCompleted: 11,
         sessionsTotal: 12,
-        activeUrgesResisted: 9
+        activeUrgesResisted: 9,
+        relapseCount: 2
       },
       modelTransparency: {
         dataPoints: [
@@ -1313,6 +1318,7 @@ app.post('/api/ai-engine/:userId/chat', async (req, res) => {
 
 interface StoryCardData {
   id: string;
+  authorId?: string;
   authorPseudo: string;
   authorLevel: number;
   milestoneDay: number;
@@ -1320,8 +1326,10 @@ interface StoryCardData {
   answers: { hardest: string; whatChanged: string; advice: string };
   helpedCount: number;
   userHasReactedHelped: boolean;
+  reactedByUserIds: string[];
   commentCount: number;
   status: 'pending' | 'approved' | 'featured' | 'needs_review';
+  reportedByUserIds: string[];
   createdAt: string;
   clanId: string;
 }
@@ -1349,8 +1357,10 @@ let storiesDb: StoryCardData[] = [
     },
     helpedCount: 38,
     userHasReactedHelped: false,
+    reactedByUserIds: [],
     commentCount: 4,
     status: 'featured',
+    reportedByUserIds: [],
     createdAt: new Date(Date.now() - 3 * 24 * 3600 * 1000).toISOString(),
     clanId: 'clan-1'
   },
@@ -1367,8 +1377,10 @@ let storiesDb: StoryCardData[] = [
     },
     helpedCount: 64,
     userHasReactedHelped: false,
+    reactedByUserIds: [],
     commentCount: 2,
     status: 'approved',
+    reportedByUserIds: [],
     createdAt: new Date(Date.now() - 5 * 24 * 3600 * 1000).toISOString(),
     clanId: 'clan-1'
   },
@@ -1385,8 +1397,10 @@ let storiesDb: StoryCardData[] = [
     },
     helpedCount: 19,
     userHasReactedHelped: false,
+    reactedByUserIds: [],
     commentCount: 0,
     status: 'approved',
+    reportedByUserIds: [],
     createdAt: new Date(Date.now() - 1 * 24 * 3600 * 1000).toISOString(),
     clanId: 'clan-1'
   },
@@ -1403,8 +1417,10 @@ let storiesDb: StoryCardData[] = [
     },
     helpedCount: 27,
     userHasReactedHelped: false,
+    reactedByUserIds: [],
     commentCount: 1,
     status: 'approved',
+    reportedByUserIds: [],
     createdAt: new Date(Date.now() - 6 * 24 * 3600 * 1000).toISOString(),
     clanId: 'clan-2'
   }
@@ -1448,9 +1464,20 @@ function detectAcuteDistress(text: string): boolean {
   return distressKeywords.some(keyword => normalized.includes(keyword));
 }
 
+// Helper to enrich story with extra calculated fields
+function enrichStory(s: StoryCardData, userId?: string) {
+  const currentUserId = userId || 'ALPHA_SOLDIER_1';
+  return {
+    ...s,
+    userHasReactedHelped: (s.reactedByUserIds || []).includes(currentUserId),
+    userHasReported: (s.reportedByUserIds || []).includes(currentUserId)
+  };
+}
+
 // GET all stories
 app.get('/api/community/:userId/stories', (req, res) => {
   try {
+    const { userId } = req.params;
     const { scope, clanId } = req.query;
     let filtered = [...storiesDb];
 
@@ -1467,7 +1494,7 @@ app.get('/api/community/:userId/stories', (req, res) => {
     // Sort by creation date (newest first)
     filtered.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
-    res.json(filtered);
+    res.json(filtered.map(s => enrichStory(s, userId)));
   } catch (error: any) {
     res.status(500).json({ error: 'Failed to fetch stories', message: error.message });
   }
@@ -1476,9 +1503,10 @@ app.get('/api/community/:userId/stories', (req, res) => {
 // GET user's pending story
 app.get('/api/community/:userId/stories/mine/pending', (req, res) => {
   try {
+    const { userId } = req.params;
     // Return a pending story if exists (hardcoded check or match)
-    const pending = storiesDb.find(s => s.authorPseudo === 'Moi' && (s.status === 'pending' || s.status === 'needs_review'));
-    res.json(pending || null);
+    const pending = storiesDb.find(s => (s.authorId === userId || s.authorPseudo === 'Moi') && (s.status === 'pending' || s.status === 'needs_review'));
+    res.json(pending ? enrichStory(pending, userId) : null);
   } catch (error: any) {
     res.status(500).json({ error: 'Failed to fetch pending story', message: error.message });
   }
@@ -1487,8 +1515,9 @@ app.get('/api/community/:userId/stories/mine/pending', (req, res) => {
 // GET story of the week
 app.get('/api/community/:userId/stories/featured', (req, res) => {
   try {
+    const { userId } = req.params;
     const featured = storiesDb.find(s => s.status === 'featured') || storiesDb[0];
-    res.json(featured);
+    res.json(featured ? enrichStory(featured, userId) : null);
   } catch (error: any) {
     res.status(500).json({ error: 'Failed to fetch featured story', message: error.message });
   }
@@ -1512,6 +1541,7 @@ app.post('/api/community/:userId/stories', (req, res) => {
 
     const newStory: StoryCardData = {
       id: `story-${Date.now()}`,
+      authorId: userId,
       authorPseudo: 'Moi',
       authorLevel: 12, // default simulated level
       milestoneDay: parseInt(milestoneDay) || 30,
@@ -1523,8 +1553,10 @@ app.post('/api/community/:userId/stories', (req, res) => {
       },
       helpedCount: 0,
       userHasReactedHelped: false,
+      reactedByUserIds: [],
       commentCount: 0,
       status: hasDistress ? 'needs_review' : 'pending',
+      reportedByUserIds: [],
       createdAt: new Date().toISOString(),
       clanId: 'clan-1'
     };
@@ -1533,7 +1565,7 @@ app.post('/api/community/:userId/stories', (req, res) => {
 
     res.json({
       success: true,
-      story: newStory,
+      story: enrichStory(newStory, userId),
       safetyTriggered: hasDistress
     });
   } catch (error: any) {
@@ -1544,19 +1576,34 @@ app.post('/api/community/:userId/stories', (req, res) => {
 // POST toggle helped reaction
 app.post('/api/community/:userId/stories/:storyId/react', (req, res) => {
   try {
-    const { storyId } = req.params;
+    const { userId, storyId } = req.params;
     const story = storiesDb.find(s => s.id === storyId);
     if (!story) {
       return res.status(404).json({ error: 'Story not found' });
     }
 
-    story.userHasReactedHelped = !story.userHasReactedHelped;
-    story.helpedCount += story.userHasReactedHelped ? 1 : -1;
+    // Prevent reacting on own content
+    if (story.authorId === userId || story.authorPseudo === 'Moi') {
+      return res.status(400).json({ error: "Vous ne pouvez pas réagir à votre propre témoignage." });
+    }
+
+    if (!story.reactedByUserIds) {
+      story.reactedByUserIds = [];
+    }
+
+    const hasReacted = story.reactedByUserIds.includes(userId);
+    if (hasReacted) {
+      story.reactedByUserIds = story.reactedByUserIds.filter(id => id !== userId);
+      story.helpedCount = Math.max(0, story.helpedCount - 1);
+    } else {
+      story.reactedByUserIds.push(userId);
+      story.helpedCount += 1;
+    }
 
     res.json({
       success: true,
       helpedCount: story.helpedCount,
-      userHasReactedHelped: story.userHasReactedHelped
+      userHasReactedHelped: !hasReacted
     });
   } catch (error: any) {
     res.status(500).json({ error: 'Failed to react to story', message: error.message });
@@ -1616,18 +1663,33 @@ app.post('/api/community/:userId/stories/:storyId/comments', (req, res) => {
 // POST report story
 app.post('/api/community/:userId/stories/:storyId/report', (req, res) => {
   try {
-    const { storyId } = req.params;
+    const { userId, storyId } = req.params;
     const { reason } = req.body;
 
-    // Simulate reporting by flagging status
     const story = storiesDb.find(s => s.id === storyId);
-    if (story) {
+    if (!story) {
+      return res.status(404).json({ error: 'Story not found' });
+    }
+
+    // Prevent reporting own content
+    if (story.authorId === userId || story.authorPseudo === 'Moi') {
+      return res.status(400).json({ error: "Vous ne pouvez pas signaler votre propre témoignage." });
+    }
+
+    if (!story.reportedByUserIds) {
+      story.reportedByUserIds = [];
+    }
+
+    const alreadyReported = story.reportedByUserIds.includes(userId);
+    if (!alreadyReported) {
+      story.reportedByUserIds.push(userId);
       story.status = 'needs_review';
     }
 
     res.json({
       success: true,
-      message: 'Contenu signalé avec succès pour vérification humaine.'
+      message: 'Contenu signalé avec succès pour vérification humaine.',
+      userHasReported: true
     });
   } catch (error: any) {
     res.status(500).json({ error: 'Failed to report story', message: error.message });
@@ -2362,6 +2424,7 @@ interface ThreadData {
   id: string;
   category: string;
   scope: 'clan' | 'all';
+  authorId?: string;
   authorPseudo: string;
   authorLevel: number;
   authorReputationPoints: number;
@@ -2371,18 +2434,21 @@ interface ThreadData {
   createdAt: string;
   voteCount: number;
   userHasVoted: boolean;
+  votedByUserIds: string[];
   replyCount: number;
   isPinned: boolean;
   hasSolution?: boolean;
   solutionReplyId?: string | null;
   moderationStatus?: 'approved' | 'needs_review' | 'removed';
   reportCount?: number;
+  reportedByUserIds: string[];
   distressFlagged?: boolean;
 }
 
 interface ReplyData {
   id: string;
   threadId: string;
+  authorId?: string;
   authorPseudo: string;
   authorLevel: number;
   authorReputationPoints: number;
@@ -2390,12 +2456,14 @@ interface ReplyData {
   createdAt: string;
   voteCount: number;
   userHasVoted: boolean;
+  votedByUserIds: string[];
   isExpertReply?: boolean;
   expertName?: string;
   expertSpecialty?: 'urologie' | 'sexologie' | 'andrologie' | 'psychiatrie' | 'nutrition' | null;
   isMarkedBest?: boolean;
   moderationStatus?: 'approved' | 'needs_review' | 'removed';
   reportCount?: number;
+  reportedByUserIds: string[];
   distressFlagged?: boolean;
 }
 
@@ -2427,10 +2495,12 @@ let threadsDb: ThreadData[] = [
     createdAt: new Date(Date.now() - 3 * 24 * 3600 * 1000).toISOString(), // 3 days ago
     voteCount: 154,
     userHasVoted: true,
+    votedByUserIds: ['ALPHA_SOLDIER_1'],
     replyCount: 3,
     isPinned: true,
     hasSolution: false,
-    solutionReplyId: null
+    solutionReplyId: null,
+    reportedByUserIds: []
   },
   {
     id: 'thread-pinned-2',
@@ -2445,10 +2515,12 @@ let threadsDb: ThreadData[] = [
     createdAt: new Date(Date.now() - 4 * 24 * 3600 * 1000).toISOString(),
     voteCount: 88,
     userHasVoted: false,
+    votedByUserIds: [],
     replyCount: 0,
     isPinned: true,
     hasSolution: false,
-    solutionReplyId: null
+    solutionReplyId: null,
+    reportedByUserIds: []
   },
   {
     id: 'thread-1',
@@ -2463,10 +2535,12 @@ let threadsDb: ThreadData[] = [
     createdAt: new Date(Date.now() - 2 * 3600 * 1000).toISOString(), // 2 hours ago
     voteCount: 18,
     userHasVoted: false,
+    votedByUserIds: [],
     replyCount: 2,
     isPinned: false,
     hasSolution: false,
-    solutionReplyId: null
+    solutionReplyId: null,
+    reportedByUserIds: []
   },
   {
     id: 'thread-2',
@@ -2481,10 +2555,12 @@ let threadsDb: ThreadData[] = [
     createdAt: new Date(Date.now() - 1 * 24 * 3600 * 1000).toISOString(), // 1 day ago
     voteCount: 42,
     userHasVoted: false,
+    votedByUserIds: [],
     replyCount: 1,
     isPinned: false,
     hasSolution: false,
-    solutionReplyId: null
+    solutionReplyId: null,
+    reportedByUserIds: []
   },
   {
     id: 'thread-3',
@@ -2499,10 +2575,12 @@ let threadsDb: ThreadData[] = [
     createdAt: new Date(Date.now() - 12 * 3600 * 1000).toISOString(), // 12 hours ago
     voteCount: 23,
     userHasVoted: false,
+    votedByUserIds: [],
     replyCount: 0, // unanswered!
     isPinned: false,
     hasSolution: false,
-    solutionReplyId: null
+    solutionReplyId: null,
+    reportedByUserIds: []
   },
   {
     id: 'thread-4',
@@ -2517,10 +2595,12 @@ let threadsDb: ThreadData[] = [
     createdAt: new Date(Date.now() - 5 * 24 * 3600 * 1000).toISOString(), // 5 days ago
     voteCount: 37,
     userHasVoted: false,
+    votedByUserIds: [],
     replyCount: 4,
     isPinned: false,
     hasSolution: true,
-    solutionReplyId: 'reply-4-1'
+    solutionReplyId: 'reply-4-1',
+    reportedByUserIds: []
   }
 ];
 
@@ -2535,8 +2615,10 @@ let repliesDb: ReplyData[] = [
     createdAt: new Date(Date.now() - 2.5 * 24 * 3600 * 1000).toISOString(),
     voteCount: 15,
     userHasVoted: false,
+    votedByUserIds: [],
     isExpertReply: false,
-    isMarkedBest: false
+    isMarkedBest: false,
+    reportedByUserIds: []
   },
   {
     id: 'reply-1-2',
@@ -2548,8 +2630,10 @@ let repliesDb: ReplyData[] = [
     createdAt: new Date(Date.now() - 2 * 24 * 3600 * 1000).toISOString(),
     voteCount: 8,
     userHasVoted: false,
+    votedByUserIds: [],
     isExpertReply: false,
-    isMarkedBest: false
+    isMarkedBest: false,
+    reportedByUserIds: []
   },
   {
     id: 'reply-1-3',
@@ -2561,10 +2645,12 @@ let repliesDb: ReplyData[] = [
     createdAt: new Date(Date.now() - 1.5 * 24 * 3600 * 1000).toISOString(),
     voteCount: 22,
     userHasVoted: true,
+    votedByUserIds: ['ALPHA_SOLDIER_1'],
     isExpertReply: true,
     expertName: 'Coach Alpha',
     expertSpecialty: 'psychiatrie',
-    isMarkedBest: false
+    isMarkedBest: false,
+    reportedByUserIds: []
   },
   {
     id: 'reply-2-1',
@@ -2576,8 +2662,10 @@ let repliesDb: ReplyData[] = [
     createdAt: new Date(Date.now() - 1.8 * 3600 * 1000).toISOString(),
     voteCount: 9,
     userHasVoted: true,
+    votedByUserIds: ['ALPHA_SOLDIER_1'],
     isExpertReply: false,
-    isMarkedBest: false
+    isMarkedBest: false,
+    reportedByUserIds: []
   },
   {
     id: 'reply-2-2',
@@ -2589,8 +2677,10 @@ let repliesDb: ReplyData[] = [
     createdAt: new Date(Date.now() - 1.5 * 3600 * 1000).toISOString(),
     voteCount: 6,
     userHasVoted: false,
+    votedByUserIds: [],
     isExpertReply: false,
-    isMarkedBest: false
+    isMarkedBest: false,
+    reportedByUserIds: []
   },
   {
     id: 'reply-3-1',
@@ -2602,8 +2692,10 @@ let repliesDb: ReplyData[] = [
     createdAt: new Date(Date.now() - 18 * 3600 * 1000).toISOString(),
     voteCount: 12,
     userHasVoted: false,
+    votedByUserIds: [],
     isExpertReply: false,
-    isMarkedBest: false
+    isMarkedBest: false,
+    reportedByUserIds: []
   },
   {
     id: 'reply-4-1',
@@ -2615,10 +2707,12 @@ let repliesDb: ReplyData[] = [
     createdAt: new Date(Date.now() - 4 * 24 * 3600 * 1000).toISOString(),
     voteCount: 45,
     userHasVoted: true,
+    votedByUserIds: ['ALPHA_SOLDIER_1'],
     isExpertReply: true,
     expertName: 'Dr. Marc-Antoine Perrin',
     expertSpecialty: 'sexologie',
-    isMarkedBest: true
+    isMarkedBest: true,
+    reportedByUserIds: []
   }
 ];
 
@@ -2644,15 +2738,19 @@ function getTrendingScore(thread: ThreadData): number {
 }
 
 // Helper to enrich thread with extra calculated fields like hasExpertReply
-function enrichThread(t: ThreadData) {
+function enrichThread(t: ThreadData, userId?: string) {
+  const currentUserId = userId || 'ALPHA_SOLDIER_1';
   return {
     ...t,
+    userHasVoted: (t.votedByUserIds || []).includes(currentUserId),
+    userHasReported: (t.reportedByUserIds || []).includes(currentUserId),
     hasExpertReply: repliesDb.some(r => r.threadId === t.id && r.isExpertReply)
   };
 }
 
 // GET list of unpinned threads, scoped, filtered, sorted
 app.get('/api/community/:userId/forum/threads', (req, res) => {
+  const { userId } = req.params;
   const { scope, category, sort } = req.query;
 
   let result = threadsDb.filter(t => !t.isPinned);
@@ -2678,21 +2776,23 @@ app.get('/api/community/:userId/forum/threads', (req, res) => {
     result.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
   }
 
-  res.json(result.map(enrichThread));
+  res.json(result.map(t => enrichThread(t, userId)));
 });
 
 // GET pinned threads for specific scope
 app.get('/api/community/:userId/forum/threads/pinned', (req, res) => {
+  const { userId } = req.params;
   const { scope } = req.query;
   let result = threadsDb.filter(t => t.isPinned);
   if (scope === 'clan') {
     result = result.filter(t => t.scope === 'clan');
   }
-  res.json(result.map(enrichThread));
+  res.json(result.map(t => enrichThread(t, userId)));
 });
 
 // GET list of trending threads
 app.get('/api/community/:userId/forum/trending', (req, res) => {
+  const { userId } = req.params;
   const { scope } = req.query;
   let result = threadsDb.filter(t => !t.isPinned);
 
@@ -2709,11 +2809,12 @@ app.get('/api/community/:userId/forum/trending', (req, res) => {
   .sort((a, b) => b.score - a.score);
 
   const topTrending = scored.slice(0, 5).map(item => item.thread);
-  res.json(topTrending.map(enrichThread));
+  res.json(topTrending.map(t => enrichThread(t, userId)));
 });
 
 // GET search threads
 app.get('/api/community/:userId/forum/search', (req, res) => {
+  const { userId } = req.params;
   const { scope, q } = req.query;
   const term = typeof q === 'string' ? q.toLowerCase().trim() : '';
 
@@ -2729,15 +2830,15 @@ app.get('/api/community/:userId/forum/search', (req, res) => {
     return matchTerm;
   });
 
-  res.json(result.map(enrichThread));
+  res.json(result.map(t => enrichThread(t, userId)));
 });
 
 // GET single thread detail
 app.get('/api/community/:userId/forum/threads/:threadId', (req, res) => {
-  const { threadId } = req.params;
+  const { userId, threadId } = req.params;
   const thread = threadsDb.find(t => t.id === threadId);
   if (thread) {
-    res.json(enrichThread(thread));
+    res.json(enrichThread(thread, userId));
   } else {
     res.status(404).json({ error: 'Thread not found' });
   }
@@ -2745,7 +2846,7 @@ app.get('/api/community/:userId/forum/threads/:threadId', (req, res) => {
 
 // GET replies of a thread
 app.get('/api/community/:userId/forum/threads/:threadId/replies', (req, res) => {
-  const { threadId } = req.params;
+  const { userId, threadId } = req.params;
   const filteredReplies = repliesDb.filter(r => r.threadId === threadId);
   
   // Sort replies using the required logic:
@@ -2765,11 +2866,19 @@ app.get('/api/community/:userId/forum/threads/:threadId/replies', (req, res) => 
     return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
   });
 
-  res.json(filteredReplies);
+  // Map reply elements to include userHasVoted and userHasReported based on arrays
+  const mappedReplies = filteredReplies.map(r => ({
+    ...r,
+    userHasVoted: (r.votedByUserIds || []).includes(userId),
+    userHasReported: (r.reportedByUserIds || []).includes(userId)
+  }));
+
+  res.json(mappedReplies);
 });
 
 // POST create a new thread
 app.post('/api/community/:userId/forum/threads', (req, res) => {
+  const { userId } = req.params;
   const { category, title, body, scope, moderationStatus, distressFlagged } = req.body;
 
   if (!category || !title || !body) {
@@ -2780,6 +2889,7 @@ app.post('/api/community/:userId/forum/threads', (req, res) => {
     id: `thread-${Date.now()}`,
     category,
     scope: scope || 'all',
+    authorId: userId,
     authorPseudo: 'Guerrier_Novice',
     authorLevel: 3,
     authorReputationPoints: 8,
@@ -2789,22 +2899,24 @@ app.post('/api/community/:userId/forum/threads', (req, res) => {
     createdAt: new Date().toISOString(),
     voteCount: 1,
     userHasVoted: true,
+    votedByUserIds: [userId],
     replyCount: 0,
     isPinned: false,
     hasSolution: false,
     solutionReplyId: null,
     moderationStatus: moderationStatus || 'approved',
     reportCount: 0,
+    reportedByUserIds: [],
     distressFlagged: !!distressFlagged
   };
 
   threadsDb.unshift(newThread);
-  res.status(201).json(newThread);
+  res.status(201).json(enrichThread(newThread, userId));
 });
 
 // POST post a reply to a thread
 app.post('/api/community/:userId/forum/threads/:threadId/replies', (req, res) => {
-  const { threadId } = req.params;
+  const { userId, threadId } = req.params;
   const { text, isExpert, expertName, expertSpecialty, moderationStatus, distressFlagged } = req.body;
 
   if (!text || text.trim().length === 0) {
@@ -2819,6 +2931,7 @@ app.post('/api/community/:userId/forum/threads/:threadId/replies', (req, res) =>
   const newReply: ReplyData = {
     id: `reply-${Date.now()}`,
     threadId,
+    authorId: userId,
     authorPseudo: isExpert ? (expertName || 'Expert_Souverain') : 'Guerrier_Novice',
     authorLevel: isExpert ? 25 : 3,
     authorReputationPoints: isExpert ? 650 : 8,
@@ -2826,12 +2939,14 @@ app.post('/api/community/:userId/forum/threads/:threadId/replies', (req, res) =>
     createdAt: new Date().toISOString(),
     voteCount: 0,
     userHasVoted: false,
+    votedByUserIds: [],
     isExpertReply: !!isExpert,
     expertName: isExpert ? (expertName || 'Expert_Souverain') : undefined,
     expertSpecialty: isExpert ? (expertSpecialty || 'urologie') : undefined,
     isMarkedBest: false,
     moderationStatus: moderationStatus || 'approved',
     reportCount: 0,
+    reportedByUserIds: [],
     distressFlagged: !!distressFlagged
   };
 
@@ -2843,57 +2958,81 @@ app.post('/api/community/:userId/forum/threads/:threadId/replies', (req, res) =>
     updateAuthorReputation(thread.authorPseudo, 5);
   }
 
-  res.status(201).json(newReply);
+  res.status(201).json({
+    ...newReply,
+    userHasVoted: false,
+    userHasReported: false
+  });
 });
 
 // POST upvote a thread
 app.post('/api/community/:userId/forum/threads/:threadId/vote', (req, res) => {
-  const { threadId } = req.params;
+  const { userId, threadId } = req.params;
   const thread = threadsDb.find(t => t.id === threadId);
   if (!thread) {
     return res.status(404).json({ error: 'Sujet introuvable' });
   }
 
-  thread.userHasVoted = !thread.userHasVoted;
-  if (thread.userHasVoted) {
-    thread.voteCount += 1;
-    // Rule: +3 points on thread upvote
-    updateAuthorReputation(thread.authorPseudo, 3);
-  } else {
-    thread.voteCount -= 1;
+  // Prevent voting on own content: compare userId to authorPseudo or authorId
+  if (thread.authorId === userId || thread.authorPseudo === 'Moi') {
+    return res.status(400).json({ error: "Vous ne pouvez pas soutenir votre propre sujet." });
+  }
+
+  if (!thread.votedByUserIds) {
+    thread.votedByUserIds = [];
+  }
+
+  const hasVoted = thread.votedByUserIds.includes(userId);
+  if (hasVoted) {
+    thread.votedByUserIds = thread.votedByUserIds.filter(id => id !== userId);
+    thread.voteCount = Math.max(0, thread.voteCount - 1);
     updateAuthorReputation(thread.authorPseudo, -3);
+  } else {
+    thread.votedByUserIds.push(userId);
+    thread.voteCount += 1;
+    updateAuthorReputation(thread.authorPseudo, 3);
   }
 
   res.json({ 
     success: true, 
     voteCount: thread.voteCount, 
-    userHasVoted: thread.userHasVoted,
+    userHasVoted: !hasVoted,
     authorReputationPoints: thread.authorReputationPoints
   });
 });
 
 // POST upvote a reply
 app.post('/api/community/:userId/forum/replies/:replyId/vote', (req, res) => {
-  const { replyId } = req.params;
+  const { userId, replyId } = req.params;
   const reply = repliesDb.find(r => r.id === replyId);
   if (!reply) {
     return res.status(404).json({ error: 'Réponse introuvable' });
   }
 
-  reply.userHasVoted = !reply.userHasVoted;
-  if (reply.userHasVoted) {
-    reply.voteCount += 1;
-    // Rule: +2 points on reply upvote
-    updateAuthorReputation(reply.authorPseudo, 2);
-  } else {
-    reply.voteCount -= 1;
+  // Prevent voting on own content: compare userId to authorPseudo or authorId
+  if (reply.authorId === userId || reply.authorPseudo === 'Moi') {
+    return res.status(400).json({ error: "Vous ne pouvez pas soutenir votre propre réponse." });
+  }
+
+  if (!reply.votedByUserIds) {
+    reply.votedByUserIds = [];
+  }
+
+  const hasVoted = reply.votedByUserIds.includes(userId);
+  if (hasVoted) {
+    reply.votedByUserIds = reply.votedByUserIds.filter(id => id !== userId);
+    reply.voteCount = Math.max(0, reply.voteCount - 1);
     updateAuthorReputation(reply.authorPseudo, -2);
+  } else {
+    reply.votedByUserIds.push(userId);
+    reply.voteCount += 1;
+    updateAuthorReputation(reply.authorPseudo, 2);
   }
 
   res.json({ 
     success: true, 
     voteCount: reply.voteCount, 
-    userHasVoted: reply.userHasVoted,
+    userHasVoted: !hasVoted,
     authorReputationPoints: reply.authorReputationPoints
   });
 });
@@ -2970,10 +3109,12 @@ app.post('/api/community/:userId/forum/threads/:threadId/simulate-expert', (req,
       createdAt: new Date().toISOString(),
       voteCount: 5,
       userHasVoted: false,
+      votedByUserIds: [],
       isExpertReply: true,
       expertName: randomExpert.name,
       expertSpecialty: randomExpert.specialty as any,
-      isMarkedBest: false
+      isMarkedBest: false,
+      reportedByUserIds: []
     };
     repliesDb.push(newReply);
     thread.replyCount += 1;
@@ -2985,30 +3126,68 @@ app.post('/api/community/:userId/forum/threads/:threadId/simulate-expert', (req,
 
 // POST report thread
 app.post('/api/community/:userId/forum/threads/:threadId/report', (req, res) => {
-  const { threadId } = req.params;
+  const { userId, threadId } = req.params;
   const { reason } = req.body;
   const thread = threadsDb.find(t => t.id === threadId);
   if (!thread) return res.status(404).json({ error: 'Thread not found' });
 
-  thread.reportCount = (thread.reportCount || 0) + 1;
-  if (thread.reportCount >= 3) {
-    thread.moderationStatus = 'needs_review';
+  // Prevent reporting own content
+  if (thread.authorId === userId || thread.authorPseudo === 'Moi') {
+    return res.status(400).json({ error: "Vous ne pouvez pas signaler votre propre sujet." });
   }
-  res.json({ success: true, reportCount: thread.reportCount, moderationStatus: thread.moderationStatus });
+
+  if (!thread.reportedByUserIds) {
+    thread.reportedByUserIds = [];
+  }
+
+  const alreadyReported = thread.reportedByUserIds.includes(userId);
+  if (!alreadyReported) {
+    thread.reportedByUserIds.push(userId);
+    thread.reportCount = (thread.reportCount || 0) + 1;
+    if (thread.reportCount >= FORUM_REPORT_THRESHOLD) {
+      thread.moderationStatus = 'needs_review';
+    }
+  }
+
+  res.json({ 
+    success: true, 
+    reportCount: thread.reportCount, 
+    moderationStatus: thread.moderationStatus,
+    userHasReported: true 
+  });
 });
 
 // POST report reply
 app.post('/api/community/:userId/forum/replies/:replyId/report', (req, res) => {
-  const { replyId } = req.params;
+  const { userId, replyId } = req.params;
   const { reason } = req.body;
   const reply = repliesDb.find(r => r.id === replyId);
   if (!reply) return res.status(404).json({ error: 'Reply not found' });
 
-  reply.reportCount = (reply.reportCount || 0) + 1;
-  if (reply.reportCount >= 3) {
-    reply.moderationStatus = 'needs_review';
+  // Prevent reporting own content
+  if (reply.authorId === userId || reply.authorPseudo === 'Moi') {
+    return res.status(400).json({ error: "Vous ne pouvez pas signaler votre propre réponse." });
   }
-  res.json({ success: true, reportCount: reply.reportCount, moderationStatus: reply.moderationStatus });
+
+  if (!reply.reportedByUserIds) {
+    reply.reportedByUserIds = [];
+  }
+
+  const alreadyReported = reply.reportedByUserIds.includes(userId);
+  if (!alreadyReported) {
+    reply.reportedByUserIds.push(userId);
+    reply.reportCount = (reply.reportCount || 0) + 1;
+    if (reply.reportCount >= FORUM_REPORT_THRESHOLD) {
+      reply.moderationStatus = 'needs_review';
+    }
+  }
+
+  res.json({ 
+    success: true, 
+    reportCount: reply.reportCount, 
+    moderationStatus: reply.moderationStatus,
+    userHasReported: true 
+  });
 });
 
 

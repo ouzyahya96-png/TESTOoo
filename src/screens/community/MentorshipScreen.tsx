@@ -920,7 +920,7 @@ const styles = StyleSheet.create({
                   }}
                   className="flex-1 accent-[#FFD700] h-1"
                 />
-                <span className={`text-xs font-bold ${currentStreak >= 60 ? 'text-[#00D9A5]' : 'text-red-500'}`}>
+                <span className={`text-xs font-bold ${currentStreak >= eligibilityThreshold ? 'text-[#00D9A5]' : 'text-red-500'}`}>
                   {currentStreak} jours
                 </span>
               </div>
@@ -1215,7 +1215,7 @@ const styles = StyleSheet.create({
               {/* ==================== VUE DEVENIR MENTOR ==================== */}
               {activeView === 'become' && (
                 
-                /* 1. SI L'UTILISATEUR NE REMPLIT PAS ENCORE LE SEUIL DE STREAK DE 60 JOURS */
+                /* 1. SI L'UTILISATEUR NE REMPLIT PAS ENCORE LE SEUIL DE STREAK DU MENTORAT */
                 !isEligibleToMentor ? (
                   <div className="py-8 flex flex-col items-center justify-center text-center space-y-4 animate-[fade-in_0.3s_ease-out]">
                     <div className="w-14 h-14 rounded-full bg-gray-800 flex items-center justify-center text-gray-500">
@@ -1229,7 +1229,7 @@ const styles = StyleSheet.create({
                       </p>
                     </div>
 
-                    {/* Progress slider toward 60 days */}
+                    {/* Progress slider toward eligibility threshold */}
                     <div className="w-full max-w-[280px] space-y-1.5 pt-2">
                       <div className="h-2 bg-gray-850 rounded-full overflow-hidden border border-gray-800">
                         <div 

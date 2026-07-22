@@ -47,6 +47,35 @@ export const AdRewardsScreen: React.FC<AdRewardsScreenProps> = ({ addToast, onBa
   // Core Points state
   const [vitalityPoints, setVitalityPoints] = useState<number>(() => propVitalityPoints ?? 2340);
 
+  const [pointsPerAd, setPointsPerAd] = useState<number>(50);
+  const [dailyLimit, setDailyLimit] = useState<number>(4);
+  const [adsWatchedToday, setAdsWatchedToday] = useState<number>(0);
+
+  // Fetch admin ad rewards settings on mount
+  useEffect(() => {
+    fetch('/api/admin/ads/rewards/settings')
+      .then(res => res.json())
+      .then(data => {
+        if (data) {
+          const valPoints = data.pointsPerAd !== undefined ? Number(data.pointsPerAd) : 50;
+          const valLimit = data.dailyLimit !== undefined ? Number(data.dailyLimit) : 4;
+          setPointsPerAd(valPoints);
+          setDailyLimit(valLimit);
+          
+          // Re-calculate rewards dynamically based on pointsPerAd
+          setAdOffers(prev => prev.map(off => {
+            let reward = off.reward;
+            if (off.type === 'short') reward = Math.round(valPoints * 0.4);
+            else if (off.type === 'standard') reward = valPoints;
+            else if (off.type === 'long') reward = Math.round(valPoints * 2.4);
+            else if (off.type === 'interactive') reward = Math.round(valPoints * 6);
+            return { ...off, reward };
+          }));
+        }
+      })
+      .catch(err => console.error("Error fetching ad settings:", err));
+  }, []);
+
   // Sync changes from parent down to local state if changed externally
   useEffect(() => {
     if (propVitalityPoints !== undefined) {
@@ -152,6 +181,11 @@ export const AdRewardsScreen: React.FC<AdRewardsScreenProps> = ({ addToast, onBa
 
   // Click on offer to simulate playing ad
   const handleWatchAd = (offerId: string) => {
+    if (adsWatchedToday >= dailyLimit) {
+      addToast('error', `Limite quotidienne globale atteinte (${dailyLimit} pubs par jour). Revenez demain ! ⏳`);
+      return;
+    }
+
     const offer = adOffers.find(o => o.id === offerId);
     if (!offer) return;
 
@@ -190,6 +224,7 @@ export const AdRewardsScreen: React.FC<AdRewardsScreenProps> = ({ addToast, onBa
       // Update balance
       setVitalityPoints(prev => prev + reward);
       setTodayEarnings(prev => prev + reward);
+      setAdsWatchedToday(prev => prev + 1);
 
       // Decrement remaining count
       setAdOffers(prev => prev.map(off => {
@@ -385,11 +420,12 @@ const styles = StyleSheet.create({
   // Reset counters for simulation purposes
   const handleSimulateReset = () => {
     setAdOffers([
-      { id: 'off-1', type: 'short' as const, title: "PUB COURTE", duration: "15 secondes", reward: 10, remaining: 5, maxPerDay: 5, color: "#00D9A5" },
-      { id: 'off-2', type: 'standard' as const, title: "PUB STANDARD", duration: "30 secondes", reward: 25, remaining: 3, maxPerDay: 3, color: "#FFD700" },
-      { id: 'off-3', type: 'long' as const, title: "PUB LONGUE", duration: "60 secondes", reward: 60, remaining: 1, maxPerDay: 1, color: "#4A90D9" },
-      { id: 'off-4', type: 'interactive' as const, title: "INTERACTIVE", duration: "2-3 minutes", reward: 150, remaining: 1, maxPerDay: 1, color: "#FF2D55" }
+      { id: 'off-1', type: 'short' as const, title: "PUB COURTE", duration: "15 secondes", reward: Math.round(pointsPerAd * 0.4), remaining: 5, maxPerDay: 5, color: "#00D9A5" },
+      { id: 'off-2', type: 'standard' as const, title: "PUB STANDARD", duration: "30 secondes", reward: pointsPerAd, remaining: 3, maxPerDay: 3, color: "#FFD700" },
+      { id: 'off-3', type: 'long' as const, title: "PUB LONGUE", duration: "60 secondes", reward: Math.round(pointsPerAd * 2.4), remaining: 1, maxPerDay: 1, color: "#4A90D9" },
+      { id: 'off-4', type: 'interactive' as const, title: "INTERACTIVE", duration: "2-3 minutes", reward: Math.round(pointsPerAd * 6), remaining: 1, maxPerDay: 1, color: "#FF2D55" }
     ]);
+    setAdsWatchedToday(0);
     addToast('success', "Toutes les offres publicitaires quotidiennes ont été réinitialisées ! 🔄");
   };
 
@@ -633,43 +669,59 @@ const styles = StyleSheet.create({
 
                 {/* SECTION 2: OFFRES PUBLICITAIRES (2 COLUMN GRID) */}
                 <div className="space-y-3">
-                  <h3 className="text-[13px] font-headline font-black text-[#FFD700] uppercase tracking-wider px-1">
-                    Regarde et Gagne
-                  </h3>
+                  <div className="flex justify-between items-center px-1">
+                    <h3 className="text-[13px] font-headline font-black text-[#FFD700] uppercase tracking-wider">
+                      Regarde et Gagne
+                    </h3>
+                    <span className="text-[10px] text-gray-400 font-mono font-bold">
+                      {adsWatchedToday} / {dailyLimit} aujourd'hui
+                    </span>
+                  </div>
 
                   <div className="grid grid-cols-2 gap-3">
-                    {adOffers.map((off) => (
-                      <div 
-                        key={off.id}
-                        onClick={() => handleWatchAd(off.id)}
-                        className="bg-[#16213E] rounded-2xl p-4 flex flex-col items-center justify-between h-[190px] border-t-3 hover:brightness-110 active:scale-95 transition-all text-center relative overflow-hidden cursor-pointer"
-                        style={{ borderTopColor: off.color }}
-                      >
-                        {/* Play circle trigger icon */}
-                        <div className="w-12 h-12 rounded-full bg-black/20 flex items-center justify-center mt-1">
-                          {off.type === 'interactive' ? (
-                            <MousePointer className="w-6 h-6" style={{ color: off.color }} />
-                          ) : (
-                            <PlayCircle className="w-7 h-7" style={{ color: off.color }} />
-                          )}
-                        </div>
+                    {adOffers.map((off) => {
+                      const isLimitReached = adsWatchedToday >= dailyLimit;
+                      return (
+                        <div 
+                          key={off.id}
+                          onClick={() => {
+                            if (isLimitReached) {
+                              addToast('error', `Limite quotidienne atteinte (${dailyLimit} pubs par jour). Revenez demain ! ⏳`);
+                              return;
+                            }
+                            handleWatchAd(off.id);
+                          }}
+                          className={`bg-[#16213E] rounded-2xl p-4 flex flex-col items-center justify-between h-[190px] border-t-3 hover:brightness-110 active:scale-95 transition-all text-center relative overflow-hidden ${
+                            isLimitReached ? 'opacity-40 cursor-not-allowed select-none' : 'cursor-pointer'
+                          }`}
+                          style={{ borderTopColor: isLimitReached ? '#555' : off.color }}
+                        >
+                          {/* Play circle trigger icon */}
+                          <div className="w-12 h-12 rounded-full bg-black/20 flex items-center justify-center mt-1">
+                            {off.type === 'interactive' ? (
+                              <MousePointer className="w-6 h-6" style={{ color: isLimitReached ? '#555' : off.color }} />
+                            ) : (
+                              <PlayCircle className="w-7 h-7" style={{ color: isLimitReached ? '#555' : off.color }} />
+                            )}
+                          </div>
 
-                        <div>
-                          <h4 className="text-xs font-headline font-black text-white">{off.title}</h4>
-                          <span className="text-[10px] text-[#8E8E93] font-headline">{off.duration}</span>
-                        </div>
+                          <div>
+                            <h4 className="text-xs font-headline font-black text-white">{off.title}</h4>
+                            <span className="text-[10px] text-[#8E8E93] font-headline">{off.duration}</span>
+                          </div>
 
-                        <span className="text-md font-mono font-black block" style={{ color: off.color }}>
-                          +{off.reward} PTS
-                        </span>
-
-                        <div className="bg-white/5 border border-white/10 rounded-lg px-2 py-0.5 mt-1">
-                          <span className="text-[9px] font-headline font-bold" style={{ color: off.color }}>
-                            {off.remaining} restante{off.remaining > 1 ? 's' : ''}
+                          <span className="text-md font-mono font-black block" style={{ color: isLimitReached ? '#555' : off.color }}>
+                            +{off.reward} PTS
                           </span>
+
+                          <div className="bg-white/5 border border-white/10 rounded-lg px-2 py-0.5 mt-1">
+                            <span className="text-[9px] font-headline font-bold" style={{ color: isLimitReached ? '#555' : off.color }}>
+                              {isLimitReached ? "LIMITE ATTEINTE" : `${off.remaining} restante${off.remaining > 1 ? 's' : ''}`}
+                            </span>
+                          </div>
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
 
                   {/* Time before reset */}

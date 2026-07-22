@@ -66,6 +66,7 @@ interface WeeklyReport {
   sessionsCompleted: number;
   sessionsTotal: number;
   activeUrgesResisted: number;
+  relapseCount?: number;
 }
 
 interface ModelTransparency {
@@ -79,6 +80,7 @@ interface AISettings {
   notificationFrequency: 'none' | 'critical' | 'smart' | 'daily';
   sensitivity: 'low' | 'moderate' | 'high';
   urgeSurfDurationSeconds: number;
+  hasCompletedCircuitSimulation?: boolean;
   permissions: any;
 }
 
@@ -100,6 +102,7 @@ interface ChatMessage {
 }
 
 export const AIEngineScreen: React.FC<AIEngineScreenProps> = ({ addToast, onBack, onNavigateToSettings, onNavigateToWeeklyReport, onNavigateToPredictions }) => {
+  const userLanguage = localStorage.getItem('alpha-language') || localStorage.getItem('alpha-user-language') || 'fr';
   // UI and Inspector view states
   const [showNativeCode, setShowNativeCode] = useState<boolean>(false);
   const [copied, setCopied] = useState<boolean>(false);
@@ -211,8 +214,10 @@ export const AIEngineScreen: React.FC<AIEngineScreenProps> = ({ addToast, onBack
     setIsSending(true);
 
     try {
-      // Build history payload mapped to Express backend
-      const historyPayload = chatHistory.map(h => ({
+      // Build history payload mapped to Express backend (keep initial message + last 12 messages)
+      const initialMsg = chatHistory[0];
+      const remainingMsgs = chatHistory.slice(1);
+      const historyPayload = [initialMsg, ...remainingMsgs.slice(-12)].map(h => ({
         role: h.role,
         parts: h.parts
       }));
@@ -270,7 +275,8 @@ export const AIEngineScreen: React.FC<AIEngineScreenProps> = ({ addToast, onBack
       avgSleepQuality: 85,
       sessionsCompleted: 11,
       sessionsTotal: 12,
-      activeUrgesResisted: 9
+      activeUrgesResisted: 9,
+      relapseCount: 2
     },
     modelTransparency: {
       dataPoints: [],
@@ -564,12 +570,47 @@ export const AIEngineScreen: React.FC<AIEngineScreenProps> = ({ addToast, onBack
                 context="dashboard"
                 embedded={true}
                 addToast={addToast}
+                isRTL={userLanguage === 'ar'}
+                isFirstSimulationCompletion={!settings?.hasCompletedCircuitSimulation}
+                onSimulationComplete={async (choice, wasFirstTime) => {
+                  if (wasFirstTime) {
+                    try {
+                      const updatedSettings = settings ? { ...settings, hasCompletedCircuitSimulation: true } : {
+                        coachTone: 'spartan',
+                        notificationFrequency: 'smart',
+                        sensitivity: 'moderate',
+                        urgeSurfDurationSeconds: 90,
+                        hasCompletedCircuitSimulation: true,
+                        permissions: {
+                          contractile: true,
+                          sleep: true,
+                          stress: true,
+                          screenTime: true,
+                          urges: true,
+                          coldExposure: true
+                        }
+                      } as AISettings;
+                      setSettings(updatedSettings);
+                      localStorage.setItem('alpha-ai-settings', JSON.stringify(updatedSettings));
+                      const response = await fetch('/api/ai-engine/ALPHA_SOLDIER_1/settings', {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ settings: updatedSettings })
+                      });
+                      if (response.ok) {
+                        addToast('success', "Félicitations pour votre première simulation ! Badge 'Observateur Éveillé' débloqué ! 🏆");
+                      }
+                    } catch (error) {
+                      console.error("Error saving simulation status:", error);
+                    }
+                  }
+                }}
                 urgeSurfDurationSeconds={settings?.urgeSurfDurationSeconds || 90}
                 userStats={{
                   resistCount: report.weeklyReport.activeUrgesResisted || 0,
-                  relapseCount: 2
+                  relapseCount: report.weeklyReport.relapseCount !== undefined ? report.weeklyReport.relapseCount : 0
                 }}
-                topTrigger="Fatigue tardive + Temps d'écran"
+                topTrigger={null}
                 onRequestCoachChat={() => {
                   addToast('info', "Redirection vers le Moteur Alpha IA...");
                   setChatMessage("Coach, aide-moi à analyser mon envie actuelle.");

@@ -34,9 +34,75 @@ import { CircuitObserverDiagram } from './CircuitObserverDiagram';
 
 interface AlphaPatternKillerProps {
   addToast: (type: 'success' | 'warning' | 'error' | 'info', message: string) => void;
+  userId?: string;
 }
 
-export const AlphaPatternKiller: React.FC<AlphaPatternKillerProps> = ({ addToast }) => {
+export const AlphaPatternKiller: React.FC<AlphaPatternKillerProps> = ({ addToast, userId = 'ALPHA_SOLDIER_1' }) => {
+  const userLanguage = localStorage.getItem('alpha-language') || localStorage.getItem('alpha-user-language') || 'fr';
+  // AI Settings State for urge surf
+  const [settingsUrgeSurfSeconds, setSettingsUrgeSurfSeconds] = useState<number>(90);
+  const [hasCompletedCircuitSimulation, setHasCompletedCircuitSimulation] = useState<boolean>(false);
+  const [fullSettings, setFullSettings] = useState<any>(null);
+
+  useEffect(() => {
+    const fetchSettings = async () => {
+      try {
+        const res = await fetch(`/api/ai-engine/${userId}/settings`);
+        if (res.ok) {
+          const data = await res.json();
+          if (data?.settings) {
+            setFullSettings(data.settings);
+            if (data.settings.urgeSurfDurationSeconds !== undefined) {
+              setSettingsUrgeSurfSeconds(Number(data.settings.urgeSurfDurationSeconds));
+            } else if (data.settings.urgeSurfDuration !== undefined) {
+              setSettingsUrgeSurfSeconds(Number(data.settings.urgeSurfDuration));
+            }
+            if (data.settings.hasCompletedCircuitSimulation !== undefined) {
+              setHasCompletedCircuitSimulation(!!data.settings.hasCompletedCircuitSimulation);
+            }
+          }
+        }
+      } catch (err) {
+        console.error('Failed to fetch settings in AlphaPatternKiller:', err);
+      }
+    };
+    fetchSettings();
+  }, [userId]);
+
+  const handleSimulationComplete = async (choice: 'automatic' | 'observe', wasFirstTime: boolean) => {
+    if (wasFirstTime) {
+      try {
+        const updatedSettings = fullSettings ? { ...fullSettings, hasCompletedCircuitSimulation: true } : {
+          coachTone: 'spartan',
+          notificationFrequency: 'smart',
+          sensitivity: 'moderate',
+          urgeSurfDurationSeconds: settingsUrgeSurfSeconds,
+          hasCompletedCircuitSimulation: true,
+          permissions: {
+            contractile: true,
+            sleep: true,
+            stress: true,
+            screenTime: true,
+            urges: true,
+            coldExposure: true
+          }
+        };
+        setHasCompletedCircuitSimulation(true);
+        setFullSettings(updatedSettings);
+        const res = await fetch(`/api/ai-engine/${userId}/settings`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ settings: updatedSettings })
+        });
+        if (res.ok) {
+          addToast('success', "Félicitations pour votre première simulation ! Badge 'Observateur Éveillé' débloqué ! 🏆");
+        }
+      } catch (err) {
+        console.error('Failed to update settings in AlphaPatternKiller:', err);
+      }
+    }
+  };
+
   // 1. FACTOR STATES
   const [timeOfDay, setTimeOfDay] = useState<number>(21); // 0-23
   const [dayOfWeek, setDayOfWeek] = useState<number>(6); // 1-7 (1=Mon, 7=Sun)
@@ -375,7 +441,10 @@ export const AlphaPatternKiller: React.FC<AlphaPatternKillerProps> = ({ addToast
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           message: userText,
-          history: chatMessages.map(m => ({ role: m.sender === 'user' ? 'user' : 'model', parts: [{ text: m.text }] }))
+          history: [chatMessages[0], ...chatMessages.slice(1).slice(-12)].map(m => ({
+            role: m.sender === 'user' ? 'user' : 'model',
+            parts: [{ text: m.text }]
+          }))
         })
       });
 
@@ -546,7 +615,10 @@ export const AlphaPatternKiller: React.FC<AlphaPatternKillerProps> = ({ addToast
               context="crisis"
               embedded={true}
               addToast={addToast}
-              urgeSurfDurationSeconds={90}
+              isRTL={userLanguage === 'ar'}
+              isFirstSimulationCompletion={!hasCompletedCircuitSimulation}
+              onSimulationComplete={handleSimulationComplete}
+              urgeSurfDurationSeconds={settingsUrgeSurfSeconds}
               onUrgeSurfComplete={(outcome, durationHeld) => {
                 if (outcome === 'resisted') {
                   addToast('success', "Succès critique ! Tu as surfé l'envie avec brio 🌊");
@@ -1050,7 +1122,10 @@ export const AlphaPatternKiller: React.FC<AlphaPatternKillerProps> = ({ addToast
             context="lesson"
             embedded={true}
             addToast={addToast}
-            urgeSurfDurationSeconds={90}
+            isRTL={userLanguage === 'ar'}
+            isFirstSimulationCompletion={!hasCompletedCircuitSimulation}
+            onSimulationComplete={handleSimulationComplete}
+            urgeSurfDurationSeconds={settingsUrgeSurfSeconds}
             onUrgeSurfComplete={(outcome) => {
               if (outcome === 'resisted') {
                 addToast('success', 'Entraînement de surf de crise validé souverainement ! 🌊');

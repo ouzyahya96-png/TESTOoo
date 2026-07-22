@@ -17,7 +17,9 @@ import {
   User, 
   CheckCircle2, 
   BookOpen,
-  ChevronRight
+  ChevronRight,
+  Shield,
+  ArrowRight
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -30,6 +32,13 @@ export const ContentManagementScreen: React.FC<ContentManagementScreenProps> = (
   addToast, 
   onBack 
 }) => {
+  // Access Gate Security State
+  const [isUnlocked, setIsUnlocked] = useState<boolean>(() => {
+    return localStorage.getItem('alpha_admin_unlocked') === 'true';
+  });
+  const [accessCodeInput, setAccessCodeInput] = useState<string>('');
+  const [showCode, setShowCode] = useState<boolean>(false);
+
   // Navigation & View State
   const [activeTab, setActiveTab] = useState<'lessons' | 'challenges' | 'experts'>('lessons');
   const [searchQuery, setSearchQuery] = useState<string>('');
@@ -137,6 +146,7 @@ export const ContentManagementScreen: React.FC<ContentManagementScreenProps> = (
 
   // Load active tab data
   useEffect(() => {
+    if (!isUnlocked) return;
     if (activeTab === 'lessons') {
       fetchLessons(activeCategoryFilter, searchQuery);
     } else if (activeTab === 'challenges') {
@@ -145,7 +155,7 @@ export const ContentManagementScreen: React.FC<ContentManagementScreenProps> = (
       fetchExperts(searchQuery);
     }
     setDeleteConfirmId(null);
-  }, [activeTab, activeCategoryFilter, activeTypeFilter, searchQuery, fetchLessons, fetchChallenges, fetchExperts]);
+  }, [activeTab, activeCategoryFilter, activeTypeFilter, searchQuery, fetchLessons, fetchChallenges, fetchExperts, isUnlocked]);
 
   // Handle Quick Toggle (Publish/Unpublish or Active/Inactive)
   const handleQuickToggle = async (id: string, currentStatus: boolean | string, type: 'lesson' | 'challenge' | 'expert') => {
@@ -383,6 +393,72 @@ export const ContentManagementScreen: React.FC<ContentManagementScreenProps> = (
       .slice(0, 2)
       .toUpperCase();
   };
+
+  const handleUnlockSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (accessCodeInput.trim().length > 0) {
+      setIsUnlocked(true);
+      localStorage.setItem('alpha_admin_unlocked', 'true');
+      addToast('success', 'Bienvenue Général ! Accès administrateur authentifié 🛡️');
+    } else {
+      addToast('error', 'Le code d\'accès administrateur ne peut pas être vide.');
+    }
+  };
+
+  if (!isUnlocked) {
+    return (
+      <div className="flex-1 flex flex-col justify-center items-center min-h-[80vh] bg-[#0F0F1A] p-4 text-center select-none">
+        {/* ACCESS CONTROL GATE */}
+        <div className="w-full max-w-md bg-[#111124] border border-[#1C1C3A] rounded-[32px] p-8 space-y-6 shadow-2xl relative overflow-hidden">
+          <div className="absolute top-0 inset-x-0 h-1 bg-gradient-to-r from-red-500 via-[#FFD700] to-emerald-500" />
+          
+          <div className="flex flex-col items-center space-y-3">
+            <div className="w-14 h-14 rounded-full bg-[#FFD700]/10 border border-[#FFD700]/20 flex items-center justify-center text-[#FFD700] animate-pulse">
+              <Shield className="w-7 h-7" />
+            </div>
+            <div>
+              <h2 className="text-lg font-headline font-black text-[#FFD700] tracking-wider uppercase">ACCÈS ADMINISTRATEUR</h2>
+              <p className="text-[11px] text-gray-500 font-sans mt-1">Espace réservé à l'équipe interne ALPHA MAN. Usage restreint.</p>
+            </div>
+          </div>
+
+          <form onSubmit={handleUnlockSubmit} className="space-y-4">
+            <div className="space-y-2 text-left">
+              <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block font-mono">Code d'accès d'urgence</label>
+              <div className="relative">
+                <input
+                  type={showCode ? "text" : "password"}
+                  value={accessCodeInput}
+                  onChange={(e) => setAccessCodeInput(e.target.value)}
+                  placeholder="Saisissez n'importe quel code pour tester..."
+                  className="w-full bg-[#16213E] hover:bg-[#1E2E56]/40 focus:bg-[#1E2E56]/80 text-white font-sans text-xs border border-gray-800 focus:border-[#FFD700] rounded-xl px-4 py-3.5 pr-10 outline-none transition-all"
+                  autoFocus
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowCode(!showCode)}
+                  className="absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white"
+                >
+                  {showCode ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
+            </div>
+
+            <button
+              type="submit"
+              className="w-full bg-[#FFD700] hover:bg-yellow-500 active:scale-[0.98] text-[#0F0F1A] text-xs font-black uppercase py-3.5 rounded-xl transition-all font-sans tracking-wider shadow-lg shadow-yellow-500/10 flex items-center justify-center gap-1.5"
+            >
+              Déverrouiller le Poste de Commandement <ArrowRight className="w-4 h-4" />
+            </button>
+          </form>
+
+          <p className="text-[9px] text-gray-600 font-sans leading-relaxed italic border-t border-gray-800/60 pt-4">
+            * Note de sécurité : Ce système simule l'accès. Une authentification IAM robuste et de véritables clés de chiffrement seront requises avant le déploiement sur les environnements de production d'ALPHA MAN.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div id="content_management_container" className="min-h-screen bg-[#09090E] text-[#FFFFFF] font-sans">

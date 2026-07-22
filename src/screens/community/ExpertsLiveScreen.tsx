@@ -24,12 +24,13 @@ import {
   Heart
 } from 'lucide-react';
 import { AlphaButton } from '../../components/AlphaButton';
+import { PRISMA_TIER_MAP, SubscriptionTier } from '../../constants/subscriptionTiers';
 
 interface ExpertsLiveScreenProps {
   addToast: (type: 'success' | 'warning' | 'error' | 'info', message: string) => void;
   onBack?: () => void;
   userId?: string;
-  userSubscriptionTier?: 'FREE' | 'ELITE' | 'ALPHA';
+  userSubscriptionTier?: string;
 }
 
 interface SessionData {
@@ -67,6 +68,9 @@ export const ExpertsLiveScreen: React.FC<ExpertsLiveScreenProps> = ({
   userSubscriptionTier = 'FREE' // defaults to FREE to test upgrades
 }) => {
   const isMounted = useRef<boolean>(true);
+
+  // Derive mapped user subscription tier from single source of truth PRISMA_TIER_MAP
+  const mappedUserTier: SubscriptionTier = (userSubscriptionTier ? (PRISMA_TIER_MAP[userSubscriptionTier] || userSubscriptionTier) : 'FREE') as SubscriptionTier;
 
   // Active view: 'upcoming' | 'replays'
   const [activeView, setActiveView] = useState<'upcoming' | 'replays'>('upcoming');
@@ -724,7 +728,7 @@ const styles = StyleSheet.create({
               <span className="text-[10px] text-gray-500 font-mono uppercase block">Votre niveau d'Abonnement Actuel :</span>
               <div className="flex items-center justify-between">
                 <span className="text-xs font-bold text-white">Niveau de simulation :</span>
-                <span className={`text-[10px] font-mono px-2 py-0.5 rounded font-black ${userSubscriptionTier === 'ELITE' || userSubscriptionTier === 'ALPHA' ? 'bg-[#FFD700]/20 text-[#FFD700]' : 'bg-gray-800 text-gray-400'}`}>
+                <span className={`text-[10px] font-mono px-2 py-0.5 rounded font-black ${mappedUserTier === 'ELITE' || mappedUserTier === 'ALPHA' ? 'bg-[#FFD700]/20 text-[#FFD700]' : 'bg-gray-800 text-gray-400'}`}>
                   {userSubscriptionTier}
                 </span>
               </div>
@@ -944,7 +948,8 @@ const styles = StyleSheet.create({
                   ) : (
                     upcomingSessions.map((item) => {
                       // Check tier lock: user must have ELITE or ALPHA if requested
-                      const isLocked = item.requiredTier === 'ELITE' && userSubscriptionTier === 'FREE';
+                      const mappedRequiredTier = item.requiredTier ? (PRISMA_TIER_MAP[item.requiredTier] || item.requiredTier) : null;
+                      const isLocked = mappedRequiredTier === 'ELITE' && mappedUserTier === 'FREE';
 
                       return (
                         <div 
@@ -1053,7 +1058,8 @@ const styles = StyleSheet.create({
                   ) : (
                     <div className="grid grid-cols-2 gap-3 text-left">
                       {replays.map((item) => {
-                        const isLocked = item.requiredTier === 'ELITE' && userSubscriptionTier === 'FREE';
+                        const mappedRequiredTier = item.requiredTier ? (PRISMA_TIER_MAP[item.requiredTier] || item.requiredTier) : null;
+                        const isLocked = mappedRequiredTier === 'ELITE' && mappedUserTier === 'FREE';
 
                         return (
                           <div 
