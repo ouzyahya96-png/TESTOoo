@@ -34,10 +34,11 @@ import { CircuitObserverDiagram } from './CircuitObserverDiagram';
 
 interface AlphaPatternKillerProps {
   addToast: (type: 'success' | 'warning' | 'error' | 'info', message: string) => void;
+  onRequestCoachChat?: () => void;
   userId?: string;
 }
 
-export const AlphaPatternKiller: React.FC<AlphaPatternKillerProps> = ({ addToast, userId = 'ALPHA_SOLDIER_1' }) => {
+export const AlphaPatternKiller: React.FC<AlphaPatternKillerProps> = ({ addToast, onRequestCoachChat, userId = 'ALPHA_SOLDIER_1' }) => {
   const userLanguage = localStorage.getItem('alpha-language') || localStorage.getItem('alpha-user-language') || 'fr';
   // AI Settings State for urge surf
   const [settingsUrgeSurfSeconds, setSettingsUrgeSurfSeconds] = useState<number>(90);
@@ -630,8 +631,12 @@ export const AlphaPatternKiller: React.FC<AlphaPatternKillerProps> = ({ addToast
                 }
               }}
               onRequestCoachChat={() => {
-                addToast('info', "Analyse neuronale en cours avec le Coach...");
                 setShowCrisisDiagram(false);
+                if (onRequestCoachChat) {
+                  onRequestCoachChat();
+                } else {
+                  addToast('info', "Analyse neuronale en cours avec le Coach...");
+                }
               }}
             />
           </div>

@@ -883,7 +883,13 @@ export default function App() {
 
             {/* Pattern Killer Engine - Neural Rewire Section */}
             <div className="border-t border-[#1A1A2E] pt-8 mt-4">
-              <AlphaPatternKiller addToast={addToast} />
+              <AlphaPatternKiller 
+                addToast={addToast}
+                onRequestCoachChat={() => {
+                  setActiveTab('ai_engine');
+                  addToast('info', "Activation de la conversation immédiate avec le Coach de Secours... 🤖");
+                }}
+              />
             </div>
 
           </div>
@@ -918,7 +924,14 @@ export default function App() {
         )}
 
         {activeTab === 'stories' && (
-          <StoriesScreen addToast={addToast} onBack={() => setActiveTab('dashboard')} />
+          <StoriesScreen 
+            addToast={addToast} 
+            onBack={() => setActiveTab('dashboard')} 
+            onRequestCoachChat={() => {
+              setActiveTab('ai_engine');
+              addToast('info', "Activation de la conversation immédiate avec le Coach de Secours... 🤖");
+            }}
+          />
         )}
 
         {activeTab === 'chat_clan' && (
@@ -927,6 +940,10 @@ export default function App() {
             onBack={() => setActiveTab('dashboard')} 
             onOpenClansInfo={() => setActiveTab('clans')}
             onOpenChallenges={() => setActiveTab('challenges')}
+            onRequestCoachChat={() => {
+              setActiveTab('ai_engine');
+              addToast('info', "Activation de la conversation immédiate avec le Coach de Secours... 🤖");
+            }}
           />
         )}
 
@@ -943,6 +960,10 @@ export default function App() {
             onBack={() => setActiveTab('dashboard')} 
             userId="user-777"
             userSubscriptionTier="FREE"
+            onRequestCoachChat={() => {
+              setActiveTab('ai_engine');
+              addToast('info', "Activation de la conversation immédiate avec le Coach de Secours... 🤖");
+            }}
           />
         )}
 

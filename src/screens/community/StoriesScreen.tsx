@@ -24,6 +24,7 @@ import { AlphaButton } from '../../components/AlphaButton';
 interface StoriesScreenProps {
   addToast: (type: 'success' | 'warning' | 'error' | 'info', message: string) => void;
   onBack?: () => void;
+  onRequestCoachChat?: () => void;
   userId?: string;
   clanId?: string;
   pendingMilestone?: { day: number; label: string } | null;
@@ -39,7 +40,7 @@ export interface StoryCardData {
   helpedCount: number;
   userHasReactedHelped: boolean;
   commentCount: number;
-  status: 'pending' | 'approved' | 'featured' | 'needs_review';
+  status: 'pending' | 'approved' | 'featured' | 'needs_review' | 'removed';
   createdAt: string;
   clanId: string;
 }
@@ -56,6 +57,7 @@ export interface CommentData {
 export const StoriesScreen: React.FC<StoriesScreenProps> = ({ 
   addToast, 
   onBack, 
+  onRequestCoachChat,
   userId = 'user-777', 
   clanId = 'clan-1',
   pendingMilestone = null
@@ -344,7 +346,7 @@ export interface StoryCardData {
   helpedCount: number;
   userHasReactedHelped: boolean;
   commentCount: number;
-  status: 'pending' | 'approved' | 'featured' | 'needs_review';
+  status: 'pending' | 'approved' | 'featured' | 'needs_review' | 'removed';
   createdAt: string;
   clanId: string;
 }
@@ -801,7 +803,7 @@ const styles = StyleSheet.create({
             <div className="flex-1 overflow-y-auto custom-scrollbar px-4 py-4 space-y-4">
               
               {/* BANNIÈRE STORY DE LA SEMAINE */}
-              {featuredStory && (
+              {featuredStory && featuredStory.status !== 'removed' && featuredStory.status !== 'needs_review' && (
                 <div 
                   onClick={() => setSelectedStoryId(featuredStory.id)}
                   className="bg-gradient-to-b from-[#16213E] to-[#1A1A2E] rounded-3xl border-1.5 border-[#FFD700] p-4 text-left cursor-pointer hover:border-[#FFD700]/80 transition-all shadow-md group"
@@ -903,13 +905,13 @@ const styles = StyleSheet.create({
                   <div className="w-6 h-6 border-2 border-t-transparent border-[#FFD700] rounded-full animate-spin" />
                   <span>Actualisation de la lignée...</span>
                 </div>
-              ) : stories.length === 0 ? (
+              ) : stories.filter(s => s.status !== 'needs_review' && s.status !== 'removed').length === 0 ? (
                 <div className="py-8 text-center text-gray-500 text-xs font-sans">
                   Aucun récit n'a été publié pour ce clan actuellement.
                 </div>
               ) : (
                 <div className="space-y-4">
-                  {stories.map((item, index) => (
+                  {stories.filter(s => s.status !== 'needs_review' && s.status !== 'removed').map((item, index) => (
                     <div 
                       key={item.id}
                       style={{ animationDelay: `${index * 60}ms` }}
@@ -1119,9 +1121,12 @@ const styles = StyleSheet.create({
                         <div className="flex gap-2">
                           <button
                             onClick={() => {
-                              addToast('info', "Redirection simulée vers le Coach d'urgence IA...");
                               setIsComposerOpen(false);
-                              if (onBack) onBack(); // redirect to parent chat simulator
+                              if (onRequestCoachChat) {
+                                onRequestCoachChat();
+                              } else if (onBack) {
+                                onBack();
+                              }
                             }}
                             className="bg-[#FFD700] text-[#0F0F1A] px-2.5 py-1 rounded-lg text-[9px] font-extrabold uppercase tracking-wider"
                           >
@@ -1288,11 +1293,25 @@ const styles = StyleSheet.create({
 
                   {/* COMMENT DISTRESS FEEDBACK */}
                   {commentSafetyTriggered && (
-                    <div className="bg-red-950/20 border border-red-900/40 p-2.5 rounded-xl space-y-1 text-left animate-pulse">
+                    <div className="bg-red-950/20 border border-red-900/40 p-2.5 rounded-xl space-y-2 text-left animate-pulse">
                       <span className="text-[9px] font-bold text-[#FF2D55] uppercase block">Assistance de crise détectée 🛡️</span>
                       <p className="text-[9px] text-gray-300 leading-normal">
                         Prends soin de toi. Ton message va être examiné par notre équipe d'entraide humaine en priorité.
                       </p>
+                      <div>
+                        <button
+                          onClick={() => {
+                            if (onRequestCoachChat) {
+                              onRequestCoachChat();
+                            } else if (onBack) {
+                              onBack();
+                            }
+                          }}
+                          className="bg-[#FFD700] text-[#0F0F1A] px-2.5 py-1 rounded-lg text-[9px] font-extrabold uppercase tracking-wider"
+                        >
+                          Parler au Coach maintenant
+                        </button>
+                      </div>
                     </div>
                   )}
 

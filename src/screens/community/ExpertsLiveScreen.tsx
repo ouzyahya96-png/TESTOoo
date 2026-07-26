@@ -29,6 +29,7 @@ import { PRISMA_TIER_MAP, SubscriptionTier } from '../../constants/subscriptionT
 interface ExpertsLiveScreenProps {
   addToast: (type: 'success' | 'warning' | 'error' | 'info', message: string) => void;
   onBack?: () => void;
+  onRequestCoachChat?: () => void;
   userId?: string;
   userSubscriptionTier?: string;
 }
@@ -64,6 +65,7 @@ interface ReplayData {
 export const ExpertsLiveScreen: React.FC<ExpertsLiveScreenProps> = ({
   addToast,
   onBack,
+  onRequestCoachChat,
   userId = 'user-777',
   userSubscriptionTier = 'FREE' // defaults to FREE to test upgrades
 }) => {
@@ -504,9 +506,9 @@ const styles = StyleSheet.create({
                   </p>
                   <button 
                     onClick={() => {
-                      addToast('info', "Activation de la conversation immédiate avec le Coach de Secours...");
                       setIsQuestionComposerOpen(false);
                       setShowSafetyFeedback(false);
+                      if (onRequestCoachChat) onRequestCoachChat();
                     }}
                     className="text-[10px] font-bold text-[#FFD700] hover:underline"
                   >

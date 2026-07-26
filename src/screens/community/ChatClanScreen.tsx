@@ -22,6 +22,7 @@ interface ChatClanScreenProps {
   onBack?: () => void;
   onOpenClansInfo?: () => void;
   onOpenChallenges?: () => void;
+  onRequestCoachChat?: () => void;
   userId?: string;
   clanId?: string;
 }
@@ -34,6 +35,7 @@ interface ClanMessage {
   text: string;
   isSystemMessage: boolean;
   createdAt: string;
+  isRemoved?: boolean;
 }
 
 export const ChatClanScreen: React.FC<ChatClanScreenProps> = ({
@@ -41,6 +43,7 @@ export const ChatClanScreen: React.FC<ChatClanScreenProps> = ({
   onBack,
   onOpenClansInfo,
   onOpenChallenges,
+  onRequestCoachChat,
   userId = 'user-777',
   clanId = 'clan-1'
 }) => {
@@ -419,9 +422,9 @@ export default function ChatClanScreen({ route }) {
                     {item.senderPseudo} <Text style={styles.senderLevel}>Niv.{item.senderLevel}</Text>
                   </Text>
                 )}
-                <View style={[styles.bubble, isMe ? styles.bubbleMe : styles.bubbleOther]}>
-                  <Text style={[styles.bubbleText, isMe ? { color: '#0F0F1A' } : { color: '#FFFFFF' }]}>
-                    {item.text}
+                <View style={[styles.bubble, item.isRemoved ? { backgroundColor: 'rgba(255,255,255,0.05)' } : (isMe ? styles.bubbleMe : styles.bubbleOther)]}>
+                  <Text style={[styles.bubbleText, item.isRemoved ? { color: '#8E8E93', fontStyle: 'italic' } : (isMe ? { color: '#0F0F1A' } : { color: '#FFFFFF' })]}>
+                    {item.isRemoved ? '[Message retiré par la modération]' : item.text}
                   </Text>
                 </View>
                 <Text style={styles.timestamp}>
@@ -841,10 +844,14 @@ const styles = StyleSheet.create({
 
                           {/* BUBBLE */}
                           <div 
-                            className={`p-3 rounded-2xl ${isMe ? 'bg-[#FFD700] text-[#0F0F1A] rounded-tr-sm' : 'bg-[#16213E] text-white rounded-tl-sm'}`}
+                            className={`p-3 rounded-2xl ${
+                              item.isRemoved
+                                ? 'bg-gray-800/40 border border-gray-800/60 text-gray-500 rounded-tl-sm'
+                                : isMe ? 'bg-[#FFD700] text-[#0F0F1A] rounded-tr-sm' : 'bg-[#16213E] text-white rounded-tl-sm'
+                            }`}
                           >
-                            <p className="text-xs leading-relaxed font-sans select-all">
-                              {item.text}
+                            <p className={`text-xs leading-relaxed font-sans select-all ${item.isRemoved ? 'italic text-gray-400 font-serif' : ''}`}>
+                              {item.isRemoved ? '[Message retiré par la modération]' : item.text}
                             </p>
                           </div>
 
@@ -924,7 +931,7 @@ const styles = StyleSheet.create({
                       className="w-full text-[10px] font-bold"
                       onClick={() => {
                         setShowSafetyDialog(false);
-                        addToast('info', "Activation du mode secours avec le Coach IA souverain...");
+                        if (onRequestCoachChat) onRequestCoachChat();
                       }}
                     >
                       PARLER AU COACH IA

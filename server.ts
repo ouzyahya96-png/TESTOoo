@@ -1328,7 +1328,7 @@ interface StoryCardData {
   userHasReactedHelped: boolean;
   reactedByUserIds: string[];
   commentCount: number;
-  status: 'pending' | 'approved' | 'featured' | 'needs_review';
+  status: 'pending' | 'approved' | 'featured' | 'needs_review' | 'removed';
   reportedByUserIds: string[];
   createdAt: string;
   clanId: string;
@@ -1516,7 +1516,7 @@ app.get('/api/community/:userId/stories/mine/pending', (req, res) => {
 app.get('/api/community/:userId/stories/featured', (req, res) => {
   try {
     const { userId } = req.params;
-    const featured = storiesDb.find(s => s.status === 'featured') || storiesDb[0];
+    const featured = storiesDb.find(s => s.status === 'featured') || storiesDb.find(s => s.status === 'approved') || null;
     res.json(featured ? enrichStory(featured, userId) : null);
   } catch (error: any) {
     res.status(500).json({ error: 'Failed to fetch featured story', message: error.message });
@@ -1707,6 +1707,7 @@ interface ClanMessage {
   text: string;
   isSystemMessage: boolean;
   createdAt: string;
+  isRemoved?: boolean;
 }
 
 let clanMessagesDb: { [clanId: string]: ClanMessage[] } = {
@@ -2203,7 +2204,7 @@ interface ReplayData {
   viewCount: number;
   publishedAt: string;
   requiredTier: string | null;
-  submittedQuestions: Array<{ question: string; isAnonymous: boolean; answer: string | null }>;
+  submittedQuestions: Array<{ id?: string; question: string; isAnonymous: boolean; answer: string | null; isRemoved?: boolean }>;
 }
 
 let liveSessionNowDb: SessionData | null = {
@@ -3569,7 +3570,7 @@ app.post('/api/admin/moderation/:itemId/remove', (req, res) => {
     if (item.source === 'stories') {
       const story = storiesDb.find(s => s.id === item.id || s.id === itemId.replace('mod-', ''));
       if (story) {
-        story.status = 'needs_review'; // hide or mark removed
+        story.status = 'removed';
       }
     }
 
@@ -3584,6 +3585,40 @@ app.post('/api/admin/moderation/:itemId/remove', (req, res) => {
         const reply = repliesDb.find(r => r.id === item.id || r.id === itemId.replace('mod-', ''));
         if (reply) {
           reply.moderationStatus = 'removed';
+        }
+      }
+    }
+
+    if (item.source === 'chat') {
+      for (const clanId in clanMessagesDb) {
+        const msg = clanMessagesDb[clanId].find(m => m.id === item.id || m.id === itemId.replace('mod-', ''));
+        if (msg) {
+          msg.text = '[Message retiré par la modération]';
+          msg.isRemoved = true;
+        }
+      }
+    }
+
+    if (item.source === 'experts') {
+      const targetId = item.id.replace('mod-', '');
+      const searchTargets = [
+        ...replaysDb,
+        ...upcomingSessionsDb,
+        ...(liveSessionNowDb ? [liveSessionNowDb] : [])
+      ];
+
+      for (const sess of searchTargets) {
+        if ((sess as any).submittedQuestions) {
+          for (const q of (sess as any).submittedQuestions) {
+            if (
+              q.id === item.id ||
+              q.id === targetId ||
+              (q.question && (item.contentFull?.includes(q.question) || q.question.includes(item.contentPreview)))
+            ) {
+              q.question = '[Question retirée par la modération]';
+              q.isRemoved = true;
+            }
+          }
         }
       }
     }
