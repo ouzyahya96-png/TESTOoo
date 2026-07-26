@@ -2179,11 +2179,59 @@ app.post('/api/community/:userId/mentorship/chat/:conversationId/messages', (req
 
 // --- Experts Live Module ---
 
+let expertsAdminDb: any[] = [
+  {
+    id: 'exp-1',
+    name: 'Dr. Marc-Antoine Perrin',
+    title: 'Sexologue clinicien & Andrologue',
+    specialty: 'sexologie',
+    bio: 'Sexologue clinicien & Andrologue. Spécialiste de la réactivité neuro-sexuelle.',
+    isActive: true,
+    sessionCount: 42,
+    questionCount: 156
+  },
+  {
+    id: 'exp-2',
+    name: 'Dr. Amine El Mansouri',
+    title: 'Chirurgien Urologue',
+    specialty: 'urologie',
+    bio: 'Chirurgien Urologue spécialisé en physiologie pelvienne et abstinence active.',
+    isActive: true,
+    sessionCount: 18,
+    questionCount: 92
+  },
+  {
+    id: 'exp-3',
+    name: 'Pr. Karim Benyahia',
+    title: 'Neuro-Psychiatre',
+    specialty: 'psychiatrie',
+    bio: 'Neuro-Psychiatre, chercheur sur la reconfiguration des circuits dopaminergiques.',
+    isActive: true,
+    sessionCount: 56,
+    questionCount: 312
+  },
+  {
+    id: 'exp-4',
+    name: 'Jean-Laurent Clavier',
+    title: 'Nutritionniste & Expert en endocrinologie',
+    specialty: 'nutrition',
+    bio: 'Nutritionniste & Expert en endocrinologie comportementale et optimisation hormonale.',
+    isActive: true,
+    sessionCount: 12,
+    questionCount: 45
+  }
+];
+
+function findExpertById(id: string) {
+  return expertsAdminDb.find(e => e.id === id);
+}
+
 interface SessionData {
   id: string;
-  expertName: string;
-  expertTitle: string;
-  expertSpecialty: 'urologie' | 'sexologie' | 'andrologie' | 'psychiatrie' | 'nutrition';
+  expertId: string;
+  expertName?: string;
+  expertTitle?: string;
+  expertSpecialty?: string;
   topic: string;
   scheduledAt: string;
   requiredTier: string | null;
@@ -2195,7 +2243,10 @@ interface SessionData {
 
 interface ReplayData {
   id: string;
-  expertName: string;
+  expertId: string;
+  expertName?: string;
+  expertTitle?: string;
+  expertSpecialty?: string;
   topic: string;
   category: string;
   durationSeconds: number;
@@ -2209,9 +2260,7 @@ interface ReplayData {
 
 let liveSessionNowDb: SessionData | null = {
   id: 'session-live-1',
-  expertName: 'Dr. Marc-Antoine Perrin',
-  expertTitle: 'Sexologue clinicien & Andrologue',
-  expertSpecialty: 'sexologie',
+  expertId: 'exp-1',
   topic: 'Maîtriser la réactivité sexuelle : l\'art d\'entraîner l\'esprit et le corps',
   scheduledAt: new Date().toISOString(),
   requiredTier: null,
@@ -2224,9 +2273,7 @@ let liveSessionNowDb: SessionData | null = {
 let upcomingSessionsDb: SessionData[] = [
   {
     id: 'session-up-1',
-    expertName: 'Dr. Amine El Mansouri',
-    expertTitle: 'Chirurgien Urologue',
-    expertSpecialty: 'urologie',
+    expertId: 'exp-2',
     topic: 'Congestion pelvienne et abstinence active : Les vérités médicales',
     scheduledAt: new Date(Date.now() + 2 * 24 * 3600 * 1000).toISOString(), // 2 days later
     requiredTier: 'ELITE',
@@ -2237,9 +2284,7 @@ let upcomingSessionsDb: SessionData[] = [
   },
   {
     id: 'session-up-2',
-    expertName: 'Pr. Karim Benyahia',
-    expertTitle: 'Neuro-Psychiatre',
-    expertSpecialty: 'psychiatrie',
+    expertId: 'exp-3',
     topic: 'Le circuit de la dopamine : Reconfigurer son cerveau après l\'addiction aux écrans',
     scheduledAt: new Date(Date.now() + 5 * 24 * 3600 * 1000).toISOString(), // 5 days later
     requiredTier: null,
@@ -2250,9 +2295,7 @@ let upcomingSessionsDb: SessionData[] = [
   },
   {
     id: 'session-up-3',
-    expertName: 'Jean-Laurent Clavier',
-    expertTitle: 'Nutritionniste & Expert en endocrinologie comportementale',
-    expertSpecialty: 'nutrition',
+    expertId: 'exp-4',
     topic: 'Optimiser sa testostérone naturelle : Nutrition sacrée et micronutriments de force',
     scheduledAt: new Date(Date.now() + 8 * 24 * 3600 * 1000).toISOString(), // 8 days later
     requiredTier: 'ELITE',
@@ -2266,7 +2309,7 @@ let upcomingSessionsDb: SessionData[] = [
 let replaysDb: ReplayData[] = [
   {
     id: 'replay-1',
-    expertName: 'Dr. Marc-Antoine Perrin',
+    expertId: 'exp-1',
     topic: 'Le redémarrage neurologique complet (Reset Phase) : Ce qui se passe en 90 jours',
     category: 'sexologie',
     durationSeconds: 2535, // 42:15
@@ -2290,7 +2333,7 @@ let replaysDb: ReplayData[] = [
   },
   {
     id: 'replay-2',
-    expertName: 'Dr. Amine El Mansouri',
+    expertId: 'exp-2',
     topic: 'La santé prostatique chez l\'homme jeune et l\'impact de la rétention séminale',
     category: 'urologie',
     durationSeconds: 3120, // 52:00
@@ -2303,13 +2346,13 @@ let replaysDb: ReplayData[] = [
       {
         question: "La rétention séminale prolongée présente-t-elle des risques ?",
         isAnonymous: true,
-        answer: "Médicalement, le corps recycle naturellement le liquide séminal non évacué. Il n'y a aucun risque de congestion si vous pratiquez l'exercice physique de haute intensité et les respirations pelviennes."
+        answer: "Médicalement, le corps recycle naturally le liquide séminal non évacué. Il n'y a aucun risque de congestion si vous pratiquez l'exercice physique de haute intensité et les respirations pelviennes."
       }
     ]
   },
   {
     id: 'replay-3',
-    expertName: 'Pr. Karim Benyahia',
+    expertId: 'exp-3',
     topic: 'La gestion de la solitude émotionnelle lors des premiers jalons de rupture',
     category: 'psychiatrie',
     durationSeconds: 1980, // 33:00
@@ -2330,27 +2373,70 @@ let replaysDb: ReplayData[] = [
 
 // GET status of live session currently happening
 app.get('/api/community/:userId/experts/live-now', (req, res) => {
-  res.json(liveSessionNowDb);
+  if (!liveSessionNowDb) {
+    return res.json(null);
+  }
+  const expert = findExpertById(liveSessionNowDb.expertId);
+  if (!expert || expert.isActive === false) {
+    return res.json(null);
+  }
+  res.json({
+    ...liveSessionNowDb,
+    expertName: expert.name,
+    expertTitle: expert.title,
+    expertSpecialty: expert.specialty
+  });
 });
 
 // GET list of upcoming sessions, optionally filtered by category
 app.get('/api/community/:userId/experts/upcoming', (req, res) => {
   const { category } = req.query;
-  if (!category || category === 'all') {
-    return res.json(upcomingSessionsDb);
+  const enriched: any[] = [];
+
+  for (const session of upcomingSessionsDb) {
+    const expert = findExpertById(session.expertId);
+    if (!expert || expert.isActive === false) {
+      continue;
+    }
+    const specialty = expert.specialty;
+    if (category && category !== 'all' && specialty !== category) {
+      continue;
+    }
+    enriched.push({
+      ...session,
+      expertName: expert.name,
+      expertTitle: expert.title,
+      expertSpecialty: expert.specialty
+    });
   }
-  const filtered = upcomingSessionsDb.filter(s => s.expertSpecialty === category);
-  res.json(filtered);
+
+  res.json(enriched);
 });
 
 // GET list of replays, optionally filtered by category
 app.get('/api/community/:userId/experts/replays', (req, res) => {
   const { category } = req.query;
-  if (!category || category === 'all') {
-    return res.json(replaysDb);
+  const enriched: any[] = [];
+
+  for (const replay of replaysDb) {
+    const expert = findExpertById(replay.expertId);
+    if (!expert || expert.isActive === false) {
+      continue;
+    }
+    const replayCategory = replay.category || expert.specialty;
+    if (category && category !== 'all' && replayCategory !== category) {
+      continue;
+    }
+    enriched.push({
+      ...replay,
+      expertName: expert.name,
+      expertTitle: expert.title,
+      expertSpecialty: expert.specialty,
+      category: replayCategory
+    });
   }
-  const filtered = replaysDb.filter(r => r.category === category);
-  res.json(filtered);
+
+  res.json(enriched);
 });
 
 // POST register for upcoming session
@@ -3750,48 +3836,6 @@ let challengesAdminDb: any[] = [
   }
 ];
 
-let expertsAdminDb: any[] = [
-  {
-    id: 'exp-1',
-    name: 'Dr. Marc-Antoine Perrin',
-    title: 'Sexologue clinicien & Andrologue',
-    specialty: 'sexologie',
-    bio: 'Sexologue clinicien & Andrologue. Spécialiste de la réactivité neuro-sexuelle.',
-    isActive: true,
-    sessionCount: 42,
-    questionCount: 156
-  },
-  {
-    id: 'exp-2',
-    name: 'Dr. Amine El Mansouri',
-    title: 'Chirurgien Urologue',
-    specialty: 'urologie',
-    bio: 'Chirurgien Urologue spécialisé en physiologie pelvienne et abstinence active.',
-    isActive: true,
-    sessionCount: 18,
-    questionCount: 92
-  },
-  {
-    id: 'exp-3',
-    name: 'Pr. Karim Benyahia',
-    title: 'Neuro-Psychiatre',
-    specialty: 'psychiatrie',
-    bio: 'Neuro-Psychiatre, chercheur sur la reconfiguration des circuits dopaminergiques.',
-    isActive: true,
-    sessionCount: 56,
-    questionCount: 312
-  },
-  {
-    id: 'exp-4',
-    name: 'Jean-Laurent Clavier',
-    title: 'Nutritionniste & Expert en endocrinologie',
-    specialty: 'nutrition',
-    bio: 'Nutritionniste & Expert en endocrinologie comportementale et optimisation hormonale.',
-    isActive: true,
-    sessionCount: 12,
-    questionCount: 45
-  }
-];
 
 // Helper to initialize lessons admin database
 function ensureLessonsInitialized() {
@@ -4098,6 +4142,14 @@ app.delete('/api/admin/content/experts/:id', (req, res) => {
       return res.status(404).json({ error: 'Expert not found' });
     }
     expertsAdminDb.splice(index, 1);
+
+    // Invalidate/remove sessions referencing deleted expert
+    upcomingSessionsDb = upcomingSessionsDb.filter(s => s.expertId !== id);
+    replaysDb = replaysDb.filter(r => r.expertId !== id);
+    if (liveSessionNowDb && liveSessionNowDb.expertId === id) {
+      liveSessionNowDb = null;
+    }
+
     res.json({ success: true });
   } catch (error: any) {
     res.status(500).json({ error: 'Failed to delete expert', message: error.message });

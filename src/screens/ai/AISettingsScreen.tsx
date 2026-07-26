@@ -18,7 +18,8 @@ import {
   Copy,
   SlidersHorizontal,
   ChevronRight,
-  Info
+  Info,
+  Globe
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { AlphaCard } from '../../components/AlphaCard';
@@ -81,6 +82,18 @@ export const AISettingsScreen: React.FC<AISettingsScreenProps> = ({ addToast, on
   const [showConfirmModal2, setShowConfirmModal2] = useState<boolean>(false);
   const [confirmTextInput, setConfirmTextInput] = useState<string>('');
   const [isDeleting, setIsDeleting] = useState<boolean>(false);
+
+  // Language state & persistence
+  const [currentLanguage, setCurrentLanguage] = useState<string>(() => {
+    return localStorage.getItem('alpha-language') || localStorage.getItem('alpha-user-language') || 'fr';
+  });
+
+  const handleLanguageChange = (code: string) => {
+    setCurrentLanguage(code);
+    localStorage.setItem('alpha-language', code);
+    localStorage.setItem('alpha-user-language', code);
+    addToast('success', `Langue mise à jour (${code === 'fr' ? 'Français' : code === 'ar' ? 'العربية' : 'English'}) 🌐`);
+  };
 
   // Fetch settings on mount
   useEffect(() => {
@@ -198,6 +211,9 @@ export const AISettingsScreen: React.FC<AISettingsScreenProps> = ({ addToast, on
         // Reset everything
         localStorage.removeItem('alpha-ai-settings');
         localStorage.removeItem('alpha-theme');
+        localStorage.removeItem('alpha-language');
+        localStorage.removeItem('alpha-user-language');
+        setCurrentLanguage('fr');
         
         setSettings({
           coachTone: 'spartan',
@@ -311,6 +327,43 @@ export const AISettingsScreen: React.FC<AISettingsScreenProps> = ({ addToast, on
           {/* LEFT COLUMN: MAIN CONFIGURATIONS (SPAN 7) */}
           <div className="lg:col-span-7 flex flex-col gap-6">
             
+            {/* LANGUE D'AFFICHAGE & IA */}
+            <AlphaCard variant="default" className="p-6 flex flex-col gap-4 border border-[#1C1C35]">
+              <div className="flex items-center gap-3 border-b border-[#1C1C35]/50 pb-3">
+                <div className="w-8 h-8 rounded-lg bg-emerald-500/10 flex items-center justify-center text-emerald-400">
+                  <Globe className="w-4.5 h-4.5" />
+                </div>
+                <div>
+                  <h3 className="font-headline font-black text-white text-sm uppercase">Langue d'Affichage & IA</h3>
+                  <p className="text-[10px] text-gray-400">Choisissez la langue d'interface et des réponses du Coach IA.</p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                {[
+                  { id: 'fr', label: '🇫🇷 Français', desc: 'Standard' },
+                  { id: 'ar', label: '🇸🇦 العربية', desc: 'RTL (Région MO)' },
+                  { id: 'en', label: '🇬🇧 English', desc: 'International' }
+                ].map(lang => {
+                  const isSelected = currentLanguage === lang.id;
+                  return (
+                    <button
+                      key={lang.id}
+                      onClick={() => handleLanguageChange(lang.id)}
+                      className={`flex flex-col text-left p-3.5 rounded-2xl border transition-all duration-200 cursor-pointer ${
+                        isSelected
+                          ? 'bg-emerald-500/10 border-emerald-500 text-white shadow-[0_0_12px_rgba(16,185,129,0.15)]'
+                          : 'bg-[#111124] border-[#1C1C3A] text-gray-400 hover:border-gray-700'
+                      }`}
+                    >
+                      <span className="font-headline font-black text-xs">{lang.label}</span>
+                      <span className="text-[10px] text-gray-400 mt-1.5 leading-relaxed">{lang.desc}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </AlphaCard>
+
             {/* 1. TON DU COACH (COACH TONE) */}
             <AlphaCard variant="default" className="p-6 flex flex-col gap-4 border border-[#1C1C35]">
               <div className="flex items-center gap-3 border-b border-[#1C1C35]/50 pb-3">

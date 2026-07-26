@@ -22,7 +22,7 @@ import {
   Zap,
   Target
 } from 'lucide-react';
-import { EDUCATION_LESSONS, Lesson, ContentBlock } from '../pattern_killer/educationLessons';
+import { Lesson, ContentBlock } from '../pattern_killer/educationLessons';
 import { educationService, UserEducationState } from '../pattern_killer/educationService';
 import { AlphaCard } from './AlphaCard';
 import { AlphaButton } from './AlphaButton';
@@ -34,12 +34,36 @@ interface AlphaEducationProps {
 }
 
 export const AlphaEducation: React.FC<AlphaEducationProps> = ({ addToast, onPointsUpdate }) => {
-  // 1. SERVICES STATE
+  // 1. SERVICES STATE & DYNAMIC LESSONS DATA
+  const [lessons, setLessons] = useState<Lesson[]>([]);
+  const [isLoadingLessons, setIsLoadingLessons] = useState<boolean>(true);
   const [state, setState] = useState<UserEducationState>(() => educationService.getState());
   const [activeCategory, setActiveCategory] = useState<'ALL' | 'NEUROSCIENCE' | 'PATTERN_ADDICTION' | 'KEGEL_PHYSIOLOGY' | 'VITALITY_ENERGY' | 'CONFIDENCE_INTIMACY'>('ALL');
   
   // Active Lesson state (null if in catalog)
   const [selectedLesson, setSelectedLesson] = useState<Lesson | null>(null);
+
+  // Fetch published lessons from backend API
+  useEffect(() => {
+    const fetchLessons = async () => {
+      try {
+        setIsLoadingLessons(true);
+        const res = await fetch('/api/admin/content/lessons');
+        if (res.ok) {
+          const data = await res.json();
+          // Keep only 'published' lessons (or those without a status field)
+          const published = Array.isArray(data) ? data.filter((l: any) => l.status === 'published' || !l.status) : [];
+          setLessons(published);
+        }
+      } catch (err) {
+        console.error("Erreur lors du chargement des leçons depuis l'API:", err);
+      } finally {
+        setIsLoadingLessons(false);
+      }
+    };
+
+    fetchLessons();
+  }, []);
   
   // 2. LESSON SCREEN LEVEL STATE
   const [scrollPercentage, setScrollPercentage] = useState<number>(0);
@@ -135,7 +159,8 @@ export const AlphaEducation: React.FC<AlphaEducationProps> = ({ addToast, onPoin
     if (lesson.unlockCondition === 'none' || index === 0) return true;
     
     // Find the previous lesson in the sorted array
-    const prevLesson = EDUCATION_LESSONS[index - 1];
+    const prevLesson = lessons[index - 1];
+    if (!prevLesson) return true;
     return state.completedLessons.includes(prevLesson.id);
   };
 
@@ -233,9 +258,9 @@ export const AlphaEducation: React.FC<AlphaEducationProps> = ({ addToast, onPoin
     addToast('success', `Félicitations ! Leçon validée. +${selectedLesson.rewardPoints} Points ALPHA ajoutés !`);
     
     // Auto unlock next or go to catalog
-    const currentIdx = EDUCATION_LESSONS.findIndex((l) => l.id === selectedLesson.id);
-    if (currentIdx < EDUCATION_LESSONS.length - 1) {
-      const nextLesson = EDUCATION_LESSONS[currentIdx + 1];
+    const currentIdx = lessons.findIndex((l) => l.id === selectedLesson.id);
+    if (currentIdx !== -1 && currentIdx < lessons.length - 1) {
+      const nextLesson = lessons[currentIdx + 1];
       setSelectedLesson(nextLesson);
       setScrollPercentage(0);
       setIsAudioPlaying(false);
@@ -255,15 +280,15 @@ export const AlphaEducation: React.FC<AlphaEducationProps> = ({ addToast, onPoin
   };
 
   // Filter lessons based on category tab
-  const filteredLessons = EDUCATION_LESSONS.filter((l) => {
+  const filteredLessons = lessons.filter((l) => {
     if (activeCategory === 'ALL') return true;
     return l.category === activeCategory;
   });
 
   // Calculate global completion progress
-  const totalLessonsCount = EDUCATION_LESSONS.length;
+  const totalLessonsCount = lessons.length;
   const completedCount = state.completedLessons.length;
-  const completionPercentage = Math.round((completedCount / totalLessonsCount) * 100);
+  const completionPercentage = totalLessonsCount > 0 ? Math.round((completedCount / totalLessonsCount) * 100) : 0;
 
   return (
     <div id="alpha-education-module" className="flex flex-col gap-8 w-full max-w-7xl mx-auto p-4 md:p-6 text-white bg-[#0A0A12] rounded-3xl border border-[#16213E]/60 overflow-hidden relative">
@@ -349,11 +374,17 @@ export const AlphaEducation: React.FC<AlphaEducationProps> = ({ addToast, onPoin
           </div>
 
           {/* LESSONS GRID */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 relative z-10">
-            {filteredLessons.map((lesson, idx) => {
-              const globalIndex = EDUCATION_LESSONS.findIndex((l) => l.id === lesson.id);
-              const isCompleted = state.completedLessons.includes(lesson.id);
-              const isUnlocked = isLessonUnlocked(lesson, globalIndex);
+          {isLoadingLessons ? (
+            <div className="col-span-full py-12 flex flex-col items-center justify-center gap-3 text-gray-400">
+              <RefreshCw className="w-6 h-6 animate-spin text-[#E94560]" />
+              <span className="text-xs font-mono">Chargement des leçons officielles...</span>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 relative z-10">
+              {filteredLessons.map((lesson, idx) => {
+                const globalIndex = lessons.findIndex((l) => l.id === lesson.id);
+                const isCompleted = state.completedLessons.includes(lesson.id);
+                const isUnlocked = isLessonUnlocked(lesson, globalIndex);
 
               return (
                 <AlphaCard 
@@ -424,6 +455,7 @@ export const AlphaEducation: React.FC<AlphaEducationProps> = ({ addToast, onPoin
               );
             })}
           </div>
+          )}
         </>
       ) : (
         /* ====================================================================== */

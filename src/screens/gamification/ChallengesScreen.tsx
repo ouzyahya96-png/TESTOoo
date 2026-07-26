@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   ArrowLeft,
   Share2,
@@ -51,45 +51,47 @@ export const ChallengesScreen: React.FC<ChallengesScreenProps> = ({ addToast, on
   const [streakNextMilestone] = useState<number>(15);
   const [streakBonus] = useState<number>(50);
 
-  // Daily Challenges State
-  const [dailyChallenges, setDailyChallenges] = useState([
-    { 
-      id: 'daily-1', 
-      title: "Kegel Daily", 
-      description: "3 séries de 10 contractions", 
-      icon: 'target', 
-      iconColor: '#00D9A5', 
-      reward: 15, 
-      status: 'completed' as 'completed' | 'in_progress' | 'pending', 
-      progress: 3, 
-      target: 3, 
-      unit: 'séries' 
-    },
-    { 
-      id: 'daily-2', 
-      title: "Respiration Alpha", 
-      description: "5 min de Box Breathing", 
-      icon: 'wind', 
-      iconColor: '#4A90D9', 
-      reward: 10, 
-      status: 'in_progress' as 'completed' | 'in_progress' | 'pending', 
-      progress: 3, 
-      target: 5, 
-      unit: 'min' 
-    },
-    { 
-      id: 'daily-3', 
-      title: "Sommeil Parfait", 
-      description: "8h + score ≥ 80", 
-      icon: 'moon', 
-      iconColor: '#8E8E93', 
-      reward: 20, 
-      status: 'pending' as 'completed' | 'in_progress' | 'pending', 
-      progress: 0, 
-      target: 1, 
-      unit: 'nuit' 
-    }
-  ]);
+  // Daily Challenges State (fetched from Admin Content API)
+  const [dailyChallenges, setDailyChallenges] = useState<any[]>([]);
+  const [isLoadingChallenges, setIsLoadingChallenges] = useState<boolean>(true);
+
+  useEffect(() => {
+    const fetchChallenges = async () => {
+      try {
+        setIsLoadingChallenges(true);
+        const res = await fetch('/api/admin/content/challenges');
+        if (res.ok) {
+          const data = await res.json();
+          // Filter active challenges only
+          const activeOnly = Array.isArray(data)
+            ? data.filter((c: any) => c.active === true || c.active === undefined)
+            : [];
+
+          const mapped = activeOnly.map((c: any, index: number) => ({
+            id: c.id,
+            title: c.title,
+            description: c.description || '',
+            type: c.type || 'individual',
+            icon: c.type === 'clan' ? 'wind' : (index % 3 === 0 ? 'target' : index % 3 === 1 ? 'wind' : 'moon'),
+            iconColor: index % 3 === 0 ? '#00D9A5' : index % 3 === 1 ? '#4A90D9' : '#8E8E93',
+            reward: c.rewardPoints || 50,
+            status: 'in_progress' as 'completed' | 'in_progress' | 'pending',
+            progress: 0,
+            target: c.durationDays || 1,
+            unit: 'jours'
+          }));
+
+          setDailyChallenges(mapped);
+        }
+      } catch (err) {
+        console.error("Erreur lors du chargement des défis admin:", err);
+      } finally {
+        setIsLoadingChallenges(false);
+      }
+    };
+
+    fetchChallenges();
+  }, []);
 
   // Weekly Challenge State
   const [weeklyChallenge, setWeeklyChallenge] = useState({
@@ -554,92 +556,113 @@ const styles = StyleSheet.create({
                   </div>
 
                   <div className="space-y-2.5">
-                    {dailyChallenges.map((ch) => {
-                      const isCompleted = ch.status === 'completed';
-                      const isInProgress = ch.status === 'in_progress';
-                      const isPending = ch.status === 'pending';
+                    {isLoadingChallenges ? (
+                      <div className="py-8 text-center text-gray-500 font-headline text-xs flex items-center justify-center gap-2">
+                        <Zap className="w-4 h-4 animate-spin text-[#FFD700]" />
+                        <span>Chargement des défis en cours...</span>
+                      </div>
+                    ) : dailyChallenges.length === 0 ? (
+                      <div className="py-8 text-center text-gray-500 font-headline text-xs">
+                        Aucun défi actif pour le moment.
+                      </div>
+                    ) : (
+                      dailyChallenges.map((ch) => {
+                        const isCompleted = ch.status === 'completed';
+                        const isInProgress = ch.status === 'in_progress';
+                        const isPending = ch.status === 'pending';
 
-                      return (
-                        <div 
-                          key={ch.id}
-                          className={`rounded-2xl p-4 flex items-center justify-between transition-all relative border
-                            ${isCompleted ? 'bg-[#00D9A5]/5 border-[#00D9A5]/25 text-gray-400' : ''}
-                            ${isInProgress ? 'bg-[#16213E] border-white/5 border-l-4 border-l-[#4A90D9]' : ''}
-                            ${isPending ? 'bg-[#16213E]/60 border-white/5 opacity-50 border-l-4 border-l-gray-600' : ''}
-                          `}
-                        >
-                          <div className="flex items-center gap-3.5 text-left">
-                            <div className="w-11 h-11 rounded-xl bg-black/20 flex items-center justify-center flex-shrink-0">
-                              {ch.icon === 'target' && <Target className="w-5 h-5 text-[#00D9A5]" />}
-                              {ch.icon === 'wind' && <Wind className="w-5 h-5 text-[#4A90D9]" />}
-                              {ch.icon === 'moon' && <Moon className="w-5 h-5 text-gray-400" />}
+                        return (
+                          <div 
+                            key={ch.id}
+                            className={`rounded-2xl p-4 flex items-center justify-between transition-all relative border
+                              ${isCompleted ? 'bg-[#00D9A5]/5 border-[#00D9A5]/25 text-gray-400' : ''}
+                              ${isInProgress ? 'bg-[#16213E] border-white/5 border-l-4 border-l-[#4A90D9]' : ''}
+                              ${isPending ? 'bg-[#16213E]/60 border-white/5 opacity-50 border-l-4 border-l-gray-600' : ''}
+                            `}
+                          >
+                            <div className="flex items-center gap-3.5 text-left">
+                              <div className="w-11 h-11 rounded-xl bg-black/20 flex items-center justify-center flex-shrink-0">
+                                {ch.icon === 'target' && <Target className="w-5 h-5 text-[#00D9A5]" />}
+                                {ch.icon === 'wind' && <Wind className="w-5 h-5 text-[#4A90D9]" />}
+                                {ch.icon === 'moon' && <Moon className="w-5 h-5 text-gray-400" />}
+                              </div>
+
+                              <div className="text-left space-y-0.5">
+                                <h4 className={`text-xs font-headline font-black ${isCompleted ? 'text-gray-500 line-through' : 'text-white'}`}>
+                                  {ch.title}
+                                </h4>
+                                <p className="text-[10px] text-gray-400 font-headline leading-none">{ch.description}</p>
+                                <span className={`text-[10px] font-mono font-black block pt-1
+                                  ${isCompleted ? 'text-gray-500' : ''}
+                                  ${isInProgress ? 'text-[#4A90D9]' : ''}
+                                  ${isPending ? 'text-gray-600' : ''}
+                                `}>
+                                  +{ch.reward} PTS
+                                </span>
+                              </div>
                             </div>
 
-                            <div className="text-left space-y-0.5">
-                              <h4 className={`text-xs font-headline font-black ${isCompleted ? 'text-gray-500 line-through' : 'text-white'}`}>
-                                {ch.title}
-                              </h4>
-                              <p className="text-[10px] text-gray-400 font-headline leading-none">{ch.description}</p>
-                              <span className={`text-[10px] font-mono font-black block pt-1
-                                ${isCompleted ? 'text-gray-500' : ''}
-                                ${isInProgress ? 'text-[#4A90D9]' : ''}
-                                ${isPending ? 'text-gray-600' : ''}
-                              `}>
-                                +{ch.reward} PTS
-                              </span>
+                            {/* Right Controls */}
+                            <div className="flex items-center gap-2">
+                              {isCompleted && (
+                                <div className="flex items-center gap-1.5">
+                                  <span className="text-[10px] font-mono font-bold text-[#00D9A5]">{ch.progress}/{ch.target}</span>
+                                  <CheckCircle2 className="w-5 h-5 text-[#00D9A5]" />
+                                </div>
+                              )}
+
+                              {isInProgress && (
+                                <div className="flex items-center gap-2">
+                                  <span className="text-[10px] font-mono font-bold text-[#4A90D9]">{ch.progress}/{ch.target}</span>
+                                  <button 
+                                    onClick={() => handleProgressDailyChallenge(ch.id)}
+                                    className="h-7 px-3 bg-[#4A90D9] hover:bg-[#4A90D9]/95 text-white rounded-lg text-[10px] font-headline font-black uppercase tracking-wider cursor-pointer"
+                                  >
+                                    GO
+                                  </button>
+                                </div>
+                              )}
+
+                              {isPending && (
+                                <div className="flex items-center gap-1.5 text-gray-500">
+                                  <Lock className="w-4 h-4 text-gray-500" />
+                                  <span className="text-[10px] font-headline font-bold">Ce soir</span>
+                                </div>
+                              )}
                             </div>
+
                           </div>
-
-                          {/* Right Controls */}
-                          <div className="flex items-center gap-2">
-                            {isCompleted && (
-                              <div className="flex items-center gap-1.5">
-                                <span className="text-[10px] font-mono font-bold text-[#00D9A5]">3/3</span>
-                                <CheckCircle2 className="w-5 h-5 text-[#00D9A5]" />
-                              </div>
-                            )}
-
-                            {isInProgress && (
-                              <div className="flex items-center gap-2">
-                                <span className="text-[10px] font-mono font-bold text-[#4A90D9]">{ch.progress}/{ch.target}</span>
-                                <button 
-                                  onClick={() => handleProgressDailyChallenge(ch.id)}
-                                  className="h-7 px-3 bg-[#4A90D9] hover:bg-[#4A90D9]/95 text-white rounded-lg text-[10px] font-headline font-black uppercase tracking-wider cursor-pointer"
-                                >
-                                  GO
-                                </button>
-                              </div>
-                            )}
-
-                            {isPending && (
-                              <div className="flex items-center gap-1.5 text-gray-500">
-                                <Lock className="w-4 h-4 text-gray-500" />
-                                <span className="text-[10px] font-headline font-bold">Ce soir</span>
-                              </div>
-                            )}
-                          </div>
-
-                        </div>
-                      );
-                    })}
+                        );
+                      })
+                    )}
                   </div>
 
                   {/* Daily Completion overall bar */}
-                  <div className="pt-3 text-center space-y-1">
-                    <div className="flex justify-between items-center text-[10px] text-[#8E8E93] font-headline px-1">
-                      <span>Défis journaliers complétés</span>
-                      <span>1/3</span>
-                    </div>
-                    <div className="w-full h-1.5 bg-[#1A1A2E] rounded-full overflow-hidden">
-                      <div className="h-full bg-[#00D9A5] rounded-full" style={{ width: '33%' }} />
-                    </div>
+                  {(() => {
+                    const completedDailyCount = dailyChallenges.filter(ch => ch.status === 'completed').length;
+                    const totalDailyCount = dailyChallenges.length;
+                    const dailyCompletionPercentage = totalDailyCount > 0 ? Math.round((completedDailyCount / totalDailyCount) * 100) : 0;
 
-                    <div className="pt-2 block">
-                      <div className="inline-flex bg-[#FFD700]/10 border border-[#FFD700]/20 text-[#FFD700] rounded-xl py-0.5 px-3 text-[10px] font-bold">
-                        Bonus Complétion 3/3 : +25 PTS
+                    return (
+                      <div className="pt-3 text-center space-y-1">
+                        <div className="flex justify-between items-center text-[10px] text-[#8E8E93] font-headline px-1">
+                          <span>Défis journaliers complétés</span>
+                          <span>{completedDailyCount}/{totalDailyCount}</span>
+                        </div>
+                        <div className="w-full h-1.5 bg-[#1A1A2E] rounded-full overflow-hidden">
+                          <div className="h-full bg-[#00D9A5] rounded-full transition-all duration-300" style={{ width: `${dailyCompletionPercentage}%` }} />
+                        </div>
+
+                        {totalDailyCount > 0 && (
+                          <div className="pt-2 block">
+                            <div className="inline-flex bg-[#FFD700]/10 border border-[#FFD700]/20 text-[#FFD700] rounded-xl py-0.5 px-3 text-[10px] font-bold">
+                              Bonus Complétion {completedDailyCount}/{totalDailyCount} : +25 PTS
+                            </div>
+                          </div>
+                        )}
                       </div>
-                    </div>
-                  </div>
+                    );
+                  })()}
 
                 </div>
 
